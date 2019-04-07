@@ -10,7 +10,7 @@ namespace Net
     public class NetworkMessage
     {
         private short msgId;
-        private Stream reader;
+        private NetworkReader reader;
         private NetworkConnection connection;
 
 
@@ -19,7 +19,7 @@ namespace Net
         }
         public short MsgId { get => msgId; set => msgId = value; }
         public NetworkConnection Connection { get => connection; set => connection = value; }
-        public Stream Reader { get => reader; set => reader = value; }
+        public NetworkReader Reader { get => reader; set => reader = value; }
 
         public TMsg ReadMessage<TMsg>()
             where TMsg : MessageBase, new()

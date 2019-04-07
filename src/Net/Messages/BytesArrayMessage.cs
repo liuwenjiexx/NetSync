@@ -18,41 +18,37 @@ namespace Net.Messages
         public byte[][] Array { get; set; }
 
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
+
+            if (Array == null)
             {
-                if (Array == null)
+                writer.WriteInt32((int)0);
+            }
+            else
+            {
+                writer.WriteInt32((int)Array.Length);
+                for (int i = 0; i < Array.Length; i++)
                 {
-                    bw.Write((int)0);
-                }
-                else
-                {
-                    bw.Write((int)Array.Length);
-                    for (int i = 0; i < Array.Length; i++)
-                    {
-                        byte[] bytes = Array[i];
-                        int length = bytes.Length;
-                        bw.Write(length);
-                        bw.Write(bytes, 0, length);
-                    }
+                    byte[] bytes = Array[i];
+                    int length = bytes.Length;
+                    writer.WriteInt32(length);
+                    writer.Write(bytes, 0, length);
                 }
             }
         }
 
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
+
+            int count = reader.ReadInt32();
+            byte[][] array = new byte[count][];
+            for (int i = 0; i < count; i++)
             {
-                int count = br.ReadInt32();
-                byte[][] array = new byte[count][];
-                for (int i = 0; i < count; i++)
-                {
-                    int length = br.ReadInt32();
-                    byte[] bytes = new byte[length];
-                    br.Read(bytes, 0, length);
-                    Array[i] = bytes;
-                }
+                int length = reader.ReadInt32();
+                byte[] bytes = new byte[length];
+                reader.Read(bytes, 0, length);
+                Array[i] = bytes;
             }
 
         }

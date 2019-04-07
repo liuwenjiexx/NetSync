@@ -40,92 +40,89 @@ namespace Net
             };
         }
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(action);
-                bw.Write(netObj.InstanceId);
-                switch (action)
-                {
-                    case Action_RpcClient:
-                    case Action_RpcServer:
-                        bw.Write(rpcInfo.memberIndex);
-                        if (rpcInfo.paramCount > 0)
-                        {
-                            for (int i = 0, j = 0, len = rpcInfo.paramCount; i < len; i++)
-                            {
-                                var pInfo = rpcInfo.parameters[i];
 
-                                if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
-                                    continue;
-                                object arg = args[j++];
-                                SyncVarMessage.Write(bw, pInfo.ParameterType, arg);
-                            }
+            writer.WriteByte(action);
+            writer.WriteNetworkInstanceId(netObj.InstanceId);
+            switch (action)
+            {
+                case Action_RpcClient:
+                case Action_RpcServer:
+                    writer.WriteByte(rpcInfo.memberIndex);
+                    if (rpcInfo.paramCount > 0)
+                    {
+                        for (int i = 0, j = 0, len = rpcInfo.paramCount; i < len; i++)
+                        {
+                            var pInfo = rpcInfo.parameters[i];
+
+                            if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
+                                continue;
+                            object arg = args[j++];
+                            SyncVarMessage.Write(writer, pInfo.ParameterType, arg);
                         }
-                        break;
-                }
+                    }
+                    break;
             }
+
         }
 
 
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
+
+            action = reader.ReadByte();
+
+            if (action == 0)
+                throw new Exception("action is 0");
+
+            NetworkInstanceId instanceId;
+            instanceId = reader.ReadNetworkInstanceId();
+
+            netObj = null;
+
+            netObj = conn.GetObject(instanceId);
+            if (netObj == null)
+                return;
+
+            switch (action)
             {
-                action = br.ReadByte();
+                case Action_RpcClient:
+                case Action_RpcServer:
 
-                if (action == 0)
-                    throw new Exception("action is 0");
+                    if (action == Action_RpcClient)
+                    {
+                        if (!netObj.IsClient)
+                            return;
+                    }
+                    else if (action == Action_RpcServer)
+                    {
+                        if (!netObj.IsServer)
+                            return;
+                    }
 
-                NetworkInstanceId instanceId = new NetworkInstanceId();
-                br.Read(ref instanceId);
-
-                netObj = null;
-
-                netObj = conn.GetObject(instanceId);
-                if (netObj == null)
-                    return;
-
-                switch (action)
-                {
-                    case Action_RpcClient:
-                    case Action_RpcServer:
-
-                        if (action == Action_RpcClient)
+                    byte memberIndex = reader.ReadByte();
+                    rpcInfo = RpcInfo.GetRpcInfo(netObj.GetType(), memberIndex);
+                    object[] args = null;
+                    if (rpcInfo.paramCount > 0)
+                    {
+                        args = new object[rpcInfo.paramCount];
+                        for (int i = 0; i < rpcInfo.paramCount; i++)
                         {
-                            if (!netObj.IsClient)
-                                return;
-                        }
-                        else if (action == Action_RpcServer)
-                        {
-                            if (!netObj.IsServer)
-                                return;
-                        }
-
-                        byte memberIndex = br.ReadByte();
-                        rpcInfo = RpcInfo.GetRpcInfo(netObj.GetType(), memberIndex);
-                        object[] args = null;
-                        if (rpcInfo.paramCount > 0)
-                        {
-                            args = new object[rpcInfo.paramCount];
-                            for (int i = 0; i < rpcInfo.paramCount; i++)
+                            var pInfo = rpcInfo.parameters[i];
+                            if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
                             {
-                                var pInfo = rpcInfo.parameters[i];
-                                if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
-                                {
-                                    args[i] = conn;
-                                }
-                                else
-                                {
-                                    args[i] = SyncVarMessage.Read(br, pInfo.ParameterType);
-                                }
+                                args[i] = conn;
+                            }
+                            else
+                            {
+                                args[i] = SyncVarMessage.Read(reader, pInfo.ParameterType);
                             }
                         }
+                    }
 
-                        rpcInfo.method.Invoke(netObj, args);
-                        break;
-                }
+                    rpcInfo.method.Invoke(netObj, args);
+                    break;
             }
         }
 

@@ -142,8 +142,8 @@ namespace Net
             Changed?.Invoke(op, itemIndex);
         }
 
-        protected abstract T DeserializeItem(Stream reader);
-        protected abstract void SerializeItem(Stream writer, T item);
+        protected abstract T DeserializeItem(NetworkReader reader);
+        protected abstract void SerializeItem(NetworkWriter writer, T item);
 
         public enum Operation
         {

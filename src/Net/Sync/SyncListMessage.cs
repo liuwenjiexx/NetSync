@@ -89,94 +89,88 @@ namespace Net
         #endregion
 
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
             if (action == 0)
                 throw new Exception("action is 0");
 
             var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
 
-            using (var w = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
+            writer.WriteByte(action);
+            writer.WriteNetworkInstanceId(netObj.InstanceId);
+            writer.WriteByte(memberIndex);
+            switch (action)
             {
-                w.Write(action);
-                w.Write(netObj.InstanceId);
-                w.Write(memberIndex);
-                switch (action)
-                {
-                    case Action_Add:
-                    case Action_Insert:
-                    case Action_Set:
-                        object list = info.field.GetValue(netObj);
+                case Action_Add:
+                case Action_Insert:
+                case Action_Set:
+                    object list = info.field.GetValue(netObj);
 
-                        if (action == Action_Insert || action == Action_Set)
-                        {
-                            w.Write(itemIndex);
-                        }
-                        object item = info.ItemProperty.GetGetMethod().Invoke(list, new object[] { (int)itemIndex });
+                    if (action == Action_Insert || action == Action_Set)
+                    {
+                        writer.WriteByte(itemIndex);
+                    }
+                    object item = info.ItemProperty.GetGetMethod().Invoke(list, new object[] { (int)itemIndex });
 
-                        info.SerializeItemMethod.Invoke(list, new object[] { writer, item });
-                        break;
+                    info.SerializeItemMethod.Invoke(list, new object[] { writer, item });
+                    break;
 
-                    case Action_RemoveAt:
-                        w.Write(itemIndex);
-                        break;
-                }
+                case Action_RemoveAt:
+                    writer.WriteByte(itemIndex);
+                    break;
             }
+
         }
 
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
+            action = reader.ReadByte();
+            NetworkInstanceId instanceId;
+            instanceId = reader.ReadNetworkInstanceId();
+            netObj = null;
+            netObj = conn.GetObject(instanceId);
+            if (netObj == null)
+                return;
+            memberIndex = reader.ReadByte();
+            var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
 
-            using (var r = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
+            object list = info.field.GetValue(netObj);
+            switch (action)
             {
-
-                action = r.ReadByte();
-                NetworkInstanceId instanceId = new NetworkInstanceId();
-                r.Read(ref instanceId);
-                netObj = null;
-                netObj = conn.GetObject(instanceId);
-                if (netObj == null)
-                    return;
-                memberIndex = r.ReadByte();
-                var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
-
-                object list = info.field.GetValue(netObj);
-                switch (action)
-                {
-                    case Action_Add:
-                    case Action_Insert:
-                    case Action_Set:
-                        {
-                            if (action == Action_Add)
-                            {
-                                itemIndex = (byte)(int)info.CountProperty.GetGetMethod().Invoke(list, null);
-                            }
-                            else
-                            {
-                                itemIndex = r.ReadByte();
-                            }
-                            object item;
-                            item = info.DeserializeItemMethod.Invoke(list, new object[] { reader });
-                            info.InsertMethod.Invoke(list, new object[] { (int)itemIndex, item });
-                        }
-                        break;
-                    case Action_RemoveAt:
-                    case Action_Remove:
-                        if (action == Action_Remove)
+                case Action_Add:
+                case Action_Insert:
+                case Action_Set:
+                    {
+                        if (action == Action_Add)
                         {
                             itemIndex = (byte)(int)info.CountProperty.GetGetMethod().Invoke(list, null);
                         }
                         else
                         {
-                            itemIndex = r.ReadByte();
+                            itemIndex = reader.ReadByte();
                         }
-                        info.RemoveAtMethod.Invoke(list, new object[] { itemIndex });
-                        break;
-                    case Action_Clear:
-                        info.ClearMethod.Invoke(list, null);
-                        break;
-                }
+                        object item;
+                        item = info.DeserializeItemMethod.Invoke(list, new object[] { reader });
+                        info.InsertMethod.Invoke(list, new object[] { (int)itemIndex, item });
+                    }
+                    break;
+                case Action_RemoveAt:
+                case Action_Remove:
+                    if (action == Action_Remove)
+                    {
+                        itemIndex = (byte)(int)info.CountProperty.GetGetMethod().Invoke(list, null);
+                    }
+                    else
+                    {
+                        itemIndex = reader.ReadByte();
+                    }
+                    info.RemoveAtMethod.Invoke(list, new object[] { itemIndex });
+                    break;
+                case Action_Clear:
+                    info.ClearMethod.Invoke(list, null);
+                    break;
             }
+
         }
 
     }

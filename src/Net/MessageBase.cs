@@ -9,8 +9,8 @@ namespace Net
     public class MessageBase
     {
 
-        public static Action<Stream, MessageBase> DefaultDeserialize;
-        public static Func<Stream, MessageBase, MessageBase> DefaultSerialize;
+        public static Action<NetworkReader, MessageBase> DefaultDeserialize;
+        public static Func<NetworkWriter, MessageBase, MessageBase> DefaultSerialize;
 
         public static Action<string, object> DeserializeFromString;
         public static Func<object, string> SerializeToString;
@@ -32,7 +32,7 @@ namespace Net
         }
 
 
-        public virtual void Serialize(Stream writer)
+        public virtual void Serialize(NetworkWriter writer)
         {
             if (DefaultSerialize != null)
             {
@@ -40,15 +40,12 @@ namespace Net
             }
             else
             {
-                using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-                {
-                    string str;
-                    str = SerializeToString(this);
-                    bw.Write(str);
-                }
+                string str;
+                str = SerializeToString(this);
+                writer.WriteString(str);
             }
         }
-        public virtual void Deserialize(Stream reader)
+        public virtual void Deserialize(NetworkReader reader)
         {
             if (DefaultDeserialize != null)
             {
@@ -56,11 +53,8 @@ namespace Net
             }
             else
             {
-                using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-                {
-                    string str = br.ReadString();
-                    DeserializeFromString(str, this);
-                }
+                string str = reader.ReadString();
+                DeserializeFromString(str, this);
             }
 
         }
@@ -87,18 +81,18 @@ namespace Net
         }
 
 
-        public static void Write(BinaryWriter writer, Type valueType, object value)
+        public static void Write(NetworkWriter writer, Type valueType, object value)
         {
             TypeCode typeCode = Type.GetTypeCode(valueType);
             if (valueType == typeof(NetworkInstanceId))
             {
-                writer.Write(((NetworkInstanceId)value).Value);
+                writer.WriteNetworkInstanceId((NetworkInstanceId)value);
                 return;
             }
 
             if (valueType == typeof(NetworkObjectId))
             {
-                writer.Write(((NetworkObjectId)value).Value.ToString());
+                writer.WriteNetworkObjectId((NetworkObjectId)value);
                 return;
             }
 
@@ -107,11 +101,11 @@ namespace Net
                 byte[] bytes = value as byte[];
                 if (bytes == null)
                 {
-                    writer.Write(0);
+                    writer.WriteInt32(0);
                 }
                 else
                 {
-                    writer.Write(bytes.Length);
+                    writer.WriteInt32(bytes.Length);
                     writer.Write(bytes, 0, bytes.Length);
                 }
                 return;
@@ -120,40 +114,40 @@ namespace Net
             switch (typeCode)
             {
                 case TypeCode.Int32:
-                    writer.Write((int)value);
+                    writer.WriteInt32((int)value);
                     break;
                 case TypeCode.Single:
-                    writer.Write((float)value);
+                    writer.WriteFloat32((float)value);
                     break;
                 case TypeCode.String:
                     if (value == null)
-                        writer.Write(string.Empty);
+                        writer.WriteString(string.Empty);
                     else
-                        writer.Write(value as string);
+                        writer.WriteString(value as string);
                     break;
                 case TypeCode.Boolean:
-                    writer.Write((bool)value);
+                    writer.WriteBool((bool)value);
                     break;
                 case TypeCode.Byte:
-                    writer.Write((byte)value);
+                    writer.WriteByte((byte)value);
                     break;
             }
         }
 
 
-        public static object Read(BinaryReader reader, Type valueType)
+        public static object Read(NetworkReader reader, Type valueType)
         {
             TypeCode typeCode = Type.GetTypeCode(valueType);
             object value = null;
             if (valueType == typeof(NetworkInstanceId))
             {
-                value = new NetworkInstanceId(reader.ReadUInt32());
+                value = reader.ReadNetworkInstanceId();
                 return value;
             }
 
             if (valueType == typeof(NetworkObjectId))
             {
-                value = new NetworkObjectId(new Guid(reader.ReadString()));
+                value = reader.ReadNetworkObjectId();
                 return value;
             }
 
@@ -179,13 +173,13 @@ namespace Net
                     value = reader.ReadInt32();
                     break;
                 case TypeCode.Single:
-                    value = reader.ReadSingle();
+                    value = reader.ReadFloat32();
                     break;
                 case TypeCode.String:
                     value = reader.ReadString();
                     break;
                 case TypeCode.Boolean:
-                    value = reader.ReadBoolean();
+                    value = reader.ReadBool();
                     break;
                 case TypeCode.Byte:
                     value = reader.ReadByte();

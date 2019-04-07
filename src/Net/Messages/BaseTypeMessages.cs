@@ -16,19 +16,13 @@ namespace Net.Messages
             this.value = value;
         }
         public string Value { get => value; set => this.value = value; }
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(value??string.Empty);
-            }
+            writer.WriteString(value);
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-                this.value = br.ReadString();
-            }
+            this.value = reader.ReadString();
         }
     }
 
@@ -41,11 +35,11 @@ namespace Net.Messages
             this.value = value;
         }
         public byte Value { get => value; set => this.value = value; }
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
             writer.WriteByte(value);
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
             value = (byte)reader.ReadByte();
         }
@@ -60,19 +54,13 @@ namespace Net.Messages
             this.value = value;
         }
         public int Value { get => value; set => this.value = value; }
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(value);
-            }
+            writer.WriteInt32(value);
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-                this.value = br.ReadInt32();
-            }
+            this.value = reader.ReadInt32();
         }
 
     }
@@ -91,19 +79,13 @@ namespace Net.Messages
         //    void Serialize(Stream writer);
         //    void Deserialize(Stream reader);
         //}
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(value);
-            }
+            writer.WriteInt64(value);
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-                this.value = br.ReadInt64();
-            }
+            this.value = reader.ReadInt64();
         }
     }
     public class Float32Message : MessageBase
@@ -116,19 +98,13 @@ namespace Net.Messages
         }
         public float Value { get => value; set => this.value = value; }
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(value);
-            }
+            writer.WriteFloat32(value);
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-                this.value = br.ReadSingle();
-            }
+            this.value = reader.ReadFloat32();
         }
     }
 }

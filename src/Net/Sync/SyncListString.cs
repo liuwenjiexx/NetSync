@@ -8,20 +8,14 @@ namespace Net
 {
     public class SyncListString : SyncList<string>
     {
-        protected override void SerializeItem(Stream writer, string item)
+        protected override void SerializeItem(NetworkWriter writer, string item)
         {
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                bw.Write(item ?? string.Empty);
-            }
+            writer.WriteString(item ?? string.Empty);
         }
-        protected override string DeserializeItem(Stream reader)
+        protected override string DeserializeItem(NetworkReader reader)
         {
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-                string str = br.ReadString();
-                return str;
-            }
+            string str = reader.ReadString();
+            return str;
         }
 
     }

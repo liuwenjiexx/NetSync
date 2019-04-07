@@ -40,18 +40,18 @@ namespace Net
         }
 
 
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
             this.bits = 0;
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
+        
             {
-                action = br.ReadByte();
+                action = reader.ReadByte();
 
                 if (action == 0)
                     throw new Exception("action is 0");
 
-                NetworkInstanceId instanceId = new NetworkInstanceId();
-                br.Read(ref instanceId);
+                NetworkInstanceId instanceId;
+                instanceId = reader.ReadNetworkInstanceId();
                 netObj = null;
 
                 netObj = conn.GetObject(instanceId);
@@ -63,7 +63,7 @@ namespace Net
                     case Action_ResponseSyncVar:
                         while (true)
                         {
-                            byte b = br.ReadByte();
+                            byte b = reader.ReadByte();
                             if (b == 0)
                                 break;
                             uint bits = (uint)(1 << (b - 1));
@@ -71,7 +71,7 @@ namespace Net
                             var state = netObj.GetStateByBits(bits);
                             object value = null;
 
-                            value = Read(br, state.syncVarInfo.field.FieldType);
+                            value = Read(reader, state.syncVarInfo.field.FieldType);
 
                             try
                             {
@@ -95,7 +95,7 @@ namespace Net
                         }
                         break;
                     case Action_RequestSyncVar:
-                        bits = br.ReadUInt32();
+                        bits = reader.ReadUInt32();
                         break;
                 }
             }
@@ -103,15 +103,14 @@ namespace Net
 
 
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
             if (action == 0)
                 throw new Exception("action is 0");
-
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
+             
             {
-                bw.Write(action);
-                bw.Write(netObj.InstanceId);
+                writer.WriteByte(action);
+                writer.WriteNetworkInstanceId(netObj.InstanceId);
                 switch (action)
                 {
                     case Action_ResponseSyncVar:
@@ -121,24 +120,24 @@ namespace Net
                             info = state.syncVarInfo;
                             if ((info.bits & bits) == info.bits)
                             {
-                                bw.Write((byte)info.bits.SigleBitPosition());
+                                writer.WriteByte((byte)info.bits.SigleBitPosition());
                                 object value = state.syncVarInfo.field.GetValue(netObj);
                                 state.value = value;
 
-                                Write(bw, info.field.FieldType, value);
+                                Write(writer, info.field.FieldType, value);
                             }
                         }
 
                         //write end
-                        bw.Write((byte)0);
+                        writer.WriteByte((byte)0);
                         break;
                     case Action_RequestSyncVar:
-                        bw.Write(bits);
+                        writer.WriteUInt32(bits);
                         break;
                 }
             }
         }
-     
+
     }
 
 }

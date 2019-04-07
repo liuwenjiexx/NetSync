@@ -44,39 +44,34 @@ namespace Net.Messages
             };
         }
 
-        public override void Serialize(Stream writer)
+        public override void Serialize(NetworkWriter writer)
         {
-            using (var w = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
+            writer.WriteByte(action);
+            switch (action)
             {
-                w.Write(action);
-                switch (action)
-                {
-                    case Action_Ping:
-                        w.Write(timestamp);
-                        break;
-                    case Action_Reply:
-                        w.Write(timestamp);
-                        w.Write(replyTimestamp);
-                        break;
-                }
+                case Action_Ping:
+                    writer.WriteInt64(timestamp);
+                    break;
+                case Action_Reply:
+                    writer.WriteInt64(timestamp);
+                    writer.WriteInt64(replyTimestamp);
+                    break;
             }
         }
-        public override void Deserialize(Stream reader)
+        public override void Deserialize(NetworkReader reader)
         {
-            using (var r = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
+            action = reader.ReadByte();
+            switch (action)
             {
-                action = r.ReadByte();
-                switch (action)
-                {
-                    case Action_Ping:
-                        timestamp = r.ReadInt64();
-                        break;
-                    case Action_Reply:
-                        timestamp = r.ReadInt64();
-                        replyTimestamp = r.ReadInt64();
-                        break;
-                }
+                case Action_Ping:
+                    timestamp = reader.ReadInt64();
+                    break;
+                case Action_Reply:
+                    timestamp = reader.ReadInt64();
+                    replyTimestamp = reader.ReadInt64();
+                    break;
             }
+
         }
     }
 

@@ -109,19 +109,16 @@ namespace Net
 
             s = writePool.Get();
 
-            using (var writer = new BinaryWriter(new DisposableStream(s, false), Encoding.UTF8))
+            s.BaseStream.Position = 0;
+            s.BaseStream.SetLength(0);
+            s.BeginWritePackage();
+            s.WriteInt16(msgId);
+            if (msg != null)
             {
-                s.BaseStream.Position = 0;
-                s.BaseStream.SetLength(0);
-                s.BeginWritePackage();
-                writer.Write(msgId);
-                if (msg != null)
-                {
-                    msg.Serialize(writer.BaseStream);
-                }
-
-                s.EndWritePackage();
+                msg.Serialize(s);
             }
+
+            s.EndWritePackage();
 
             sendMsgQueue.Enqueue(s);
         }
@@ -252,7 +249,7 @@ namespace Net
                     {
                         lastSendTime = DateTime.UtcNow;
                         OnActive();
-                      
+
                         int sendCount = Socket.Send(ms.GetBuffer(), (int)ms.Position, count, SocketFlags.None);
                         if (sendCount > 0)
                         {
@@ -291,17 +288,16 @@ namespace Net
 
             while (readCount > 0)
             {
-                using (var br = new BinaryReader(new DisposableStream(reader.ReaderStream, false)))
-                {
-                    short msgId = br.ReadInt16();
 
-                    NetworkMessage netMsg = new NetworkMessage();
-                    netMsg.MsgId = msgId;
-                    netMsg.Connection = this;
-                    netMsg.Reader = reader.ReaderStream;
+                short msgId = reader.ReadInt16();
 
-                    InvokeHandler(netMsg);
-                }
+                NetworkMessage netMsg = new NetworkMessage();
+                netMsg.MsgId = msgId;
+                netMsg.Connection = this;
+                netMsg.Reader = reader;
+
+                InvokeHandler(netMsg);
+
                 readCount = reader.ReadPackage();
             }
         }

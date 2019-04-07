@@ -22,29 +22,22 @@ namespace Net
             }
         }
 
-        protected override void SerializeItem(Stream writer, T item)
+        protected override void SerializeItem(NetworkWriter writer, T item)
         {
-            EnsureItemBuff(); 
+            EnsureItemBuff();
 
-            using (var bw = new BinaryWriter(new DisposableStream(writer, false), Encoding.UTF8))
-            {
-                item.ToBytes(itemBuff);
-                bw.Write(itemBuff, 0, itemBuff.Length);
-            }
+            item.ToBytes(itemBuff);
+            writer.Write(itemBuff, 0, itemBuff.Length);
         }
 
-        protected override T DeserializeItem(Stream reader)
+        protected override T DeserializeItem(NetworkReader reader)
         {
 
             EnsureItemBuff();
 
-            using (var br = new BinaryReader(new DisposableStream(reader, false), Encoding.UTF8))
-            {
-
-                br.Read(itemBuff, 0, itemBuff.Length);
-                var item = itemBuff.ToStruct<T>();
-                return item;
-            }
+            reader.Read(itemBuff, 0, itemBuff.Length);
+            var item = itemBuff.ToStruct<T>();
+            return item;
         }
 
 
