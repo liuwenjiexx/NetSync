@@ -44,7 +44,6 @@
   <ItemGroup>
     <Compile Include="Common\CoroutineBase.cs" />
     <Compile Include="Common\Extensions.cs" />
-    <Compile Include="Common\LinkedDictionary.cs" />
     <Compile Include="Common\Utils.cs" />
     <Compile Include="Messages\BytesArrayMessage.cs" />
     <Compile Include="Messages\BytesMessage.cs" />
@@ -72,7 +71,6 @@
     <Compile Include="NetworkWriter.cs" />
     <Compile Include="Messages\PingMessage.cs" />
     <Compile Include="Common\Pool.cs" />
-    <Compile Include="Common\DisposableStream.cs" />
     <Compile Include="MessageBase.cs" />
     <Compile Include="NetworkMessage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

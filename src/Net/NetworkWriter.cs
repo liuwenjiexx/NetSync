@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace Net
@@ -9,12 +7,10 @@ namespace Net
 
     public class NetworkWriter
     {
-        private MemoryStream msWriiter;
         private Stream baseStream;
 
         internal NetworkWriter(Stream baseStream)
         {
-            msWriiter = new MemoryStream(100);
             this.baseStream = baseStream;
         }
         public Stream BaseStream
@@ -24,19 +20,18 @@ namespace Net
 
         public void BeginWritePackage()
         {
-            msWriiter.Seek(0, SeekOrigin.Begin);
-            msWriiter.SetLength(0);
+            baseStream.Seek(0, SeekOrigin.Begin);
+            baseStream.SetLength(0);
             WritePackageSize(0);
         }
 
         public void EndWritePackage()
         {
             ushort packageSize;
-            msWriiter.Seek(0, SeekOrigin.Begin);
-            packageSize = (ushort)(msWriiter.Length - GetPackageSizeBytesSize());
+            packageSize = (ushort)(baseStream.Length - GetPackageSizeBytesSize());
+            baseStream.Seek(0, SeekOrigin.Begin);
             WritePackageSize(packageSize);
-            baseStream.Write(msWriiter.GetBuffer(), 0, (int)msWriiter.Length);
-            msWriiter.Seek(0, SeekOrigin.Begin);
+            baseStream.Seek(0, SeekOrigin.Begin);
         }
 
         public void Flush()
@@ -52,13 +47,13 @@ namespace Net
 
         private void WritePackageSize(ushort packageSize)
         {
-            msWriiter.WriteByte((byte)((packageSize >> 8) & 0xFF));
-            msWriiter.WriteByte((byte)(packageSize & 0xFF));
+            WriteByte((byte)((packageSize >> 8) & 0xFF));
+            WriteByte((byte)(packageSize & 0xFF));
         }
          
         public void WriteByte(byte value)
         {
-            msWriiter.WriteByte(value);
+            baseStream.WriteByte(value);
         }
 
         public void WriteInt8(sbyte value)
@@ -141,7 +136,7 @@ namespace Net
         }
         public void Write(byte[] buffer, int offset, int count)
         {
-            msWriiter.Write(buffer, offset, count);
+            baseStream.Write(buffer, offset, count);
         }
 
         public void WriteString(string value)
