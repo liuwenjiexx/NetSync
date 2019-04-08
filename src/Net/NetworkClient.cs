@@ -6,13 +6,14 @@ using System.Net.Sockets;
 
 namespace Net
 {
-    public class NetworkClient : CoroutineBase
+    public class NetworkClient : CoroutineBase,IDisposable
     {
         private NetworkConnection conn;
         private bool isRunning;
         private int pingDelay;
         private bool isClient;
         private NetworkServer server;
+        private Status status;
 
         public NetworkClient(NetworkServer server, Socket socket, bool isListen)
         {
@@ -20,8 +21,8 @@ namespace Net
             isClient = !isListen;
 
             conn = new NetworkConnection(socket, isListen);
+            conn.RegisterHandler((short)NetworkMsgId.Handshake, OnReceive_HandshakeMsg);
             conn.RegisterHandler((short)NetworkMsgId.Ping, OnReceive_Ping);
-
 
             if (IsClient)
             {
@@ -33,10 +34,9 @@ namespace Net
             {
                 ConnectionToClient = conn;
             }
-
+            conn.Connected += Conn_Connected;
+            conn.Disconnected += Conn_Disconnected;
         }
-
-
 
         public NetworkConnection Connection
         {
@@ -70,8 +70,11 @@ namespace Net
         {
             get { return conn.Objects; }
         }
+
         public event Action<NetworkClient> Started;
         public event Action<NetworkClient> Stoped;
+        public event Action<NetworkClient> Connected;
+        public event Action<NetworkClient> Disconnected;
 
 
 
@@ -99,6 +102,8 @@ namespace Net
 
             using (Connection)
             {
+                SendHandshakeMsg();
+
                 while (isRunning)
                 {
                     try
@@ -116,6 +121,7 @@ namespace Net
             }
 
             isRunning = false;
+            
 
             Stoped?.Invoke(this);
         }
@@ -125,6 +131,68 @@ namespace Net
             Connection.SendMessage(msgId, msg);
         }
 
+
+        private void Conn_Connected(NetworkConnection obj)
+        {
+
+        }
+
+        private void Conn_Disconnected(NetworkConnection obj)
+        {
+            if (!(status == Status.Stoped || status == Status.HandshakeError))
+            {
+                status = Status.Handshaking;
+            }
+            Disconnected?.Invoke(this);
+        }
+ 
+
+        protected virtual void SendHandshakeMsg()
+        {
+
+            if (IsClient)
+            {
+                Connection.SendMessage((short)NetworkMsgId.Handshake);
+            }
+            else
+            {
+                Connection.SendMessage((short)NetworkMsgId.Handshake);
+            }
+
+        }
+
+        protected virtual void OnHandshakeMsg(NetworkMessage netMsg)
+        {
+
+        }
+
+        private void OnReceive_HandshakeMsg(NetworkMessage netMsg)
+        {
+            if (status == Status.Handshaking)
+            {
+                try
+                {
+                    OnHandshakeMsg(netMsg);
+                    status = Status.Connected;
+                    Connected?.Invoke(this);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    status = Status.HandshakeError;
+                    Connection.AutoReconnect = false;
+                    Stop();
+                }
+            }
+        }
+
+        enum Status
+        {
+            Handshaking,
+            HandshakeError,
+            Connected,
+            Stoped,
+        }
 
         #region Ping
 
@@ -150,8 +218,6 @@ namespace Net
                     break;
             }
         }
-
-
 
 
         #endregion
@@ -189,7 +255,7 @@ namespace Net
 
             if (create == null)
                 throw new ArgumentNullException(nameof(create));
-         
+
             NetworkObjectInfo info = new NetworkObjectInfo()
             {
                 objectId = objectId,
@@ -276,6 +342,11 @@ namespace Net
                 NetworkInstanceId instanceId = msg.instanceId;
                 ClientDestroyObject(netMsg.Connection, instanceId);
             }
+        }
+
+        public virtual void Dispose()
+        {
+            Stop();
         }
 
 

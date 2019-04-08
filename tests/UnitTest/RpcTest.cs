@@ -36,7 +36,7 @@ namespace UnitTest
 
             }
             public void SetRpcMsg(string msg)
-            { 
+            {
                 this.rpcMsg = msg;
             }
             [Rpc]
@@ -67,7 +67,7 @@ namespace UnitTest
         public void Test1()
         {
             Type type = typeof(TestStruct);
-            var typeCode= Type.GetTypeCode(type);
+            var typeCode = Type.GetTypeCode(type);
             type = typeof(string);
             type = typeof(int);
         }
@@ -87,7 +87,7 @@ namespace UnitTest
             TestStruct s;
             s = new TestStruct();
             sw.Start();
-            for(int i = 0; i < max; i++)
+            for (int i = 0; i < max; i++)
             {
                 Serialize(s);
             }
@@ -101,7 +101,7 @@ namespace UnitTest
             }
             sw.Stop();
             Console.WriteLine("ref time:" + sw.ElapsedMilliseconds);
-            
+
         }
         struct TestStruct
         {
@@ -117,7 +117,7 @@ namespace UnitTest
             //public float f9;
             //public float f10;
         }
-        void SerializeRef(ref TestStruct  value)
+        void SerializeRef(ref TestStruct value)
         {
             value.f1 = 1f;
             //value.i1 = 2;
@@ -138,73 +138,64 @@ namespace UnitTest
         }
         public IEnumerator _Rpc_Test()
         {
-            int port = 1000;
-            TcpListener tcpListener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-            tcpListener.Start();
-            NetworkServer server = new NetworkServer(tcpListener);
-            server.Start();
 
-            TcpClient tcpClient = new TcpClient();
-            tcpClient.Connect("127.0.0.1", port);
-            NetworkClient client = new NetworkClient(null, tcpClient.Client, false);
-            client.Start();
-
-            yield return null;
-            yield return null;
-            var serverClient = server.Clients.FirstOrDefault();
-
-
-            
-            NetworkClient.RegisterObject(NetworkObjectId.GetObjectId(typeof(MyData)), (id) =>
+            using (NetworkServer server = new NetworkServer(NewTcpListener()))
             {
-                return new MyData();
-            });
+                server.Start();
 
-            var serverData = server.CreateObject<MyData>();
-            serverData.AddObserver(server.Connections.First());
-            yield return null;
-            yield return null;
-            var clientData = (MyData)client.Objects.FirstOrDefault();
+                NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
+                client.Start();
 
-            serverData.rpcMsg = null;
-            clientData.rpcMsg = null;
-            serverData.RpcClient("server to client");
+                foreach (var o in Wait()) yield return null;
+                var serverClient = server.Clients.FirstOrDefault();
 
-            yield return null;
-            yield return null;
-            Assert.AreEqual(serverData.rpcMsg, null);
-            Assert.AreEqual(clientData.rpcMsg, "server to client");
+                NetworkClient.RegisterObject<MyData>((id) =>
+                {
+                    return new MyData();
+                });
 
-            serverData.rpcMsg = null;
-            clientData.rpcMsg = null;
-            serverData.RpcServer("server to server");
-            yield return null;
-            yield return null;
-            Assert.AreEqual(serverData.rpcMsg, "server to server");
-            Assert.AreEqual(clientData.rpcMsg, null);
+                var serverData = server.CreateObject<MyData>();
+                serverData.AddObserver(server.Connections.First());
+                foreach (var o in Wait()) yield return null;
 
-            serverData.rpcMsg = null;
-            clientData.rpcMsg = null;
-            clientData.RpcClient("client to client");
+                var clientData = (MyData)client.Objects.FirstOrDefault();
 
-            yield return null;
-            yield return null;
-            Assert.AreEqual(serverData.rpcMsg, null);
-            Assert.AreEqual(clientData.rpcMsg, "client to client");
+                serverData.rpcMsg = null;
+                clientData.rpcMsg = null;
+                serverData.RpcClient("server to client");
 
-            serverData.rpcMsg = null;
-            clientData.rpcMsg = null;
-            serverData.RpcServer("client to server");
-            yield return null;
-            yield return null;
-            Assert.AreEqual(serverData.rpcMsg, "client to server");
-            Assert.AreEqual(clientData.rpcMsg, null);
+                foreach (var o in Wait()) yield return null;
 
+                Assert.AreEqual(serverData.rpcMsg, null);
+                Assert.AreEqual(clientData.rpcMsg, "server to client");
 
-            yield return null;
-            client.Stop();
-            server.Stop();
-            tcpListener.Stop();
+                serverData.rpcMsg = null;
+                clientData.rpcMsg = null;
+                serverData.RpcServer("server to server");
+                foreach (var o in Wait()) yield return null;
+
+                Assert.AreEqual(serverData.rpcMsg, "server to server");
+                Assert.AreEqual(clientData.rpcMsg, null);
+
+                serverData.rpcMsg = null;
+                clientData.rpcMsg = null;
+                clientData.RpcClient("client to client");
+                foreach (var o in Wait()) yield return null;
+
+                Assert.AreEqual(serverData.rpcMsg, null);
+                Assert.AreEqual(clientData.rpcMsg, "client to client");
+
+                serverData.rpcMsg = null;
+                clientData.rpcMsg = null;
+                serverData.RpcServer("client to server");
+                foreach (var o in Wait()) yield return null;
+
+                Assert.AreEqual(serverData.rpcMsg, "client to server");
+                Assert.AreEqual(clientData.rpcMsg, null);
+
+                foreach (var o in Wait()) yield return null;
+                client.Stop();
+            }
         }
 
 

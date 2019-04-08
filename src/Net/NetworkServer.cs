@@ -6,7 +6,7 @@ using System.Net.Sockets;
 
 namespace Net
 {
-    public class NetworkServer : CoroutineBase
+    public class NetworkServer : CoroutineBase, IDisposable
     {
         private TcpListener server;
         private bool isRunning;
@@ -47,8 +47,9 @@ namespace Net
 
         public event Action<NetworkServer> Started;
         public event Action<NetworkServer> Stoped;
-        public event Action<NetworkServer, NetworkClient> ClientConnected;
-        public event Action<NetworkServer, NetworkClient> ClientDisconnected;
+
+        public event Action<NetworkServer, NetworkClient> Connected;
+        public event Action<NetworkServer, NetworkClient> Disconnected;
 
 
         public virtual void Start()
@@ -95,7 +96,7 @@ namespace Net
                     {
                         node = node.RemoveAndNext();
                         OnClientDisconnect(client);
-                        ClientDisconnected?.Invoke(this, client);
+                        Disconnected?.Invoke(this, client);
                         continue;
                     }
                     node = node.Next;
@@ -115,7 +116,7 @@ namespace Net
                                 if (client != null)
                                 {
                                     if (!client.IsRunning)
-                                        client.Start();
+                                        client = null;
                                 }
                             }
                             catch (Exception ex)
@@ -129,12 +130,18 @@ namespace Net
                                 RemoveConnection(client.Connection);
                                 node = hostList.AddLast(client);
                                 hostDic[client.Connection] = node;
+                                client.Connected += Client_Connected;
 
-                                ClientConnected?.Invoke(this, client);
                             }
                             else
                             {
-                                tcpClient.Close();
+                                try
+                                {
+                                    tcpClient.Client.Disconnect(false);
+                                    tcpClient.Close();
+                                }
+                                catch { }
+
                             }
 
                         }
@@ -176,15 +183,27 @@ namespace Net
 
             try
             {
+                server.Stop();
+            }
+            catch { }
+            try
+            {
                 if (Stoped != null)
                     Stoped(this);
             }
             catch (Exception ex) { Console.WriteLine(ex); }
         }
 
-        protected virtual NetworkClient AcceptClient(TcpClient client)
+        private void Client_Connected(NetworkClient client)
         {
-            return new NetworkClient(this, client.Client, true);
+            Connected?.Invoke(this, client);
+        }
+
+        protected virtual NetworkClient AcceptClient(TcpClient netClient)
+        {
+            var client = new NetworkClient(this, netClient.Client, true);
+            client.Start();
+            return client;
         }
 
         protected virtual void OnClientDisconnect(NetworkClient client)
@@ -226,7 +245,7 @@ namespace Net
                         client.Stop();
                     }
 
-                    ClientDisconnected?.Invoke(this, client);
+                    Disconnected?.Invoke(this, client);
                 }
                 catch { }
             }
@@ -309,6 +328,11 @@ namespace Net
                     }
                 }
             }
+        }
+
+        public virtual void Dispose()
+        {
+            Stop();
         }
     }
 }

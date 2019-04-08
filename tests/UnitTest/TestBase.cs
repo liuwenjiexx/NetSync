@@ -2,6 +2,8 @@
 using Net;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 
 namespace UnitTest
 {
@@ -10,10 +12,8 @@ namespace UnitTest
     public class TestBase
     {
         List<IEnumerator> runner;
-     public   static string localMatchAddress = "localhost";
-        public static int localMatchPort = 7000;
-        public static string localHostAddress = "localhost";
-        public static int localHostPort = 7001;
+        public static string localAddress = "localhost";
+        public static int localPort = 7001;
         public static string UserId = "userid";
 
         [TestInitialize]
@@ -25,10 +25,9 @@ namespace UnitTest
         [TestCleanup]
         public virtual void TestCleanup()
         {
-            CoroutineBase.UpdateCoroutine();
-            CoroutineBase.UpdateCoroutine();
-            CoroutineBase.UpdateCoroutine();
-            CoroutineBase.UpdateCoroutine();
+            int n = 10;
+            while (n-- > 0)
+                CoroutineBase.UpdateCoroutine();
         }
 
         protected void Run(IEnumerator r)
@@ -60,6 +59,23 @@ namespace UnitTest
         {
             return Wait(6);
         }
+
+
+        protected TcpListener NewTcpListener()
+        {
+            TcpListener tcpListener = new TcpListener(new IPEndPoint(IPAddress.Any, localPort));
+            tcpListener.Start();
+            return tcpListener;
+        }
+
+        protected Socket NewTcpClient()
+        {
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.Connect(localAddress, localPort);
+            return socket;
+
+        }
+
 
     }
 }

@@ -6,82 +6,60 @@ using System.Collections.Generic;
 using System.Text;
 using System.Net.Sockets;
 using System.Net;
+using System.Linq;
 
 namespace UnitTest
 {
     [TestClass]
     public class NetTest : TestBase
     {
-        string AAA
+        [TestMethod]
+        public void StartServer()
         {
-            get
+            Run(_StartServer());
+        }
+        public IEnumerator _StartServer()
+        {
+            using (NetworkServer server = new NetworkServer(NewTcpListener()))
             {
-                Console.WriteLine("aaa");
-                return "aaa";
+                server.Start();
+                Assert.IsTrue(server.IsRunning);
+
+                foreach (var o in Wait()) yield return null;
+                server.Stop();
+                Assert.IsFalse(server.IsRunning);
             }
         }
 
         [TestMethod]
-        public void NetServerStart()
+        public void StartClient()
         {
-            TEST1(AAA);
-            TEST2(AAA);
-            Run(_NetServerStart());
+            Run(_StartClient());
         }
-        public IEnumerator _NetServerStart()
+        public IEnumerator _StartClient()
         {
-            int port = 1000;
-            TcpListener tcpListener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-            tcpListener.Start();
-            NetworkServer server = new NetworkServer(tcpListener);
-            server.Start();
+            using (NetworkServer server = new NetworkServer(NewTcpListener()))
+            {
+                server.Start();
+                Assert.IsTrue(server.IsRunning);
 
-            Assert.IsTrue(server.IsRunning);
+                NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
+                client.Start();
+                foreach (var o in Wait()) yield return null;
 
-            yield return null;
-            server.Stop();
-            Assert.IsFalse(server.IsRunning);
-            tcpListener.Stop();
-        }
-        [TestMethod]
-        public void NetClientStart()
-        {
-            Run(_NetClientStart());
-        }
-        public IEnumerator _NetClientStart()
-        {
-            int port = 1000;
-            TcpListener tcpListener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-            tcpListener.Start();
-            NetworkServer server = new NetworkServer(tcpListener);
-            server.Start();
-            Assert.IsTrue(server.IsRunning);
+                Assert.IsTrue(client.IsRunning);
+                Assert.AreEqual(server.Connections.Count(), 1);
+                Assert.AreEqual(server.Clients.Count(), 1);
 
-            TcpClient tcpClient = new TcpClient();
-            tcpClient.Connect("127.0.0.1", port);
-            NetworkClient client = new NetworkClient(null, tcpClient.Client, false);
-            client.Start();
-            Assert.IsTrue(client.IsRunning);
-
-            yield return null;
-            client.Stop();
-            Assert.IsFalse(client.IsRunning);
-            yield return null;
-            server.Stop();
-            Assert.IsFalse(server.IsRunning);
-            tcpListener.Stop();
+                client.Stop();
+                Assert.IsFalse(client.IsRunning);
+                foreach (var o in Wait()) yield return null;
+                server.Stop();
+                Assert.IsFalse(server.IsRunning);
+            }
         }
 
-        [System.Diagnostics.Conditional("COND")]
-        static void TEST1(string str)
-        {
-            Console.WriteLine("test1:" + str);
-        }
-        [System.Diagnostics.Conditional("COND")]
-        void TEST2(string str)
-        {
-            Console.WriteLine("test2:" + str);
-        }
+
         [TestMethod]
         public void Reconnect()
         {
@@ -89,51 +67,45 @@ namespace UnitTest
         }
         public IEnumerator _Reconnect()
         {
-            int port = 1000;
-            TcpListener tcpListener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-            tcpListener.Start();
-            NetworkServer server = new NetworkServer(tcpListener);
-            server.Start();
-
-            TcpClient tcpClient = new TcpClient();
-            tcpClient.Connect("127.0.0.1", port);
-            NetworkClient client = new NetworkClient(null, tcpClient.Client, false);
-            client.Start();
-            bool connectedEvent = false;
-            bool disconnectEvent = false;
-            client.Connection.Connected += (c) =>
+            using (NetworkServer server = new NetworkServer(NewTcpListener()))
             {
-                connectedEvent = true;
-            };
+                server.Start();
 
-            client.Connection.Disconnected += (c) =>
-            {
-                disconnectEvent = true;
-            };
-            Assert.IsTrue(client.Connection.IsConnected);
-            Assert.IsTrue(client.Connection.Socket.Connected);
+                NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
+                client.Start();
+                bool connectedEvent = false;
+                bool disconnectEvent = false;
+                client.Connection.Connected += (c) =>
+                {
+                    connectedEvent = true;
+                };
 
-            connectedEvent = false;
-            disconnectEvent = false;
-            Assert.IsTrue(client.Connection.AllowReconnect);
+                client.Connection.Disconnected += (c) =>
+                {
+                    disconnectEvent = true;
+                };
+                Assert.IsTrue(client.Connection.IsConnected);
+                Assert.IsTrue(client.Connection.Socket.Connected);
 
-            client.Connection.Socket.Disconnect(false);
-            yield return null;
-            Assert.IsTrue(disconnectEvent);
-            Assert.IsTrue(connectedEvent);
+                connectedEvent = false;
+                disconnectEvent = false;
+                Assert.IsTrue(client.Connection.AutoReconnect);
 
-            connectedEvent = false;
-            disconnectEvent = false;
-            client.Connection.Socket.Disconnect(false);
-            yield return null;
-            System.Threading.Thread.Sleep(client.Connection.ReconnectInterval + 1);
-            yield return null;
-            Assert.IsTrue(connectedEvent);
-            Assert.IsTrue(client.Connection.Socket.Connected);
+                client.Connection.Socket.Disconnect(false);
+                yield return null;
+                Assert.IsTrue(disconnectEvent);
+                Assert.IsTrue(connectedEvent);
 
-            yield return null;
-            server.Stop();
-            tcpListener.Stop();
+                connectedEvent = false;
+                disconnectEvent = false;
+                client.Connection.Socket.Disconnect(false);
+                foreach (var o in Wait()) yield return null;
+                System.Threading.Thread.Sleep(client.Connection.ReconnectInterval + 1);
+                foreach (var o in Wait()) yield return null;
+                Assert.IsTrue(connectedEvent);
+                Assert.IsTrue(client.Connection.Socket.Connected);
+
+            }
         }
     }
 }

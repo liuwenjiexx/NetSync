@@ -33,7 +33,7 @@ namespace Net
 
             this.isListen = isListen;
             ReconnectInterval = 1000;
-            AllowReconnect = true;
+            AutoReconnect = true;
             ResetSocket(socket);
             isSocketConnected = socket.Connected;
             objects = new Dictionary<NetworkInstanceId, NetworkObject>();
@@ -62,7 +62,7 @@ namespace Net
 
         public int ReconnectInterval { get; set; }
 
-        public bool AllowReconnect { get; set; }
+        public bool AutoReconnect { get; set; }
 
         public bool HasSendMessage
         {
@@ -214,7 +214,7 @@ namespace Net
             {
                 if (!socket.Connected)
                 {
-                    if (AllowReconnect && (DateTime.UtcNow - lastTryReconnectTime).TotalMilliseconds > ReconnectInterval)
+                    if (AutoReconnect && (DateTime.UtcNow - lastTryReconnectTime).TotalMilliseconds > ReconnectInterval)
                     {
                         Reconnect();
                     }
