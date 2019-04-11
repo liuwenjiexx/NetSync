@@ -23,7 +23,7 @@ namespace Net
             isClient = !isListen;
 
             conn = new NetworkConnection(socket, isListen);
-            //conn.RegisterHandler((short)NetworkMsgId.Handshake, OnReceive_HandshakeMsg);
+            conn.RegisterHandler((short)NetworkMsgId.Disconnect, OnReceive_Disconnect);
             conn.RegisterHandler((short)NetworkMsgId.Ping, OnReceive_Ping);
 
             conn.RegisterHandler((short)NetworkMsgId.CreateObject, OnReceive_CreateObject);
@@ -76,8 +76,8 @@ namespace Net
 
         public event Action<NetworkClient> Started;
         public event Action<NetworkClient> Stoped;
-        public event Action<NetworkClient> Connected;
-        public event Action<NetworkClient> Disconnected;
+        //public event Action<NetworkClient> Connected;
+        //public event Action<NetworkClient> Disconnected;
 
         static NetworkClient()
         {
@@ -127,21 +127,13 @@ namespace Net
         public virtual void Stop()
         {
             CheckThreadSafe();
-            try
-            {                
-                conn.SendMessage((short)NetworkMsgId.Disconnect);
-                DateTime timeout = DateTime.Now.AddMilliseconds(1000);
-                while (conn.IsConnected&& conn.HasSendMessage)
-                {
-                    if (DateTime.Now > timeout)
-                        break;
-                    conn.ProcessMessage();
-                    System.Threading.Thread.Sleep(0);
-                }
+            if (isRunning)
+            {
+                isRunning = false;
+                Disconnect();
             }
-            catch { }
-            isRunning = false;
         }
+
 
 
         IEnumerator Running()
@@ -153,7 +145,19 @@ namespace Net
 
             using (Connection)
             {
-                Connect();
+
+                if (isClient)
+                {
+                    try
+                    {
+                        Connect();
+                    }
+                    catch (Exception ex)
+                    {
+                        isRunning = false;
+                    }
+                }
+
 
                 while (isRunning)
                 {
@@ -186,16 +190,31 @@ namespace Net
 
         private void Conn_Connected(NetworkConnection obj)
         {
-
+            if (isRunning && isClient)
+            {
+                try
+                {
+                    Connect();
+                    //if (isRunning)
+                    //{
+                    //    if (Connected != null)
+                    //        Connected(this);
+                    //}
+                }
+                catch (Exception ex)
+                {
+                    isRunning = false;
+                }
+            }
         }
 
         private void Conn_Disconnected(NetworkConnection obj)
         {
-            if (!(status == Status.Stoped || status == Status.HandshakeError))
+            if (!(status == Status.Stoped || status == Status.ConnectError))
             {
-                status = Status.Handshaking;
+                status = Status.Connecting;
             }
-            Disconnected?.Invoke(this);
+            //Disconnected?.Invoke(this);
         }
 
 
@@ -205,6 +224,23 @@ namespace Net
             {
                 Connection.SendMessage((short)NetworkMsgId.Connect);
             }
+        }
+
+        private void Disconnect()
+        {
+            try
+            {
+                conn.SendMessage((short)NetworkMsgId.Disconnect);
+                DateTime timeout = DateTime.Now.AddMilliseconds(1000);
+                while (conn.IsConnected && conn.HasSendMessage)
+                {
+                    if (DateTime.Now > timeout)
+                        break;
+                    conn.ProcessMessage();
+                    System.Threading.Thread.Sleep(5);
+                }
+            }
+            catch { }
         }
 
         //protected virtual void OnHandshakeMsg(NetworkMessage netMsg)
@@ -234,8 +270,8 @@ namespace Net
 
         enum Status
         {
-            Handshaking,
-            HandshakeError,
+            Connecting,
+            ConnectError,
             Connected,
             Stoped,
         }
@@ -291,14 +327,7 @@ namespace Net
         {
             NetworkObjectId objectId = NetworkObjectId.GetObjectId(type);
 
-            SyncVarInfo.GetSyncVarInfos(type);
-            SyncListInfo.GetSyncListInfos(type);
-            RegisterObject(objectId, create, destrory);
-        }
-
-        public static void RegisterObject(NetworkObjectId objectId, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
-        {
-            RegisterObject(objectId, create, destrory);
+            RegisterObject(objectId, type, create, destrory);
         }
 
         private static void RegisterObject(NetworkObjectId objectId, Type type, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
@@ -308,6 +337,12 @@ namespace Net
 
             if (create == null)
                 throw new ArgumentNullException(nameof(create));
+
+            if (type != null)
+            {
+                SyncVarInfo.GetSyncVarInfos(type);
+                SyncListInfo.GetSyncListInfos(type);
+            }
 
             NetworkObjectInfo info = new NetworkObjectInfo()
             {
@@ -421,12 +456,20 @@ namespace Net
                 ClientDestroyObject(netMsg.Connection, instanceId);
             }
         }
+        private void OnReceive_Disconnect(NetworkMessage netMsg)
+        {
+            Stop();
+        }
 
         public virtual void Dispose()
         {
             Stop();
         }
 
+        ~NetworkClient()
+        {
+            Dispose();
+        }
 
         #endregion
 

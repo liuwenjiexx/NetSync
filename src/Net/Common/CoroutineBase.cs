@@ -56,7 +56,7 @@ namespace Net
                 {
                 
                         state = current.Value;
-                        if (state.coroutine.Target == null || !state.routine.MoveNext())
+                        if (/*state.coroutine.Target == null ||*/ !state.routine.MoveNext())
                         {
                             if (current.List != null)
                             {

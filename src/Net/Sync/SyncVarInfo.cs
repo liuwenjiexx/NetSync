@@ -89,7 +89,7 @@ namespace Net
                             for (int j = i - 1; j >= 0; j--)
                             {
                                 if (list[j].bits == info.bits)
-                                    throw new Exception(info.field + " repeat bits " + info.bits);
+                                    throw new Exception("type: "+ type.Name + " , field: " + info.field + ", repeat bits " + info.bits);
                             }
 
                         }

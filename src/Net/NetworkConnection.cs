@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 
 namespace Net
@@ -18,22 +19,22 @@ namespace Net
         private Dictionary<short, NetworkMessageDelegate> handlers;
         private bool isListen;
         private bool isSocketConnected;
-        private DateTime lastTryReconnectTime;
+        //private DateTime lastTryReconnectTime;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
         private DateTime lastActiveTime;
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
-
+        EndPoint endPoint;
         public NetworkConnection(Socket socket, bool isListen)
         {
             if (socket == null) throw new ArgumentNullException("socket");
 
             this.socket = socket;
             this.isConnected = true;
-
+              endPoint = socket.RemoteEndPoint;
             this.isListen = isListen;
-            ReconnectInterval = 1000;
-            AutoReconnect = true;
+            //ReconnectInterval = 1000;
+            //AutoReconnect = true;
             ResetSocket(socket);
             isSocketConnected = socket.Connected;
             objects = new Dictionary<NetworkInstanceId, NetworkObject>();
@@ -60,9 +61,9 @@ namespace Net
             get { return socket != null && socket.Connected; }
         }
 
-        public int ReconnectInterval { get; set; }
+        //public int ReconnectInterval { get; set; }
 
-        public bool AutoReconnect { get; set; }
+        //public bool AutoReconnect { get; set; }
 
         public bool HasSendMessage
         {
@@ -132,18 +133,19 @@ namespace Net
             }
         }
 
-        public void Reconnect()
+        public void Connect()
         {
             if (isListen)
                 throw new Exception("is listen");
 
-            if (!socket.Connected)
+            if (!isSocketConnected)
             {
-                lastTryReconnectTime = DateTime.UtcNow;
+                //lastTryReconnectTime = DateTime.UtcNow;
                 Socket s = new Socket(socket.AddressFamily, socket.SocketType, socket.ProtocolType);
+       
                 try
                 {
-                    s.Connect(socket.RemoteEndPoint);
+                    s.Connect(endPoint);
                     s.Blocking = socket.Blocking;
                 }
                 catch (Exception ex)
@@ -151,15 +153,23 @@ namespace Net
                     s = null;
                     Console.WriteLine(ex);
                 }
+
                 if (s != null)
                 {
                     if (s.Connected)
                     {
                         ResetSocket(s);
-                        lastActiveTime = DateTime.UtcNow;
-                        Connected?.Invoke(this);
+                        isSocketConnected = true;
                     }
                 }
+
+                if (isSocketConnected)
+                {
+
+                    lastActiveTime = DateTime.UtcNow;
+                    Connected?.Invoke(this);
+                }
+
             }
         }
 
@@ -167,6 +177,11 @@ namespace Net
         {
             this.socket = socket;
             reader = new NetworkReader(Socket);
+            Clear();
+        }
+
+        void Clear()
+        {
             if (writePool == null)
             {
                 writePool = new Pool<NetworkWriter>(() => new NetworkWriter(new MemoryStream()));
@@ -206,6 +221,7 @@ namespace Net
                 }
                 if (!isSocketConnected)
                 {
+                    Clear();
                     Disconnected?.Invoke(this);
                 }
             }
@@ -214,12 +230,13 @@ namespace Net
             {
                 if (!socket.Connected)
                 {
-                    if (AutoReconnect && (DateTime.UtcNow - lastTryReconnectTime).TotalMilliseconds > ReconnectInterval)
-                    {
-                        Reconnect();
-                    }
-                    if (!socket.Connected)
-                        break;
+                    //if (AutoReconnect && (DateTime.UtcNow - lastTryReconnectTime).TotalMilliseconds > ReconnectInterval)
+                    //{
+                    //    Connect();
+                    //}
+                    //if (!socket.Connected)
+                    //    break;
+                    break;
                 }
 
                 if (currentSendMsg == null)

@@ -22,7 +22,6 @@ namespace UnitTest
         protected override NetworkClient AcceptClient(TcpClient client)
         {
             var c = new MyClient(this, client.Client, true);
-            c.Start();
             return c;
         }
     }
@@ -103,21 +102,21 @@ namespace UnitTest
 
         }
 
-        [NetworkObjectId("1b0518d9-8c72-4764-a463-6d6eba57cb83")]
-        class ErrorRepeatBitsData : NetworkObject
-        {
-            [SyncVar(Bits = 0x1)]
-            private string stringVar;
-            [SyncVar(Bits = 0x1)]
-            private int intVar;
-        }
+        //[NetworkObjectId("1b0518d9-8c72-4764-a463-6d6eba57cb83")]
+        //class ErrorRepeatBitsData : NetworkObject
+        //{
+        //    [SyncVar(Bits = 0x1)]
+        //    private string stringVar;
+        //    [SyncVar(Bits = 0x1)]
+        //    private int intVar;
+        //}
 
-        [ExpectedException(typeof(Exception))]
-        [TestMethod]
-        public void RepeatBits()
-        {
-            NetworkClient.RegisterObject<ErrorRepeatBitsData>(id => new ErrorRepeatBitsData());
-        }
+        //[ExpectedException(typeof(Exception))]
+        //[TestMethod]
+        //public void RepeatBits()
+        //{
+        //    NetworkClient.RegisterObject<ErrorRepeatBitsData>(id => new ErrorRepeatBitsData());
+        //}
 
         [TestMethod]
         public void CreateNetworkObject()

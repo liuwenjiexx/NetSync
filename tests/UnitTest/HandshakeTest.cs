@@ -27,8 +27,14 @@ namespace UnitTest
             protected override NetworkClient AcceptClient(TcpClient tcpClient)
             {
                 var client = new TestHandshakeClient(this, tcpClient.Client, true);
-                client.Start();
+  
                 return client;
+            }
+            protected override void OnClientConnect(NetworkMessage netMsg)
+            {
+                var msg = netMsg.ReadMessage<StringMessage>();
+                if (msg.Value != "test client")
+                    throw new Exception("Handshake error");
             }
         }
 
@@ -39,37 +45,12 @@ namespace UnitTest
                 : base(server, socket, isListen)
             { 
             } 
-      
-
-            public TestHandshakeContext Context { get => context; }
-
-            protected override void SendHandshakeMsg()
+       
+            protected override void Connect()
             {
-                if (IsClient)
-                {
-                    Connection.SendMessage((short)NetworkMsgId.Handshake, new StringMessage("test client"));
-                }
-                else
-                {
-                    Connection.SendMessage((short)NetworkMsgId.Handshake);
-                }
+                Connection.SendMessage((short)NetworkMsgId.Connect, new StringMessage("test client"));
             }
-
-            protected override void OnHandshakeMsg(NetworkMessage netMsg)
-            {
-                if (IsClient)
-                {
-
-                }
-                else
-                {
-                    var msg = netMsg.ReadMessage<StringMessage>();
-                    if (msg.Value != "test client")
-                        throw new Exception("Handshake error");
-                    SendHandshakeMsg();
-
-                }
-            }
+ 
         }
 
 
@@ -104,19 +85,14 @@ namespace UnitTest
             {
                 server.Start();
                 Assert.IsTrue(server.IsRunning);
+                foreach (var o in Wait()) yield return null;
 
                 NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
-                client.Connection.AutoReconnect = false;
+                //client.Connection.AutoReconnect = false;
                 client.Start();
                 foreach (var o in Wait()) yield return null;
 
                 Assert.AreEqual(server.Clients.Count(), 0);
-
-
-                client.Ping();
-                client.Ping();
-                foreach (var o in Wait()) yield return null;
-
                 Assert.IsFalse(client.Connection.IsSocketConnected);
 
                 client.Stop();

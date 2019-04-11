@@ -49,8 +49,8 @@ namespace Net
         public event Action<NetworkServer> Started;
         public event Action<NetworkServer> Stoped;
 
-        public event Action<NetworkServer, NetworkClient> Connected;
-        public event Action<NetworkServer, NetworkClient> Disconnected;
+        public event Action<NetworkServer, NetworkClient> ClientConnected;
+        public event Action<NetworkServer, NetworkClient> ClientDisconnected;
 
 
         public virtual void Start()
@@ -97,7 +97,7 @@ namespace Net
                     {
                         node = node.RemoveAndNext();
                         OnClientDisconnect(client);
-                        Disconnected?.Invoke(this, client);
+                        ClientDisconnected?.Invoke(this, client);
                         continue;
                     }
                     node = node.Next;
@@ -116,8 +116,11 @@ namespace Net
 
                                 if (client != null)
                                 {
+                                    InitClient(client);
                                     if (!client.IsRunning)
-                                        client = null;
+                                    {
+                                        client.Start();
+                                    }
                                 }
                             }
                             catch (Exception ex)
@@ -131,7 +134,6 @@ namespace Net
                                 RemoveConnection(client.Connection);
                                 node = hostList.AddLast(client);
                                 hostDic[client.Connection] = node;
-                                client.Connected += Client_Connected;
 
                             }
                             else
@@ -195,10 +197,31 @@ namespace Net
             catch (Exception ex) { Console.WriteLine(ex); }
         }
 
-        private void Client_Connected(NetworkClient client)
+        private void InitClient(NetworkClient client)
         {
-            Connected?.Invoke(this, client);
+
+            client.Connection.RegisterHandler((short)NetworkMsgId.Connect, (netMsg) =>
+             {
+                 try
+                 {
+                     OnClientConnect(netMsg);
+                 }
+                 catch (Exception ex)
+                 {
+                     client.Stop();
+                     Console.WriteLine(ex);
+                 }
+                 ClientConnected?.Invoke(this, client);
+             });
         }
+
+
+
+        protected virtual void OnClientConnect(NetworkMessage netMsg)
+        {
+
+        }
+
 
         protected virtual NetworkClient AcceptClient(TcpClient netClient)
         {
@@ -246,7 +269,7 @@ namespace Net
                         client.Stop();
                     }
 
-                    Disconnected?.Invoke(this, client);
+                    ClientDisconnected?.Invoke(this, client);
                 }
                 catch { }
             }
@@ -366,5 +389,11 @@ namespace Net
         {
             Stop();
         }
+
+        ~NetworkServer()
+        {
+            Dispose();
+        }
+
     }
 }

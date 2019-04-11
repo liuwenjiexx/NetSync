@@ -73,6 +73,12 @@ namespace UnitTest
 
                 NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
                 client.Start();
+                foreach (var o in Wait()) yield return null;
+
+                Assert.IsTrue(client.Connection.IsConnected);
+                Assert.IsTrue(client.Connection.Socket.Connected);
+
+
                 bool connectedEvent = false;
                 bool disconnectEvent = false;
                 client.Connection.Connected += (c) =>
@@ -83,24 +89,14 @@ namespace UnitTest
                 client.Connection.Disconnected += (c) =>
                 {
                     disconnectEvent = true;
+                    client.Connection.Connect();
                 };
-                Assert.IsTrue(client.Connection.IsConnected);
-                Assert.IsTrue(client.Connection.Socket.Connected);
+                client.Connection.Socket.Close();
+                foreach (var o in Wait()) yield return null;
 
-                connectedEvent = false;
-                disconnectEvent = false;
-                Assert.IsTrue(client.Connection.AutoReconnect);
-
-                client.Connection.Socket.Disconnect(false);
-                yield return null;
                 Assert.IsTrue(disconnectEvent);
                 Assert.IsTrue(connectedEvent);
-
-                connectedEvent = false;
-                disconnectEvent = false;
-                client.Connection.Socket.Disconnect(false);
-                foreach (var o in Wait()) yield return null;
-                System.Threading.Thread.Sleep(client.Connection.ReconnectInterval + 1);
+                 
                 foreach (var o in Wait()) yield return null;
                 Assert.IsTrue(connectedEvent);
                 Assert.IsTrue(client.Connection.Socket.Connected);
