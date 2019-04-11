@@ -155,7 +155,7 @@ namespace Net
         public void WriteGuid(Guid value)
         {
             byte[] bytes = value.ToByteArray();
-            //8 little bytes 
+            //little to big
             Array.Reverse(bytes, 0, 4);
             Array.Reverse(bytes, 4, 2);
             Array.Reverse(bytes, 6, 2);

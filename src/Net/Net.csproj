@@ -47,6 +47,8 @@
     <Compile Include="Common\Utils.cs" />
     <Compile Include="Messages\BytesArrayMessage.cs" />
     <Compile Include="Messages\BytesMessage.cs" />
+    <Compile Include="Messages\CreateObjectMessage.cs" />
+    <Compile Include="Messages\DestroyObjectMessage.cs" />
     <Compile Include="Messages\Message`1.cs" />
     <Compile Include="Messages\BaseTypeMessages.cs" />
     <Compile Include="NetworkInstanceId.cs" />

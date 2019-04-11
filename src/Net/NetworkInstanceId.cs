@@ -13,9 +13,19 @@ namespace Net
 
         public uint Value { get => value; internal set => this.value = value; }
 
+        public bool IsEmpty
+        {
+            get { return value == 0; }
+        }
+
+
         public override int GetHashCode()
         {
             return value.GetHashCode();
+        }
+        public override string ToString()
+        {
+            return value.ToString();
         }
 
     }

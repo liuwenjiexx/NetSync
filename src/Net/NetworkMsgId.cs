@@ -5,9 +5,13 @@ namespace Net
     public enum NetworkMsgId
     {
         /// <summary>
-        /// 协议握手
+        /// 连接
         /// </summary>
-        Handshake = 1,
+        Connect = 1,
+        /// <summary>
+        /// 断开连接消息
+        /// </summary>
+        Disconnect,
         /// <summary>
         /// Ping 测试延迟用
         /// </summary>

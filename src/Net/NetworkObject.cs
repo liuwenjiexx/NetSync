@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Net.Messages;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -76,6 +77,7 @@ namespace Net
                     conn.SendMessage((short)NetworkMsgId.CreateObject,
                         new CreateObjectMessage()
                         {
+                            toServer = false,
                             objectId = objectId,
                             instanceId = InstanceId,
                         });
@@ -221,6 +223,7 @@ namespace Net
         internal void Update()
         {
             UpdateSyncVar();
+
             OnUpdate();
         }
 
@@ -302,7 +305,7 @@ namespace Net
             }
             catch (Exception ex) { destroryEx = ex; }
 
-            var info = NetworkClient.createInstanceInfos[objectId];
+            var info = NetworkObjectInfo.Get(objectId);
 
             if (info.destroy == null)
             {

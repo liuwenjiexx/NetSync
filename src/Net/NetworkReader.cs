@@ -152,8 +152,7 @@ namespace Net
         public bool ReadBool()
         {
             byte b;
-            b = ReadByte();
-            position++;
+            b = ReadByte(); 
             return b == 0 ? false : true;
         }
         public void Read(byte[] buffer, int offset, int length)
@@ -285,6 +284,7 @@ namespace Net
             byte[] bytes = new byte[16];
 
             Array.Copy(buffer, offset, bytes, 0, 16);
+            //big to little
             Array.Reverse(bytes, 0, 4);
             Array.Reverse(bytes, 4, 2);
             Array.Reverse(bytes, 6, 2);

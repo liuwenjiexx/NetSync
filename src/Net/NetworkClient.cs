@@ -3,10 +3,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net.Sockets;
+using System.Linq;
+using System.Reflection;
 
 namespace Net
 {
-    public class NetworkClient : CoroutineBase,IDisposable
+    public class NetworkClient : CoroutineBase, IDisposable
     {
         private NetworkConnection conn;
         private bool isRunning;
@@ -21,12 +23,13 @@ namespace Net
             isClient = !isListen;
 
             conn = new NetworkConnection(socket, isListen);
-            conn.RegisterHandler((short)NetworkMsgId.Handshake, OnReceive_HandshakeMsg);
+            //conn.RegisterHandler((short)NetworkMsgId.Handshake, OnReceive_HandshakeMsg);
             conn.RegisterHandler((short)NetworkMsgId.Ping, OnReceive_Ping);
+
+            conn.RegisterHandler((short)NetworkMsgId.CreateObject, OnReceive_CreateObject);
 
             if (IsClient)
             {
-                conn.RegisterHandler((short)NetworkMsgId.CreateObject, OnReceive_CreateObject);
                 conn.RegisterHandler((short)NetworkMsgId.DestroyObject, OnReceive_DestroryObject);
                 ConnectionToServer = conn;
             }
@@ -76,6 +79,41 @@ namespace Net
         public event Action<NetworkClient> Connected;
         public event Action<NetworkClient> Disconnected;
 
+        static NetworkClient()
+        {
+            Action<Assembly> assemblyLoad = (ass) =>
+            {
+                foreach (var type in ass.GetTypes())
+                {
+                    if (!type.IsSubclassOf(typeof(NetworkObject)))
+                        continue;
+                    var attr = type.GetCustomAttributes(typeof(NetworkObjectIdAttribute), false).FirstOrDefault() as NetworkObjectIdAttribute;
+                    if (attr == null)
+                        continue;
+                    var id = NetworkObjectId.GetObjectId(type);
+                    if (!NetworkObjectInfo.Has(id))
+                        RegisterObject(id, type, _CreateObject, null);
+                }
+            };
+
+            AppDomain.CurrentDomain.AssemblyLoad += (sender, args) =>
+            {
+                assemblyLoad(args.LoadedAssembly);
+            }; ;
+
+            foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                assemblyLoad(ass);
+            }
+        }
+
+
+
+        static NetworkObject _CreateObject(NetworkObjectId objectId)
+        {
+            NetworkObjectInfo objInfo = NetworkObjectInfo.Get(objectId);
+            return Activator.CreateInstance(objInfo.type) as NetworkObject;
+        }
 
 
         public virtual void Start()
@@ -89,6 +127,19 @@ namespace Net
         public virtual void Stop()
         {
             CheckThreadSafe();
+            try
+            {                
+                conn.SendMessage((short)NetworkMsgId.Disconnect);
+                DateTime timeout = DateTime.Now.AddMilliseconds(1000);
+                while (conn.IsConnected&& conn.HasSendMessage)
+                {
+                    if (DateTime.Now > timeout)
+                        break;
+                    conn.ProcessMessage();
+                    System.Threading.Thread.Sleep(0);
+                }
+            }
+            catch { }
             isRunning = false;
         }
 
@@ -102,10 +153,11 @@ namespace Net
 
             using (Connection)
             {
-                SendHandshakeMsg();
+                Connect();
 
                 while (isRunning)
                 {
+
                     try
                     {
                         if (!conn.IsConnected)
@@ -121,7 +173,7 @@ namespace Net
             }
 
             isRunning = false;
-            
+
 
             Stoped?.Invoke(this);
         }
@@ -145,46 +197,40 @@ namespace Net
             }
             Disconnected?.Invoke(this);
         }
- 
 
-        protected virtual void SendHandshakeMsg()
+
+        protected virtual void Connect()
         {
-
             if (IsClient)
             {
-                Connection.SendMessage((short)NetworkMsgId.Handshake);
-            }
-            else
-            {
-                Connection.SendMessage((short)NetworkMsgId.Handshake);
-            }
-
-        }
-
-        protected virtual void OnHandshakeMsg(NetworkMessage netMsg)
-        {
-
-        }
-
-        private void OnReceive_HandshakeMsg(NetworkMessage netMsg)
-        {
-            if (status == Status.Handshaking)
-            {
-                try
-                {
-                    OnHandshakeMsg(netMsg);
-                    status = Status.Connected;
-                    Connected?.Invoke(this);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                    status = Status.HandshakeError;
-                    Connection.AutoReconnect = false;
-                    Stop();
-                }
+                Connection.SendMessage((short)NetworkMsgId.Connect);
             }
         }
+
+        //protected virtual void OnHandshakeMsg(NetworkMessage netMsg)
+        //{
+
+        //}
+
+        //private void OnReceive_HandshakeMsg(NetworkMessage netMsg)
+        //{
+        //    if (status == Status.Handshaking)
+        //    {
+        //        try
+        //        {
+        //            OnHandshakeMsg(netMsg);
+        //            status = Status.Connected;
+        //            Connected?.Invoke(this);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Console.WriteLine(ex);
+        //            status = Status.HandshakeError;
+        //            Connection.AutoReconnect = false;
+        //            Stop();
+        //        }
+        //    }
+        //}
 
         enum Status
         {
@@ -236,19 +282,26 @@ namespace Net
         #region Create Object
 
 
-
-        internal static Dictionary<NetworkObjectId, NetworkObjectInfo> createInstanceInfos;
-
-        public static void RegisterObject<T>(CreateInstanceDelegate create, DestroyInstanceDelegate destrory = null)
+        public static void RegisterObject<T>(CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
         {
-            NetworkObjectId objectId = NetworkObjectId.GetObjectId(typeof(T));
-            Type type = typeof(T);
+            RegisterObject(typeof(T), create, destrory);
+        }
+
+        public static void RegisterObject(Type type, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
+        {
+            NetworkObjectId objectId = NetworkObjectId.GetObjectId(type);
+
             SyncVarInfo.GetSyncVarInfos(type);
             SyncListInfo.GetSyncListInfos(type);
             RegisterObject(objectId, create, destrory);
         }
 
-        public static void RegisterObject(NetworkObjectId objectId, CreateInstanceDelegate create, DestroyInstanceDelegate destrory = null)
+        public static void RegisterObject(NetworkObjectId objectId, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
+        {
+            RegisterObject(objectId, create, destrory);
+        }
+
+        private static void RegisterObject(NetworkObjectId objectId, Type type, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
         {
             if (objectId.Value == Guid.Empty)
                 throw new ArgumentException("value is empty", nameof(objectId));
@@ -261,20 +314,33 @@ namespace Net
                 objectId = objectId,
                 create = create,
                 destroy = destrory,
+                type = type,
             };
-            if (createInstanceInfos == null)
-                createInstanceInfos = new Dictionary<NetworkObjectId, NetworkObjectInfo>();
-            createInstanceInfos[objectId] = info;
+            NetworkObjectInfo.Add(info);
         }
 
         public static void UnregisterObject(NetworkObjectId objectId)
         {
-            if (createInstanceInfos != null)
-            {
-                createInstanceInfos.Remove(objectId);
-            }
-        }
+            NetworkObjectInfo.Remove(objectId);
 
+        }
+        public void CreateObject<T>(MessageBase parameter = null)
+            where T : NetworkObject
+        {
+            var id = NetworkObjectId.GetObjectId(typeof(T));
+            CreateObject(id, parameter);
+        }
+        public void CreateObject(NetworkObjectId objectId, MessageBase parameter = null)
+        {
+            var msg = new CreateObjectMessage()
+            {
+                toServer = true,
+                objectId = objectId,
+                parameter = parameter
+            };
+
+            conn.SendMessage((short)NetworkMsgId.CreateObject, msg);
+        }
 
 
 
@@ -290,10 +356,7 @@ namespace Net
                 }
                 else
                 {
-
-                    if (!createInstanceInfos.ContainsKey(objectId))
-                        throw new Exception("not contains object id:" + objectId);
-                    var info = createInstanceInfos[objectId];
+                    var info = NetworkObjectInfo.Get(objectId);
                     instance = info.create(objectId);
                     if (instance == null)
                         throw new Exception("create instance null, object id:" + objectId);
@@ -325,13 +388,28 @@ namespace Net
 
         private void OnReceive_CreateObject(NetworkMessage netMsg)
         {
-            if (IsClient)
+            var msg = netMsg.ReadMessage<CreateObjectMessage>();
+            if (msg.toServer)
             {
-                var msg = netMsg.ReadMessage<CreateObjectMessage>();
-                NetworkObjectId objectId = msg.objectId;
-                NetworkInstanceId instanceId = msg.instanceId;
+                if (server != null)
+                {
+                    var obj = server.CreateObject(msg.objectId, netMsg);
+                    if (obj != null)
+                    {
+                        obj.AddObserver(netMsg.Connection);
+                        obj.ConnectionToOwner = netMsg.Connection;
+                    }
+                }
+            }
+            else
+            {
+                if (IsClient)
+                {
+                    NetworkObjectId objectId = msg.objectId;
+                    NetworkInstanceId instanceId = msg.instanceId;
 
-                ClientCreateObject(netMsg.Connection, objectId, instanceId);
+                    ClientCreateObject(netMsg.Connection, objectId, instanceId);
+                }
             }
         }
         private void OnReceive_DestroryObject(NetworkMessage netMsg)
@@ -354,26 +432,49 @@ namespace Net
 
     }
 
-    public delegate NetworkObject CreateInstanceDelegate(NetworkObjectId objectId);
-    public delegate void DestroyInstanceDelegate(NetworkObject instance);
+    public delegate NetworkObject CreateObjectDelegate(NetworkObjectId objectId);
+    public delegate void DestroyObjectDelegate(NetworkObject instance);
 
 
 
     internal class NetworkObjectInfo
     {
         public NetworkObjectId objectId;
-        public CreateInstanceDelegate create;
-        public DestroyInstanceDelegate destroy;
+        public CreateObjectDelegate create;
+        public DestroyObjectDelegate destroy;
+        public Type type;
+        static Dictionary<NetworkObjectId, NetworkObjectInfo> createInstanceInfos;
+
+        public static void Add(NetworkObjectInfo objInfo)
+        {
+            if (createInstanceInfos == null)
+                createInstanceInfos = new Dictionary<NetworkObjectId, NetworkObjectInfo>();
+
+            createInstanceInfos[objInfo.objectId] = objInfo;
+        }
+        public static bool Has(NetworkObjectId objectId)
+        {
+            return (createInstanceInfos != null && createInstanceInfos.ContainsKey(objectId));
+        }
+
+        public static NetworkObjectInfo Get(NetworkObjectId objectId)
+        {
+            if (createInstanceInfos == null || !createInstanceInfos.ContainsKey(objectId))
+                throw new Exception("not contains object id:" + objectId);
+            var objInfo = createInstanceInfos[objectId];
+            return objInfo;
+        }
+
+        public static void Remove(NetworkObjectId objectId)
+        {
+            if (createInstanceInfos != null)
+            {
+                createInstanceInfos.Remove(objectId);
+            }
+        }
+
     }
 
-    internal class CreateObjectMessage : MessageBase
-    {
-        public NetworkObjectId objectId;
-        public NetworkInstanceId instanceId;
-    }
-    internal class DestroyObjectMessage : MessageBase
-    {
-        public NetworkInstanceId instanceId;
-    }
+
 
 }

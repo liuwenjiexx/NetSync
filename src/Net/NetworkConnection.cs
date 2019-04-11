@@ -66,7 +66,7 @@ namespace Net
 
         public bool HasSendMessage
         {
-            get { return sendMsgQueue.Count > 0; }
+            get { return currentSendMsg != null || sendMsgQueue.Count > 0; }
         }
 
         public IEnumerable<NetworkObject> Objects

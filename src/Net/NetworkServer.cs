@@ -14,6 +14,7 @@ namespace Net
         private Dictionary<NetworkConnection, LinkedListNode<NetworkClient>> hostDic;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
         private uint nextInstanceId;
+        private List<NetworkInstanceId> destoryObjIds = new List<NetworkInstanceId>();
 
         public NetworkServer(TcpListener server)
         {
@@ -147,7 +148,7 @@ namespace Net
                         }
                     }
 
-                    UpdateSyncVar();
+                    UpdateObjects();
                     OnUpdate();
                 }
                 catch (Exception ex)
@@ -261,32 +262,41 @@ namespace Net
             }
         }
 
-        #region Create Instance
+        #region Create Object
 
         public T CreateObject<T>()
             where T : NetworkObject
         {
             var id = NetworkObjectId.GetObjectId(typeof(T));
-            return (T)CreateObject(id);
+            return (T)CreateObject(id, null);
         }
 
         public NetworkObject CreateObject(NetworkObjectId objectId)
         {
-            if (NetworkClient.createInstanceInfos == null || !NetworkClient.createInstanceInfos.ContainsKey(objectId))
-                throw new Exception("not contains object id:" + objectId);
-            var objInfo = NetworkClient.createInstanceInfos[objectId];
+            return CreateObject(objectId, null);
+        }
+
+        internal NetworkObject CreateObject(NetworkObjectId objectId, NetworkMessage netMsg)
+        {
+            var objInfo = NetworkObjectInfo.Get(objectId);
+
             NetworkObject instance = objInfo.create(objectId);
             if (instance == null)
-                throw new Exception("create instance null, object id:" + objectId);
-
+                throw new Exception("create object, instance null");
             instance.InstanceId = new NetworkInstanceId(++nextInstanceId);
             instance.objectId = objectId;
             instance.IsServer = true;
             objects[instance.InstanceId] = instance;
 
+            OnCreateObject(instance, netMsg);
 
             return instance;
         }
+
+        protected virtual void OnCreateObject(NetworkObject instance, NetworkMessage netMsg)
+        {
+        }
+
 
         public NetworkObject GetObject(NetworkInstanceId instanceId)
         {
@@ -315,7 +325,7 @@ namespace Net
         #endregion
 
 
-        public void UpdateSyncVar()
+        public void UpdateObjects()
         {
             if (objects != null)
             {
@@ -323,10 +333,32 @@ namespace Net
                 {
                     if (netObj != null)
                     {
-                        netObj.Update();
-
+                        try
+                        {
+                            netObj.Update();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
+                        var owner = netObj.ConnectionToOwner;
+                        if (owner != null && !owner.IsConnected)
+                        {
+                            destoryObjIds.Add(netObj.InstanceId);
+                        }
                     }
                 }
+
+                foreach (var id in destoryObjIds)
+                {
+                    NetworkObject netObj;
+                    if (objects.TryGetValue(id, out netObj))
+                    {
+                        if (netObj != null)
+                            DestroyObject(netObj);
+                    }
+                }
+                destoryObjIds.Clear();
             }
         }
 
