@@ -34,26 +34,12 @@ namespace UnitTest
 
         class TestHandshakeClient : NetworkClient
         {
-            private TestHandshakeContext context;
+        
             public TestHandshakeClient(NetworkServer server, Socket socket, bool isListen)
                 : base(server, socket, isListen)
-            {
-                Connection.ObjectAdded += Connection_ObjectAdded;
-            }
-
-            private void Connection_ObjectAdded(NetworkObject obj)
-            {
-                if (obj is TestHandshakeContext)
-                {
-                    context = (TestHandshakeContext)obj;
-                }
-            }
-
-
-            static TestHandshakeClient()
-            {
-                RegisterObject<TestHandshakeContext>(o => new TestHandshakeContext());
-            }
+            { 
+            } 
+      
 
             public TestHandshakeContext Context { get => context; }
 
