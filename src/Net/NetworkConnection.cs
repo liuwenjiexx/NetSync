@@ -21,6 +21,7 @@ namespace Net
         private bool isSocketConnected;
         //private DateTime lastTryReconnectTime;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
+        
         private DateTime lastActiveTime;
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
@@ -76,6 +77,10 @@ namespace Net
             {
                 return objects.Select(o => o.Value);
             }
+        }
+        public IEnumerable<NetworkObject> OwnerObjects
+        {
+            get { return objects.Values.Where(o => o.ConnectionToOwner == this); }
         }
 
         public DateTime LastSendTime { get => lastSendTime; }
