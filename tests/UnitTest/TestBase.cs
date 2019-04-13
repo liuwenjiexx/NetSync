@@ -67,7 +67,13 @@ namespace UnitTest
             tcpListener.Start();
             return tcpListener;
         }
-
+        protected Socket NewSocketListener()
+        {
+            Socket tcpListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            tcpListener.Bind(new IPEndPoint(IPAddress.Any, localPort));
+            tcpListener.Listen(10);
+            return tcpListener;
+        }
         protected Socket NewTcpClient()
         {
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);

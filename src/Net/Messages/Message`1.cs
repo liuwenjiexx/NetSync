@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Net
+namespace Net.Messages
 {
 
     public class Message<T> : MessageBase

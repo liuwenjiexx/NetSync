@@ -89,7 +89,7 @@ namespace UnitTest
                 client.Connection.Disconnected += (c) =>
                 {
                     disconnectEvent = true;
-                    client.Connection.Connect();
+                    client.Connection.Connect(localAddress,localPort);
                 };
                 client.Connection.Socket.Close();
                 foreach (var o in Wait()) yield return null;

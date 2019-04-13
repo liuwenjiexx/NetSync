@@ -8,7 +8,7 @@ using System.Net.Sockets;
 
 namespace Net
 {
-    public class NetworkConnection : IDisposable
+    public class NetworkConnection : CoroutineBase, IDisposable
     {
         private Socket socket;
         private bool isConnected;
@@ -17,34 +17,51 @@ namespace Net
         private Queue<NetworkWriter> sendMsgQueue;
         private NetworkWriter currentSendMsg;
         private Dictionary<short, NetworkMessageDelegate> handlers;
-        private bool isListen;
-        private bool isSocketConnected;
+        private bool isListening;
+        private bool isInital;
         //private DateTime lastTryReconnectTime;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
-        
-        private DateTime lastActiveTime;
+
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
-        EndPoint endPoint;
-        public NetworkConnection(Socket socket, bool isListen)
+        private string address;
+        private int port;
+
+
+        public NetworkConnection()
         {
-            if (socket == null) throw new ArgumentNullException("socket");
-
-            this.socket = socket;
-            this.isConnected = true;
-              endPoint = socket.RemoteEndPoint;
-            this.isListen = isListen;
-            //ReconnectInterval = 1000;
-            //AutoReconnect = true;
-            ResetSocket(socket);
-            isSocketConnected = socket.Connected;
             objects = new Dictionary<NetworkInstanceId, NetworkObject>();
-
+            handlers = new Dictionary<short, NetworkMessageDelegate>();
 
             RegisterHandler((short)NetworkMsgId.SyncVar, OnReceive_SyncVar);
             RegisterHandler((short)NetworkMsgId.SyncList, OnReceive_SyncList);
             RegisterHandler((short)NetworkMsgId.Rpc, OnReceive_Rpc);
+        }
 
+        public NetworkConnection(Socket socket, bool isListening)
+            :this()
+        {
+            if (socket == null) throw new ArgumentNullException("socket");
+
+            this.socket = socket;
+
+            this.isListening = isListening;
+            //ReconnectInterval = 1000;
+            //AutoReconnect = true;
+   
+
+            if (socket != null)
+            {
+
+                if (socket.Connected)
+                {
+                    StartCoroutine(Running());
+                }
+                else
+                {
+                    Disconnect();
+                }
+            }
         }
 
         public Socket Socket
@@ -85,7 +102,6 @@ namespace Net
 
         public DateTime LastSendTime { get => lastSendTime; }
         public DateTime LastReceiveTime { get => lastReceiveTime; }
-        public DateTime LastActiveTime { get => lastActiveTime; }
 
         public event Action<NetworkConnection> Connected;
         public event Action<NetworkConnection> Disconnected;
@@ -96,8 +112,7 @@ namespace Net
         {
             if (handler == null)
                 return;
-            if (handlers == null)
-                handlers = new Dictionary<short, NetworkMessageDelegate>();
+ 
             handlers[msgId] = handler;
         }
 
@@ -131,27 +146,51 @@ namespace Net
 
         public void Disconnect()
         {
-            isConnected = false;
-            if (socket != null && socket.Connected)
+            if (socket != null)
             {
-                socket.Disconnect(false);
+                try
+                {
+                    ProcessSendMessage();
+                }
+                catch { }
+
+                try
+                {
+                    socket.Disconnect(false);
+                    socket.Close();
+                }
+                catch { }
+                socket = null;
+            }
+            if (isConnected)
+            {
+                isConnected = false;
+                Disconnected?.Invoke(this);
             }
         }
 
-        public void Connect()
+        public void Initial(string address, int port)
         {
-            if (isListen)
+            this.address = address;
+            this.port = port;
+            isInital = true;
+        }
+
+
+        public void Connect(string address, int port)
+        {
+            if (isListening)
                 throw new Exception("is listen");
 
-            if (!isSocketConnected)
+            if (!isConnected)
             {
                 //lastTryReconnectTime = DateTime.UtcNow;
-                Socket s = new Socket(socket.AddressFamily, socket.SocketType, socket.ProtocolType);
-       
+                Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
                 try
                 {
-                    s.Connect(endPoint);
-                    s.Blocking = socket.Blocking;
+                    s.Connect(address, port);
+                    s.Blocking = false;
                 }
                 catch (Exception ex)
                 {
@@ -163,22 +202,23 @@ namespace Net
                 {
                     if (s.Connected)
                     {
-                        ResetSocket(s);
-                        isSocketConnected = true;
+                        InitialSocket(s);
+                        isConnected = true;
                     }
                 }
 
-                if (isSocketConnected)
+                if (isConnected)
                 {
-
-                    lastActiveTime = DateTime.UtcNow;
+                    this.address = address;
+                    this.port = port;
+                    StartCoroutine(Running());
                     Connected?.Invoke(this);
                 }
 
             }
         }
 
-        private void ResetSocket(Socket socket)
+        private void InitialSocket(Socket socket)
         {
             this.socket = socket;
             reader = new NetworkReader(Socket);
@@ -207,29 +247,56 @@ namespace Net
 
             currentSendMsg = null;
         }
-
         internal void ProcessMessage()
         {
-            if (isSocketConnected)
+        }
+
+        internal IEnumerator Running()
+        {
+            InitialSocket(socket);
+            this.isConnected = true;
+            Connected?.Invoke(this);
+
+            while (isConnected)
             {
                 try
                 {
                     if (!socket.Connected)
                     {
-                        isSocketConnected = false;
+                        break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    isSocketConnected = false;
+                    Disconnect();
                     Console.WriteLine(ex);
                 }
-                if (!isSocketConnected)
+
+                try
                 {
-                    Clear();
-                    Disconnected?.Invoke(this);
+                    ProcessSendMessage();
+
+                    ProcessReceiveMessage();
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    break;
+                }
+                yield return null;
             }
+
+            if (isConnected)
+            {
+                isConnected = false;
+                Disconnected?.Invoke(this);
+            }
+
+        }
+
+        void ProcessSendMessage()
+        {
+            MemoryStream ms;
 
             while (isConnected)
             {
@@ -252,7 +319,7 @@ namespace Net
                         currentSendMsg = sendMsgQueue.Dequeue();
                         if (currentSendMsg != null)
                         {
-                            MemoryStream ms = (MemoryStream)currentSendMsg.BaseStream;
+                            ms = (MemoryStream)currentSendMsg.BaseStream;
                             ms.Position = 0;
                         }
                     }
@@ -261,50 +328,43 @@ namespace Net
                 if (currentSendMsg == null)
                     break;
 
-                if (currentSendMsg != null)
+
+                ms = (MemoryStream)currentSendMsg.BaseStream;
+                int count = (int)(ms.Length - ms.Position);
+                if (count > 0)
                 {
 
-                    MemoryStream ms = (MemoryStream)currentSendMsg.BaseStream;
-                    int count = (int)(ms.Length - ms.Position);
-                    if (count > 0)
+                    int sendCount = socket.Send(ms.GetBuffer(), (int)ms.Position, count, SocketFlags.None);
+
+                    if (sendCount > 0)
                     {
+                        ms.Position += sendCount;
                         lastSendTime = DateTime.UtcNow;
-                        OnActive();
-
-                        int sendCount = Socket.Send(ms.GetBuffer(), (int)ms.Position, count, SocketFlags.None);
-                        if (sendCount > 0)
-                        {
-                            ms.Position += sendCount;
-                        }
                     }
-                    if (ms.Position >= ms.Length)
-                    {
-                        writePool.Unused(currentSendMsg);
-                        currentSendMsg = null;
-                    }
-                    else
-                    {
-                        break;
-                    }
-
                 }
+                if (ms.Position >= ms.Length)
+                {
+                    writePool.Unused(currentSendMsg);
+                    currentSendMsg = null;
+                }
+                else
+                {
+                    break;
+                }
+
             }
-
-            ProcessReceiveMessage();
         }
-
 
         void ProcessReceiveMessage()
         {
 
-            if (!socket.Connected)
+            if (!isConnected)
                 return;
 
             int readCount = reader.ReadPackage();
             if (readCount > 0)
             {
                 lastReceiveTime = DateTime.UtcNow;
-                OnActive();
             }
 
             while (readCount > 0)
@@ -320,7 +380,16 @@ namespace Net
                 InvokeHandler(netMsg);
 
                 readCount = reader.ReadPackage();
+                if (readCount > 0)
+                {
+                    lastReceiveTime = DateTime.UtcNow;
+                }
             }
+        }
+
+        public bool HasHandler(short msgId)
+        {
+            return handlers.ContainsKey(msgId);
         }
 
         public void InvokeHandler(NetworkMessage netMsg)
@@ -338,10 +407,24 @@ namespace Net
 
             handler(netMsg);
         }
-        private void OnActive()
+
+        public void Flush(int timeout)
         {
-            lastActiveTime = DateTime.UtcNow;
+            if (HasSendMessage)
+            {
+                var time = DateTime.Now.AddMilliseconds(timeout);
+                while (HasSendMessage)
+                {
+                    ProcessSendMessage();
+                    if (DateTime.Now > time)
+                        break;
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
+
         }
+
+
         public IEnumerator WaitConnected(int timeout)
         {
             if (IsConnected && IsSocketConnected)
@@ -407,15 +490,7 @@ namespace Net
             var msg = new SyncVarMessage();
             msg.conn = netMsg.Connection;
 
-            netMsg.ReadMessage(msg);
-            switch (msg.action)
-            {
-                case SyncVarMessage.Action_RequestSyncVar:
-                    if (msg.netObj != null)
-                        netMsg.Connection.SendMessage((short)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(msg.netObj, msg.bits));
-                    break;
-            }
-
+            netMsg.ReadMessage(msg); 
         }
         private static void OnReceive_SyncList(NetworkMessage netMsg)
         {
@@ -436,19 +511,12 @@ namespace Net
 
         public void Dispose()
         {
-            if (socket != null)
+
+            try
             {
-                try
-                {
-                    Disconnect();
-                }
-                catch { }
-                try
-                {
-                    socket.Close();
-                }
-                catch { }
+                Disconnect();
             }
+            catch { }
         }
 
         public override bool Equals(object obj)
