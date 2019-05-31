@@ -1,6 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Net;
+using Net.Messages;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
@@ -12,35 +14,110 @@ namespace UnitTest.Connection
         [TestMethod]
         public void Event_Connected()
         {
+            Run(_Event_Connected());
+        }
+
+        private IEnumerator _Event_Connected()
+        {
             CleanupConnection();
+
             using (var server = NewSocketListener())
             {
-                bool isConnected = false, isDisconnected = false;
+                bool isClientConnected = false, isClientDisconnected = false;
+                bool isServerConnected = false, isServerDisconnected = false;
                 using (NetworkConnection conn = new NetworkConnection())
                 {
-                    conn.Connected += (o) =>
+                    conn.Connected += (o, netMsg) =>
                     {
-                        isConnected = true;
+                        isClientConnected = true;
                     };
                     conn.Disconnected += (o) =>
                     {
-                        isDisconnected = true;
+                        isClientDisconnected = true;
                     };
                     conn.Connect(localAddress, localPort);
-                    Assert.IsTrue(isConnected);
-                    Assert.IsFalse(isDisconnected);
 
-                    isConnected = false;
-                    isDisconnected = false;
+                    foreach (var o in Wait()) yield return null;
+
+                    var s1 = server.Accept();
+                    Assert.IsNotNull(s1);
+
+                    using (var serverConn = new NetworkConnection(null, s1, true))
+                    {
+                        serverConn.Connected += (o, netMsg) =>
+                        {
+                            isServerConnected = true;
+                        };
+                        serverConn.Disconnected += (o) =>
+                        {
+                            isServerDisconnected = true;
+                        };
+                        foreach (var o in Wait()) yield return null;
+                        Assert.IsTrue(isClientConnected);
+                        Assert.IsFalse(isClientDisconnected);
+                        Assert.IsTrue(isServerConnected);
+                        Assert.IsFalse(isServerDisconnected);
+
+
+                        isClientConnected = false;
+                        isClientDisconnected = false;
+                        isServerConnected = false;
+                        isServerDisconnected = false;
+                    }
+                    foreach (var o in Wait()) yield return null;
                 }
-                Assert.IsFalse(isConnected);
-                Assert.IsTrue(isDisconnected);
+                Assert.IsFalse(isClientConnected);
+                Assert.IsTrue(isClientDisconnected);
+                Assert.IsFalse(isServerConnected);
+                Assert.IsTrue(isServerDisconnected);
             }
         }
 
         [TestMethod]
+        public void ConnectExtra()
+        {
+            Run(_ConnectExtra());
+        }
+
+        [TestMethod]
+        public IEnumerator _ConnectExtra()
+        {
+            CleanupConnection();
+            using (var server = NewSocketListener())
+            {
+                using (NetworkConnection conn = new NetworkConnection())
+                {
+                    conn.Connect(localAddress, localPort, new StringMessage("Text"));
+
+                    foreach (var o in Wait()) yield return null;
+                    var s1 = server.Accept();
+                    string serverData = null;
+                    using (var serverConn = new NetworkConnection(null,s1, true))
+                    {
+                        serverConn.Connected += (o, netMsg) =>
+                        {
+                            var msg = netMsg.ReadMessage<StringMessage>();
+                            serverData = msg.Value;
+                        };
+                        foreach (var o in Wait()) yield return null;
+                    }
+
+                    Assert.AreEqual(serverData, "Text");
+
+                }
+            }
+        }
+        [TestMethod]
         public void Disconnect_Client()
         {
+            Run(_Disconnect_Client());
+        }
+
+         
+        public IEnumerator _Disconnect_Client()
+        {
+            foreach (var o in Wait()) yield return null;
+
             Assert.IsTrue(Client.IsConnected);
             Assert.IsTrue(Server.IsConnected);
 
@@ -54,6 +131,13 @@ namespace UnitTest.Connection
         [TestMethod]
         public void Disconnect_Server()
         {
+            Run(_Disconnect_Server());
+        }
+
+         
+        public IEnumerator _Disconnect_Server()
+        {
+            foreach (var o in Wait()) yield return null;
             Assert.IsTrue(Client.IsConnected);
             Assert.IsTrue(Server.IsConnected);
 
@@ -62,8 +146,6 @@ namespace UnitTest.Connection
             Assert.IsTrue(Client.IsConnected);
             Assert.IsFalse(Server.IsConnected);
         }
-
-
 
         [TestMethod]
         public void RegisterHandler()

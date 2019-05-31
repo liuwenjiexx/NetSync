@@ -1,7 +1,9 @@
-﻿using System;
+﻿using Net.Messages;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 
 namespace Net
@@ -14,14 +16,18 @@ namespace Net
         private Dictionary<NetworkConnection, LinkedListNode<NetworkClient>> hostDic;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
         private uint nextInstanceId;
+        private int nextConnectionId;
         private List<NetworkInstanceId> destoryObjIds = new List<NetworkInstanceId>();
-
+        private Type clientType;
         public NetworkServer(TcpListener server)
         {
             this.server = server;
             objects = new Dictionary<NetworkInstanceId, NetworkObject>();
         }
-
+        public NetworkServer()
+            : this(null)
+        {
+        }
 
         public bool IsRunning
         {
@@ -45,6 +51,7 @@ namespace Net
             }
         }
         public IEnumerable<NetworkObject> Objects { get => objects.Select(o => o.Value); }
+        public Type ClientType { get => clientType; set => clientType = value; }
 
         public event Action<NetworkServer> Started;
         public event Action<NetworkServer> Stoped;
@@ -52,13 +59,20 @@ namespace Net
         public event Action<NetworkServer, NetworkClient> ClientConnected;
         public event Action<NetworkServer, NetworkClient> ClientDisconnected;
 
+        public void Start(int localPort)
+        {
+            Start("0.0.0.0", localPort);
+        }
 
-        public virtual void Start()
+        public virtual void Start(string localAddress, int localPort)
         {
             CheckThreadSafe();
             if (isRunning)
                 return;
-
+            IPAddress address = IPAddress.Parse(localAddress);
+            TcpListener tcpListener = new TcpListener(new IPEndPoint(address, localPort));
+            tcpListener.Start();
+            this.server = tcpListener;
             StartCoroutine(Running());
         }
 
@@ -112,14 +126,15 @@ namespace Net
                         {
                             try
                             {
-                                client = AcceptClient(tcpClient);
+                                client = AcceptClient(tcpClient, null);
 
                                 if (client != null)
                                 {
                                     InitClient(client);
                                     if (!client.IsRunning)
                                     {
-                                        client.Start();
+                                        //client.Start();
+                                        StartCoroutine(client.Running());
                                     }
                                 }
                             }
@@ -200,33 +215,48 @@ namespace Net
         private void InitClient(NetworkClient client)
         {
 
-            client.Connection.RegisterHandler((short)NetworkMsgId.Connect, (netMsg) =>
-             {
-                 try
-                 {
-                     OnClientConnect(netMsg);
-                 }
-                 catch (Exception ex)
-                 {
-                     client.Stop();
-                     Console.WriteLine(ex);
-                 }
-                 ClientConnected?.Invoke(this, client);
-             });
+            client.Connection.Connected += (conn, netMsg) =>
+              {
+                  //try
+                  //{
+                  OnClientConnect(netMsg);
+                  //}
+                  //catch (Exception ex)
+                  //{
+                  //    client.Stop();
+                  //    Console.WriteLine(ex);
+                  //}
+                  //ClientConnected?.Invoke(this, client);
+
+              };
         }
 
 
 
         protected virtual void OnClientConnect(NetworkMessage netMsg)
         {
-
+            //var msg = netMsg.ReadMessage<ConnectMessage>();
+            if (netMsg.Connection.ConnectionId == 0)
+            {
+                int connId = ++nextConnectionId;
+                netMsg.Connection.ConnectionId = connId;
+            }
         }
 
 
-        protected virtual NetworkClient AcceptClient(TcpClient netClient)
+        protected virtual NetworkClient AcceptClient(TcpClient netClient, MessageBase extra)
         {
-            var client = new NetworkClient(this, netClient.Client, true);
-            client.Start();
+            NetworkClient client;
+
+            Type clientType = ClientType;
+            if (clientType == null)
+            {
+                clientType = typeof(NetworkClient);
+            }
+            client = (NetworkClient)Activator.CreateInstance(clientType, new object[] { this, netClient.Client, true });
+
+            //  client.Start();
+            StartCoroutine(client.Running());
             return client;
         }
 
@@ -266,7 +296,7 @@ namespace Net
                     var client = node.Value;
                     if (client.IsRunning)
                     {
-                        client.Stop();
+                        //client.Stop();
                     }
 
                     ClientDisconnected?.Invoke(this, client);
@@ -287,7 +317,7 @@ namespace Net
 
         #region Create Object
 
-        public T CreateObject<T>()
+        public T CreateObject<T>(NetworkMessage netMsg = null)
             where T : NetworkObject
         {
             var id = NetworkObjectId.GetObjectId(typeof(T));
@@ -316,7 +346,7 @@ namespace Net
             return instance;
         }
 
-        protected virtual void OnCreateObject(NetworkObject instance, NetworkMessage netMsg)
+        protected virtual void OnCreateObject(NetworkObject obj, NetworkMessage netMsg)
         {
         }
 
@@ -328,25 +358,65 @@ namespace Net
             return obj;
         }
 
-        public void DestroyObject(NetworkObject instance)
+        public void DestroyObject(NetworkObject obj)
         {
 
-            if (objects.ContainsKey(instance.InstanceId))
+            if (objects.ContainsKey(obj.InstanceId))
             {
-                foreach (var conn in instance.Observers.ToArray())
+                foreach (var conn in obj.Observers.ToArray())
                 {
-                    instance.RemoveObserver(conn);
+                    RemoveObserver(obj, conn);
                 }
 
-                objects.Remove(instance.InstanceId);
+                objects.Remove(obj.InstanceId);
 
-                instance.Destrory();
+                obj.Destrory();
             }
         }
 
 
         #endregion
 
+
+
+        public void AddObserver(NetworkObject obj, NetworkConnection conn)
+        {
+
+            if (!obj.IsServer)
+                throw new Exception("not server object");
+
+            if (!obj.observers.Contains(conn))
+            {
+                obj.observers.Add(conn);
+                conn.AddObject(obj);
+
+                conn.SendMessage((short)NetworkMsgId.CreateObject,
+                    new CreateObjectMessage()
+                    {
+                        toServer = false,
+                        objectId = obj.objectId,
+                        instanceId = obj.InstanceId,
+                    });
+
+                obj.SyncAll(conn);
+            }
+        }
+
+        public void RemoveObserver(NetworkObject obj, NetworkConnection conn)
+        {
+            if (!obj.IsServer)
+                throw new Exception("not server object");
+
+            if (obj.observers.Remove(conn))
+            {
+                conn.RemoveObject(obj);
+
+                conn.SendMessage((short)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
+                {
+                    instanceId = obj.InstanceId,
+                });
+            }
+        }
 
         public void UpdateObjects()
         {

@@ -66,61 +66,7 @@ namespace Net
 
         }
 
-        public virtual void AddObserver(NetworkConnection conn)
-        {
-            if (!observers.Contains(conn))
-            {
-                observers.Add(conn);
-                conn.AddObject(this);
-                if (isServer)
-                {
-                    conn.SendMessage((short)NetworkMsgId.CreateObject,
-                        new CreateObjectMessage()
-                        {
-                            toServer = false,
-                            objectId = objectId,
-                            instanceId = InstanceId,
-                        });
 
-
-                    if (syncVarStates != null)
-                    {
-                        conn.SendMessage((short)NetworkMsgId.SyncVar,
-                              SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
-                    }
-
-                    var syncListInfos = SyncListInfo.GetSyncListInfos(GetType());
-                    if (syncListInfos != null)
-                    {
-                        for (int i = 0, len = syncListInfos.Length; i < len; i++)
-                        {
-                            var info = syncListInfos[i];
-                            var list = info.field.GetValue(this);
-                            int j = 0;
-                            foreach (var item in (IEnumerable)list)
-                            {
-                                conn.SendMessage((short)NetworkMsgId.SyncList, SyncListMessage.Add(this, info.memberIndex, (byte)j));
-                                j++;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        public virtual void RemoveObserver(NetworkConnection conn)
-        {
-            if (observers.Remove(conn))
-            {
-                conn.RemoveObject(this);
-                if (IsServer)
-                {
-                    conn.SendMessage((short)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
-                    {
-                        instanceId = InstanceId,
-                    });
-                }
-            }
-        }
 
         #region Sync Var 
 
@@ -218,7 +164,30 @@ namespace Net
             }
         }
 
+        internal void SyncAll(NetworkConnection conn)
+        {
 
+            if (syncVarStates != null)
+            {
+                conn.SendMessage((short)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
+            }
+
+            var syncListInfos = SyncListInfo.GetSyncListInfos(GetType());
+            if (syncListInfos != null)
+            {
+                for (int i = 0, len = syncListInfos.Length; i < len; i++)
+                {
+                    var info = syncListInfos[i];
+                    var list = info.field.GetValue(this);
+                    int j = 0;
+                    foreach (var item in (IEnumerable)list)
+                    {
+                        conn.SendMessage((short)NetworkMsgId.SyncList, SyncListMessage.Add(this, info.memberIndex, (byte)j));
+                        j++;
+                    }
+                }
+            }
+        }
 
         internal void Update()
         {

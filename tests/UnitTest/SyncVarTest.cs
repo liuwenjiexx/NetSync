@@ -15,11 +15,7 @@ namespace UnitTest
 
     class MyServer : NetworkServer
     {
-        public MyServer(TcpListener server)
-            : base(server)
-        { }
-
-        protected override NetworkClient AcceptClient(TcpClient client)
+        protected override NetworkClient AcceptClient(TcpClient client,MessageBase extra)
         {
             var c = new MyClient(this, client.Client, true);
             return c;
@@ -35,6 +31,10 @@ namespace UnitTest
         //[SyncVar(Bits = 0x4)]
         //private float floatVar;
 
+        public MyClient( )
+            : base(null,null,false)
+        {
+        }
 
         public MyClient(MyServer server, Socket socket, bool isListen)
         : base(server, socket, isListen)
@@ -44,6 +44,32 @@ namespace UnitTest
         //public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
         //public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
         //public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
+    }
+    [NetworkObjectId("cb0518d9-8c72-4764-a463-6d6eba57cb83")]
+    class MySyncVarData : NetworkObject
+    {
+        [SyncVar(Bits = 0x1)]
+        private string stringVar;
+        [SyncVar(Bits = 0x2)]
+        private int intVar;
+        [SyncVar(Bits = 0x4)]
+        private float floatVar;
+
+        public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
+        public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
+        public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
+
+        //   [RpcClient]
+        public void SetIntVarClient(int n)
+        {
+            intVar = n;
+        }
+        //   [RpcServer]
+        public void SetIntVarServer(int n)
+        {
+            intVar = n;
+        }
+
     }
 
     [TestClass]
@@ -56,51 +82,23 @@ namespace UnitTest
         }
         IEnumerator _Start()
         {
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
                 Assert.IsTrue(server.IsRunning);
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient( );
+                client.Connect(localAddress,localPort );
                 Assert.IsTrue(client.IsRunning);
 
                 yield return null;
-                client.Stop();
+                //client.Stop();
                 Assert.IsFalse(client.IsRunning);
                 yield return null;
             }
         }
 
 
-        [NetworkObjectId("cb0518d9-8c72-4764-a463-6d6eba57cb83")]
-        class MySyncVarData : NetworkObject
-        {
-            [SyncVar(Bits = 0x1)]
-            private string stringVar;
-            [SyncVar(Bits = 0x2)]
-            private int intVar;
-            [SyncVar(Bits = 0x4)]
-            private float floatVar;
-
-            public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
-            public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
-            public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
-
-            //   [RpcClient]
-            public void SetIntVarClient(int n)
-            {
-                intVar = n;
-            }
-            //   [RpcServer]
-            public void SetIntVarServer(int n)
-            {
-                intVar = n;
-            }
-
-
-
-        }
 
         //[NetworkObjectId("1b0518d9-8c72-4764-a463-6d6eba57cb83")]
         //class ErrorRepeatBitsData : NetworkObject
@@ -118,149 +116,7 @@ namespace UnitTest
         //    NetworkClient.RegisterObject<ErrorRepeatBitsData>(id => new ErrorRepeatBitsData());
         //}
 
-        [TestMethod]
-        public void CreateNetworkObject()
-        {
-            Run(_CreateNetworkObject());
-        }
-        public IEnumerator _CreateNetworkObject()
-        {
-            using (MyServer server = new MyServer(NewTcpListener()))
-            {
-                server.Start();
-
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
-
-                foreach (var o in Wait()) yield return null;
-
-
-                NetworkClient.RegisterObject<MySyncVarData>((id) =>
-               {
-                   return new MySyncVarData();
-               });
-                Assert.AreEqual(client.Objects.Count(), 0);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                var serverData = server.CreateObject<MySyncVarData>();
-                Assert.AreEqual(server.Objects.Count(), 1);
-                Assert.IsNotNull(serverData);
-                Assert.IsTrue(serverData.IsServer);
-                Assert.IsFalse(serverData.IsClient);
-                foreach (var o in Wait()) yield return null;
-
-                var clientData = client.Objects.FirstOrDefault();
-                Assert.IsNull(clientData);
-                serverData.AddObserver(server.Connections.First());
-                foreach (var o in Wait()) yield return null;
-                clientData = client.Objects.FirstOrDefault();
-
-                Assert.IsNotNull(clientData);
-                Assert.IsFalse(clientData.IsServer);
-                Assert.IsTrue(clientData.IsClient);
-                Assert.AreEqual(clientData.InstanceId, serverData.InstanceId);
-                Assert.IsFalse(object.ReferenceEquals(clientData, serverData));
-                Assert.AreEqual(clientData, serverData);
-
-                server.DestroyObject(serverData);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                foreach (var o in Wait()) yield return null;
-                Assert.AreEqual(client.Objects.Count(), 0);
-
-                client.Stop();
-            }
-        }
-
-
-
-        [TestMethod]
-        public void DestroyNetworkObject()
-        {
-            Run(_DestroyNetworkObject());
-        }
-        public IEnumerator _DestroyNetworkObject()
-        {
-
-            using (MyServer server = new MyServer(NewTcpListener()))
-            {
-                server.Start();
-
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
-
-                NetworkClient.RegisterObject<MySyncVarData>((id) =>
-                {
-                    return new MySyncVarData();
-                });
-                Assert.AreEqual(client.Objects.Count(), 0);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                var serverData = server.CreateObject<MySyncVarData>();
-                foreach (var o in Wait()) yield return null;
-
-                serverData.AddObserver(server.Connections.First());
-                foreach (var o in Wait()) yield return null;
-
-                server.DestroyObject(serverData);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                foreach (var o in Wait()) yield return null;
-                Assert.AreEqual(client.Objects.Count(), 0);
-
-                client.Stop();
-            }
-        }
-
-
-        [TestMethod]
-        public void HostNetworkObject()
-        {
-            Run(_HostNetworkObject());
-        }
-        public IEnumerator _HostNetworkObject()
-        {
-
-            using (MyServer server = new MyServer(NewTcpListener()))
-            {
-                server.Start();
-
-                MyClient client = new MyClient(server, NewTcpClient(), false);
-                client.Start();
-
-                foreach (var o in Wait()) yield return null;
-
-                NetworkClient.RegisterObject<MySyncVarData>((id) =>
-               {
-                   return new MySyncVarData();
-               });
-                Assert.AreEqual(client.Objects.Count(), 0);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                var serverData = server.CreateObject<MySyncVarData>();
-                Assert.AreEqual(server.Objects.Count(), 1);
-                Assert.IsNotNull(serverData);
-                foreach (var o in Wait()) yield return null;
-
-                var clientData = client.Objects.FirstOrDefault();
-                Assert.IsNull(clientData);
-
-                serverData.AddObserver(server.Connections.First());
-                foreach (var o in Wait()) yield return null;
-                clientData = client.Objects.FirstOrDefault();
-
-                Assert.IsTrue(object.ReferenceEquals(clientData, serverData));
-
-                server.DestroyObject(serverData);
-                Assert.AreEqual(server.Objects.Count(), 0);
-
-                foreach (var o in Wait()) yield return null;
-                Assert.AreEqual(client.Objects.Count(), 0);
-
-                client.Stop();
-            }
-        }
-
+    
         [TestMethod]
         public void SyncVar()
         {
@@ -272,12 +128,12 @@ namespace UnitTest
         }
         public IEnumerator _SyncVar()
         {
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient( );
+                client.Connect(localAddress,localPort);
 
                 foreach (var o in Wait()) yield return null;
 
@@ -291,7 +147,7 @@ namespace UnitTest
                    return new MySyncVarData();
                });
                 var serverData = server.CreateObject<MySyncVarData>();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData,server.Connections.First());
                 foreach (var o in Wait()) yield return null;
                 var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
 
@@ -310,9 +166,71 @@ namespace UnitTest
 
 
                 yield return null;
-                client.Stop();
+                //client.Stop();
             }
         }
+
+        [TestMethod]
+        public void SyncVar_Int32_1()
+        {
+            Run(_SyncVar_Int32_1());
+        }
+        public IEnumerator _SyncVar_Int32_1()
+        {
+            using (MyServer server = new MyServer())
+            {
+                server.Start(localPort);
+                using (MyClient client = new MyClient())
+                {
+                    client.Connect(localAddress, localPort);
+                    foreach (var o in Wait()) yield return null;
+
+                    NetworkClient.RegisterObject<MySyncVarData>((id) =>
+                    {
+                        return new MySyncVarData();
+                    });
+                    var serverData = server.CreateObject<MySyncVarData>();
+                    server.AddObserver(serverData, server.Connections.First());
+                    serverData.IntVar = 1;
+                    foreach (var o in Wait()) yield return null;
+                    var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+
+                    foreach (var o in Wait()) yield return null;
+                    Assert.AreEqual(clientData.IntVar, serverData.IntVar);
+                }
+            }
+        }
+        [TestMethod]
+        public void SyncVar_Int32_2()
+        {
+            Run(_SyncVar_Int32_2());
+        }
+        public IEnumerator _SyncVar_Int32_2()
+        {
+            using (MyServer server = new MyServer())
+            {
+                server.Start(localPort);
+                using (MyClient client = new MyClient())
+                {
+                    client.Connect(localAddress, localPort);
+                    foreach (var o in Wait()) yield return null;
+
+                    NetworkClient.RegisterObject<MySyncVarData>((id) =>
+                    {
+                        return new MySyncVarData();
+                    });
+                    var serverData = server.CreateObject<MySyncVarData>();
+                    serverData.IntVar = 1;
+                    server.AddObserver(serverData, server.Connections.First());
+                    foreach (var o in Wait()) yield return null;
+                    var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+
+                    foreach (var o in Wait()) yield return null;
+                    Assert.AreEqual(clientData.IntVar, serverData.IntVar);
+                }
+            }
+        }
+
 
         byte GetSigleBitsLength(uint bits)
         {
@@ -364,12 +282,12 @@ namespace UnitTest
         }
         public IEnumerator _SyncListString_Test()
         {
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient();
+                client.Connect(localAddress,localPort);
 
                 foreach (var o in Wait()) yield return null;
                 MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
@@ -381,7 +299,7 @@ namespace UnitTest
                });
 
                 var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData, server.Connections.First());
                 foreach (var o in Wait()) yield return null;
                 var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
@@ -415,7 +333,7 @@ namespace UnitTest
                 Assert.AreEqual(string.Join("", clientData.stringList.ToArray()), "ac");
 
                 foreach (var o in Wait()) yield return null;
-                client.Stop();
+                //client.Stop();
             }
         }
 
@@ -428,9 +346,9 @@ namespace UnitTest
         public IEnumerator _SyncListAfter()
         {
 
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
 
                 NetworkClient.RegisterObject<MySyncListData>((id) =>
                {
@@ -443,11 +361,11 @@ namespace UnitTest
                 foreach (var o in Wait()) yield return null;
 
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient();
+                client.Connect(localAddress,localPort);
                 foreach (var o in Wait()) yield return null;
                 MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData, server.Connections.First());
                 foreach (var o in Wait()) yield return null;
                 var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
@@ -455,7 +373,7 @@ namespace UnitTest
                 Assert.AreEqual(clientData.stringList[0], "hello");
                 Assert.AreEqual(clientData.stringList[1], "world");
 
-                client.Stop();
+               // client.Stop();
             }
         }
 
@@ -467,12 +385,12 @@ namespace UnitTest
         public IEnumerator _SyncList2()
         {
 
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient();
+                client.Connect(localAddress, localPort);
 
                 foreach (var o in Wait()) yield return null;
                 MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
@@ -484,7 +402,7 @@ namespace UnitTest
                });
 
                 var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData, server.Connections.First());
                 foreach (var o in Wait()) yield return null;
                 var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
@@ -516,7 +434,7 @@ namespace UnitTest
                 foreach (var o in Wait()) yield return null;
                 Assert.AreEqual(clientData.stringList2.Count, 0);
                 foreach (var o in Wait()) yield return null;
-                client.Stop();
+               // client.Stop();
             }
         }
 
@@ -529,12 +447,12 @@ namespace UnitTest
         public IEnumerator _SyncListStruct_Test()
         {
 
-            using (MyServer server = new MyServer(NewTcpListener()))
+            using (MyServer server = new MyServer())
             {
-                server.Start();
+                server.Start(localPort);
 
-                MyClient client = new MyClient(null, NewTcpClient(), false);
-                client.Start();
+                MyClient client = new MyClient();
+                client.Connect(localAddress,localPort);
                 foreach (var o in Wait()) yield return null;
                 MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
 
@@ -547,7 +465,7 @@ namespace UnitTest
                 var itemSize3 = System.Runtime.InteropServices.Marshal.SizeOf(new MyStruct() { int32 = 1, str = "helloaa" });
                 Assert.AreEqual(itemSize2, itemSize3);
                 var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData, server.Connections.First());
                 foreach (var o in Wait()) yield return null;
                 var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
@@ -578,7 +496,7 @@ namespace UnitTest
                 Assert.AreEqual(clientData.structList1.Count, 0);
 
                 foreach (var o in Wait()) yield return null;
-                client.Stop();
+           //     client.Stop();
             }
         }
 

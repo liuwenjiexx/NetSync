@@ -25,18 +25,20 @@ namespace UnitTest
             client = new NetworkConnection();
             client.Connect(localAddress, localPort);
 
-            server = new NetworkConnection(serverSocket.Accept(), true);
+            server = new NetworkConnection(null,serverSocket.Accept(), true);
         }
 
         protected void CleanupConnection()
         {
             if (client != null)
             {
+                client.Disconnect();
                 client.Dispose();
                 client = null;
             }
             if (server != null)
             {
+                server.Disconnect();
                 server.Dispose();
                 server = null;
             }

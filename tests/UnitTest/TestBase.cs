@@ -74,14 +74,23 @@ namespace UnitTest
             tcpListener.Listen(10);
             return tcpListener;
         }
+        protected NetworkConnection NewSocketListener2()
+        {
+            Socket tcpListener = NewSocketListener();
+            return new NetworkConnection(null, tcpListener, true);
+        }
         protected Socket NewTcpClient()
         {
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(localAddress, localPort);
             return socket;
-
         }
-
+        protected NetworkClient NewClient(MessageBase extra=null)
+        {
+            NetworkClient client = new NetworkClient();
+            client.Connect(localAddress, localPort,extra);
+            return client;
+        }
 
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Net.Messages;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -11,51 +12,61 @@ namespace Net
     public class NetworkConnection : CoroutineBase, IDisposable
     {
         private Socket socket;
+        private bool isConnecting;
         private bool isConnected;
         private NetworkReader reader;
         private Pool<NetworkWriter> writePool;
         private Queue<NetworkWriter> sendMsgQueue;
         private NetworkWriter currentSendMsg;
         private Dictionary<short, NetworkMessageDelegate> handlers;
+        private static Dictionary<short, NetworkMessageDelegate> defaultHandlers;
         private bool isListening;
         private bool isInital;
         //private DateTime lastTryReconnectTime;
         private Dictionary<NetworkInstanceId, NetworkObject> objects;
-
+        private int pingDelay;
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
         private string address;
         private int port;
-
+        private int connectionId;
+        internal NetworkServer server;
 
         public NetworkConnection()
         {
             objects = new Dictionary<NetworkInstanceId, NetworkObject>();
-            handlers = new Dictionary<short, NetworkMessageDelegate>();
 
-            RegisterHandler((short)NetworkMsgId.SyncVar, OnReceive_SyncVar);
-            RegisterHandler((short)NetworkMsgId.SyncList, OnReceive_SyncList);
-            RegisterHandler((short)NetworkMsgId.Rpc, OnReceive_Rpc);
         }
 
-        public NetworkConnection(Socket socket, bool isListening)
-            :this()
+        public NetworkConnection(NetworkServer server, Socket socket, bool isListening, MessageBase extra = null)
+            : this()
         {
-            if (socket == null) throw new ArgumentNullException("socket");
-
+            //if (socket == null) throw new ArgumentNullException("socket");
+            this.server = server;
             this.socket = socket;
 
             this.isListening = isListening;
             //ReconnectInterval = 1000;
             //AutoReconnect = true;
-   
+
 
             if (socket != null)
             {
-
                 if (socket.Connected)
                 {
-                    StartCoroutine(Running());
+
+                    InitialSocket(socket);
+                    isConnecting = true;
+                    if (!isListening)
+                    {
+                        SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
+                        {
+                            connectionId = connectionId,
+                            toServer = true,
+                            extra = extra,
+                        });
+                    }
+                    StartCoroutine(NextFrameRunning());
                 }
                 else
                 {
@@ -64,9 +75,20 @@ namespace Net
             }
         }
 
+        public int ConnectionId
+        {
+            get { return connectionId; }
+            internal set { connectionId = value; }
+        }
+
         public Socket Socket
         {
             get { return socket; }
+        }
+
+        public bool IsConnecting
+        {
+            get { return isConnecting; }
         }
 
         public bool IsConnected
@@ -100,19 +122,62 @@ namespace Net
             get { return objects.Values.Where(o => o.ConnectionToOwner == this); }
         }
 
+        public int PingDelay
+        {
+            get { return pingDelay; }
+        }
+
         public DateTime LastSendTime { get => lastSendTime; }
         public DateTime LastReceiveTime { get => lastReceiveTime; }
 
-        public event Action<NetworkConnection> Connected;
+
+        private static Dictionary<short, NetworkMessageDelegate> DefaultHandlers
+        {
+            get
+            {
+                if (defaultHandlers == null)
+                {
+                    defaultHandlers = new Dictionary<short, NetworkMessageDelegate>();
+                    defaultHandlers[(short)NetworkMsgId.Connect] = OnMessage_Connect;
+                    defaultHandlers[(short)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
+                    defaultHandlers[(short)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
+                    defaultHandlers[(short)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
+                    defaultHandlers[(short)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
+                    defaultHandlers[(short)NetworkMsgId.SyncList] = OnMessage_SyncList;
+                    defaultHandlers[(short)NetworkMsgId.Rpc] = OnMessage_Rpc;
+                    defaultHandlers[(short)NetworkMsgId.Ping] = OnMessage_Ping;
+                }
+                return defaultHandlers;
+            }
+        }
+        public static long Timestamp
+        {
+            get { return Utils.Timestamp; }
+        }
+
+        public event Action<NetworkConnection, NetworkMessage> Connected;
         public event Action<NetworkConnection> Disconnected;
         public event Action<NetworkObject> ObjectAdded;
         public event Action<NetworkObject> ObjectRemoved;
+
+        public Socket GetSocket()
+        {
+            return socket;
+        }
+        public bool HasHandler(short msgId)
+        {
+            if (handlers == null)
+                return false;
+            return handlers.ContainsKey(msgId);
+        }
+
 
         public void RegisterHandler(short msgId, NetworkMessageDelegate handler)
         {
             if (handler == null)
                 return;
- 
+            if (handlers == null)
+                handlers = new Dictionary<short, NetworkMessageDelegate>();
             handlers[msgId] = handler;
         }
 
@@ -177,13 +242,14 @@ namespace Net
         }
 
 
-        public void Connect(string address, int port)
+        public void Connect(string address, int port, MessageBase extra = null)
         {
             if (isListening)
                 throw new Exception("is listen");
 
-            if (!isConnected)
+            if (!(isConnected || isConnecting))
             {
+                isConnecting = true;
                 //lastTryReconnectTime = DateTime.UtcNow;
                 Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
@@ -195,26 +261,35 @@ namespace Net
                 catch (Exception ex)
                 {
                     s = null;
+                    isConnecting = false;
                     Console.WriteLine(ex);
                 }
 
                 if (s != null)
                 {
-                    if (s.Connected)
-                    {
-                        InitialSocket(s);
-                        isConnected = true;
-                    }
-                }
 
-                if (isConnected)
+                    Connect(s, extra);
+                }
+            }
+
+            this.address = address;
+            this.port = port;
+        }
+
+        public void Connect(Socket socket, MessageBase extra = null)
+        {
+            Disconnect();
+            InitialSocket(socket);
+            if (socket != null && socket.Connected)
+            {
+                isConnecting = true;
+                SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
                 {
-                    this.address = address;
-                    this.port = port;
-                    StartCoroutine(Running());
-                    Connected?.Invoke(this);
-                }
-
+                    connectionId = connectionId,
+                    toServer = true,
+                    extra = extra,
+                });
+                StartCoroutine(Running());
             }
         }
 
@@ -251,13 +326,12 @@ namespace Net
         {
         }
 
+
         internal IEnumerator Running()
         {
-            InitialSocket(socket);
-            this.isConnected = true;
-            Connected?.Invoke(this);
+            yield return null;
 
-            while (isConnected)
+            while (isConnecting || isConnected)
             {
                 try
                 {
@@ -293,12 +367,17 @@ namespace Net
             }
 
         }
+        internal IEnumerator NextFrameRunning()
+        {
+            yield return null;
+            StartCoroutine(Running());
+        }
 
         void ProcessSendMessage()
         {
             MemoryStream ms;
 
-            while (isConnected)
+            while (isConnecting || isConnected)
             {
                 if (!socket.Connected)
                 {
@@ -358,7 +437,7 @@ namespace Net
         void ProcessReceiveMessage()
         {
 
-            if (!isConnected)
+            if (!(isConnecting || isConnected))
                 return;
 
             int readCount = reader.ReadPackage();
@@ -387,10 +466,6 @@ namespace Net
             }
         }
 
-        public bool HasHandler(short msgId)
-        {
-            return handlers.ContainsKey(msgId);
-        }
 
         public void InvokeHandler(NetworkMessage netMsg)
         {
@@ -398,7 +473,8 @@ namespace Net
 
             if (handlers == null || !handlers.TryGetValue(netMsg.MsgId, out handler))
             {
-                //   if (this.handlers == null || !this.handlers.TryGetValue(msgId, out handler))
+                var defaultHandlers = DefaultHandlers;
+                if (defaultHandlers == null || !defaultHandlers.TryGetValue(netMsg.MsgId, out handler))
                 {
                     Console.WriteLine("not found msgId: " + netMsg.MsgId);
                     return;
@@ -482,36 +558,14 @@ namespace Net
                 return objects[instanceId];
             return null;
         }
-
-        #region Receive Message
-
-        private static void OnReceive_SyncVar(NetworkMessage netMsg)
+        void CheckServer()
         {
-            var msg = new SyncVarMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg); 
+            if (server == null)
+                throw new Exception("is not server");
         }
-        private static void OnReceive_SyncList(NetworkMessage netMsg)
-        {
-            var msg = new SyncListMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg);
-        }
-        private static void OnReceive_Rpc(NetworkMessage netMsg)
-        {
-            var msg = new RpcMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg);
-        }
-
-        #endregion
 
         public void Dispose()
         {
-
             try
             {
                 Disconnect();
@@ -523,16 +577,181 @@ namespace Net
         {
             var conn = obj as NetworkConnection;
             if (conn != null)
-                return object.Equals(Socket, conn.Socket);
-            var socket = obj as Socket;
-            if (socket != null)
-                return object.Equals(this.Socket, socket);
+                return connectionId != 0 && object.Equals(connectionId, conn.connectionId);
             return false;
         }
+
         public override int GetHashCode()
         {
-            return Socket.GetHashCode();
+            return connectionId.GetHashCode();
         }
+
+
+        #region Receive Message
+
+
+        private static void OnMessage_Connect(NetworkMessage netMsg)
+        {
+            var msg = netMsg.ReadMessage<ConnectMessage>();
+            var conn = netMsg.Connection;
+
+            if (conn.isConnecting)
+            {
+                conn.isConnecting = false;
+                conn.isConnected = true;
+                if (msg.toServer)
+                {
+                    try
+                    {
+                        conn.Connected?.Invoke(conn, netMsg);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.Disconnect();
+                        throw ex;
+                    }
+                    if (conn.IsConnected)
+                    {
+                        conn.SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
+                        {
+                            connectionId = conn.connectionId,
+                            toServer = false,
+                        });
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        conn.ConnectionId = msg.connectionId;
+                        conn.Connected?.Invoke(conn, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.Disconnect();
+                        throw ex;
+                    }
+                }
+            }
+        }
+        private static void OnMessage_Disconnect(NetworkMessage netMsg)
+        {
+            netMsg.Connection.Disconnect();
+        }
+
+
+        private static void OnMessage_CreateObject(NetworkMessage netMsg)
+        {
+            var conn = netMsg.Connection;
+            var msg = netMsg.ReadMessage<CreateObjectMessage>();
+            NetworkObjectId objectId = msg.objectId;
+            if (msg.toServer)
+            {
+                //conn.CheckServer();
+
+                //var obj = conn.server.CreateObject(objectId, netMsg);
+                //if (obj != null)
+                //{
+                //    obj.AddObserver(conn);
+                //    obj.ConnectionToOwner = conn;
+                //}
+            }
+            else
+            {
+
+                NetworkInstanceId instanceId = msg.instanceId;
+
+                if (!conn.ContainsObject(instanceId))
+                {
+                    NetworkObject instance = null;
+                    if (conn.server != null)
+                    {
+                        instance = conn.server.GetObject(instanceId);
+                    }
+                    else
+                    {
+                        var info = NetworkObjectInfo.Get(objectId);
+                        instance = info.create(objectId);
+                        if (instance == null)
+                            throw new Exception("create instance null, object id:" + objectId);
+                        instance.InstanceId = instanceId;
+                        instance.objectId = objectId;
+                        instance.ConnectionToOwner = conn;
+                    }
+                    instance.IsClient = true;
+
+                    instance.ConnectionToServer = conn;
+                    conn.AddObject(instance);
+                }
+            }
+        }
+        private static void OnMessage_DestroryObject(NetworkMessage netMsg)
+        {
+            var conn = netMsg.Connection;
+            var msg = netMsg.ReadMessage<DestroyObjectMessage>();
+
+            NetworkInstanceId instanceId = msg.instanceId;
+
+            NetworkObject instance;
+            instance = conn.GetObject(instanceId);
+            if (instance != null)
+            {
+                if (instance.IsClient)
+                {
+                    conn.RemoveObject(instance);
+                    if (!instance.IsServer)
+                    {
+                        instance.Destrory();
+                    }
+                }
+            }
+        }
+
+        private static void OnMessage_SyncVar(NetworkMessage netMsg)
+        {
+            var msg = new SyncVarMessage();
+            msg.conn = netMsg.Connection;
+
+            netMsg.ReadMessage(msg);
+        }
+        private static void OnMessage_SyncList(NetworkMessage netMsg)
+        {
+            var msg = new SyncListMessage();
+            msg.conn = netMsg.Connection;
+
+            netMsg.ReadMessage(msg);
+        }
+        private static void OnMessage_Rpc(NetworkMessage netMsg)
+        {
+            var msg = new RpcMessage();
+            msg.conn = netMsg.Connection;
+
+            netMsg.ReadMessage(msg);
+        }
+
+        public void Ping()
+        {
+            long timestamp = Timestamp;
+            SendMessage((short)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
+        }
+
+        private static void OnMessage_Ping(NetworkMessage netMsg)
+        {
+            var conn = netMsg.Connection;
+            var pingMsg = netMsg.ReadMessage<PingMessage>();
+            switch (pingMsg.Action)
+            {
+                case PingMessage.Action_Ping:
+                    conn.SendMessage((short)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
+                    break;
+                case PingMessage.Action_Reply:
+                    int timeout = (int)(pingMsg.ReplyTimestamp - pingMsg.Timestamp);
+                    conn.pingDelay = timeout;
+                    break;
+            }
+        }
+
+        #endregion
 
     }
 }

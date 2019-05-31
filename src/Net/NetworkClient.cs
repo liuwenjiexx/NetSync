@@ -12,25 +12,30 @@ namespace Net
     {
         private NetworkConnection conn;
         private bool isRunning;
-        private int pingDelay;
+
         private bool isClient;
         private NetworkServer server;
         private Status status;
+        private string address;
+        private int port;
+        private bool isReady;
+
+        public NetworkClient()
+            : this(null, null, false)
+        {
+
+        }
 
         public NetworkClient(NetworkServer server, Socket socket, bool isListen)
         {
             this.server = server;
             isClient = !isListen;
 
-            conn = new NetworkConnection(socket, isListen);
-            conn.RegisterHandler((short)NetworkMsgId.Disconnect, OnReceive_Disconnect);
-            conn.RegisterHandler((short)NetworkMsgId.Ping, OnReceive_Ping);
-
-            conn.RegisterHandler((short)NetworkMsgId.CreateObject, OnReceive_CreateObject);
+            conn = new NetworkConnection(server, socket, isListen);
 
             if (IsClient)
             {
-                conn.RegisterHandler((short)NetworkMsgId.DestroyObject, OnReceive_DestroryObject);
+
                 ConnectionToServer = conn;
             }
             else
@@ -58,24 +63,21 @@ namespace Net
             get { return isClient; }
         }
 
-        public static long Timestamp
-        {
-            get { return Utils.Timestamp; }
-        }
+
 
         protected NetworkServer Server { get => server; }
 
-        public int PingDelay
-        {
-            get { return pingDelay; }
-        }
         public IEnumerable<NetworkObject> Objects
         {
             get { return conn.Objects; }
         }
 
-        public event Action<NetworkClient> Started;
-        public event Action<NetworkClient> Stoped;
+        public int Port { get => port; }
+        public string Address { get => address; }
+
+        //public event Action<NetworkClient> Started;
+        //public event Action<NetworkClient> Stoped;
+        public event Action<NetworkClient> OnReady;
         //public event Action<NetworkClient> Connected;
         //public event Action<NetworkClient> Disconnected;
 
@@ -116,57 +118,57 @@ namespace Net
         }
 
 
-        public virtual void Start()
+        public virtual void Connect(string address, int port, MessageBase extra = null)
         {
             if (isRunning)
                 return;
-
+            isRunning = true;
+            conn.Connect(address, port, extra);
             StartCoroutine(Running());
         }
 
-        public virtual void Stop()
+        public void Disconnect()
         {
-            CheckThreadSafe();
-            if (isRunning)
+            isRunning = false;
+            isReady = false;
+
+            if (conn.IsConnected)
             {
-                isRunning = false;
-                Disconnect();
+                try
+                {
+                    conn.SendMessage((short)NetworkMsgId.Disconnect);
+                    conn.Flush(1000);
+                }
+                catch { }
+                conn.Disconnect();
+            }
+
+        }
+
+        protected void Ready()
+        {
+            if (!isReady)
+            {
+                isReady = true;
+                OnReady?.Invoke(this);
             }
         }
 
-
-
-        IEnumerator Running()
+        internal IEnumerator Running()
         {
 
             isRunning = true;
 
-            Started?.Invoke(this);
-
             using (Connection)
             {
 
-                if (isClient)
-                {
-                    try
-                    {
-                        Connect();
-                    }
-                    catch (Exception ex)
-                    {
-                        isRunning = false;
-                    }
-                }
-
-
                 while (isRunning)
                 {
-
                     try
                     {
-                        if (!conn.IsConnected)
+                        if (!(conn.IsConnecting || conn.IsConnected))
                             break;
-                        conn.ProcessMessage();
+                        //conn.ProcessMessage();
                     }
                     catch (Exception ex)
                     {
@@ -177,29 +179,40 @@ namespace Net
             }
 
             isRunning = false;
+            isReady = false;
 
-
-            Stoped?.Invoke(this);
+            //Stoped?.Invoke(this);
         }
 
         public void Send(short msgId, MessageBase msg = null)
         {
             Connection.SendMessage(msgId, msg);
         }
-
-
-        private void Conn_Connected(NetworkConnection obj)
+        protected virtual void OnServerConnect(NetworkMessage netMsg)
         {
-            if (isRunning && isClient)
+            Ready();
+        }
+
+        protected virtual void OnClientConnect(NetworkMessage netMsg)
+        {
+            Ready();
+        }
+
+        private void Conn_Connected(NetworkConnection obj, NetworkMessage netMsg)
+        {
+            if (isRunning)
             {
+
                 try
                 {
-                    Connect();
-                    //if (isRunning)
-                    //{
-                    //    if (Connected != null)
-                    //        Connected(this);
-                    //}
+                    if (isClient)
+                    {
+                        OnClientConnect(netMsg);
+                    }
+                    else
+                    {
+                        OnServerConnect(netMsg);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -214,59 +227,13 @@ namespace Net
             {
                 status = Status.Connecting;
             }
+
+            Disconnect();
             //Disconnected?.Invoke(this);
         }
 
 
-        protected virtual void Connect()
-        {
-            if (IsClient)
-            {
-                Connection.SendMessage((short)NetworkMsgId.Connect);
-            }
-        }
 
-        private void Disconnect()
-        {
-            try
-            {
-                conn.SendMessage((short)NetworkMsgId.Disconnect);
-                DateTime timeout = DateTime.Now.AddMilliseconds(1000);
-                while (conn.IsConnected && conn.HasSendMessage)
-                {
-                    if (DateTime.Now > timeout)
-                        break;
-                    conn.ProcessMessage();
-                    System.Threading.Thread.Sleep(5);
-                }
-            }
-            catch { }
-        }
-
-        //protected virtual void OnHandshakeMsg(NetworkMessage netMsg)
-        //{
-
-        //}
-
-        //private void OnReceive_HandshakeMsg(NetworkMessage netMsg)
-        //{
-        //    if (status == Status.Handshaking)
-        //    {
-        //        try
-        //        {
-        //            OnHandshakeMsg(netMsg);
-        //            status = Status.Connected;
-        //            Connected?.Invoke(this);
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Console.WriteLine(ex);
-        //            status = Status.HandshakeError;
-        //            Connection.AutoReconnect = false;
-        //            Stop();
-        //        }
-        //    }
-        //}
 
         enum Status
         {
@@ -276,33 +243,7 @@ namespace Net
             Stoped,
         }
 
-        #region Ping
 
-        public void Ping()
-        {
-
-            long timestamp = NetworkClient.Timestamp;
-            conn.SendMessage((short)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
-
-        }
-
-        private void OnReceive_Ping(NetworkMessage netMsg)
-        {
-            var pingMsg = netMsg.ReadMessage<PingMessage>();
-            switch (pingMsg.Action)
-            {
-                case PingMessage.Action_Ping:
-                    netMsg.Connection.SendMessage((short)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
-                    break;
-                case PingMessage.Action_Reply:
-                    int timeout = (int)(pingMsg.ReplyTimestamp - pingMsg.Timestamp);
-                    pingDelay = timeout;
-                    break;
-            }
-        }
-
-
-        #endregion
 
         //public  void SendMessage(short msgId, MessageBase msg = null)
         //{
@@ -379,91 +320,10 @@ namespace Net
 
 
 
-        private void ClientCreateObject(NetworkConnection conn, NetworkObjectId objectId, NetworkInstanceId instanceId)
-        {
-
-            if (!conn.ContainsObject(instanceId))
-            {
-                NetworkObject instance = null;
-                if (server != null)
-                {
-                    instance = server.GetObject(instanceId);
-                }
-                else
-                {
-                    var info = NetworkObjectInfo.Get(objectId);
-                    instance = info.create(objectId);
-                    if (instance == null)
-                        throw new Exception("create instance null, object id:" + objectId);
-                    instance.InstanceId = instanceId;
-                    instance.objectId = objectId;
-                    instance.ConnectionToOwner = conn;
-                }
-                instance.IsClient = true;
-
-                instance.ConnectionToServer = conn;
-                conn.AddObject(instance);
-            }
-        }
-
-        private static void ClientDestroyObject(NetworkConnection conn, NetworkInstanceId instanceId)
-        {
-            NetworkObject instance;
-            instance = conn.GetObject(instanceId);
-            if (instance != null)
-            {
-                conn.RemoveObject(instance);
-                if (!instance.IsServer)
-                {
-                    instance.Destrory();
-                }
-            }
-        }
-
-
-        private void OnReceive_CreateObject(NetworkMessage netMsg)
-        {
-            var msg = netMsg.ReadMessage<CreateObjectMessage>();
-            if (msg.toServer)
-            {
-                if (server != null)
-                {
-                    var obj = server.CreateObject(msg.objectId, netMsg);
-                    if (obj != null)
-                    {
-                        obj.AddObserver(netMsg.Connection);
-                        obj.ConnectionToOwner = netMsg.Connection;
-                    }
-                }
-            }
-            else
-            {
-                if (IsClient)
-                {
-                    NetworkObjectId objectId = msg.objectId;
-                    NetworkInstanceId instanceId = msg.instanceId;
-
-                    ClientCreateObject(netMsg.Connection, objectId, instanceId);
-                }
-            }
-        }
-        private void OnReceive_DestroryObject(NetworkMessage netMsg)
-        {
-            if (IsClient)
-            {
-                var msg = netMsg.ReadMessage<DestroyObjectMessage>();
-                NetworkInstanceId instanceId = msg.instanceId;
-                ClientDestroyObject(netMsg.Connection, instanceId);
-            }
-        }
-        private void OnReceive_Disconnect(NetworkMessage netMsg)
-        {
-            Stop();
-        }
-
         public virtual void Dispose()
         {
-            Stop();
+            //Stop();
+            Disconnect();
         }
 
         ~NetworkClient()

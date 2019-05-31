@@ -139,12 +139,12 @@ namespace UnitTest
         public IEnumerator _Rpc_Test()
         {
 
-            using (NetworkServer server = new NetworkServer(NewTcpListener()))
+            using (NetworkServer server = new NetworkServer())
             {
-                server.Start();
+                server.Start(localPort);
 
-                NetworkClient client = new NetworkClient(null, NewTcpClient(), false);
-                client.Start();
+                NetworkClient client = NewClient();
+
 
                 foreach (var o in Wait()) yield return null;
                 var serverClient = server.Clients.FirstOrDefault();
@@ -155,7 +155,7 @@ namespace UnitTest
                 });
 
                 var serverData = server.CreateObject<MyData>();
-                serverData.AddObserver(server.Connections.First());
+                server.AddObserver(serverData, server.Connections.First());
                 foreach (var o in Wait()) yield return null;
 
                 var clientData = (MyData)client.Objects.FirstOrDefault();
@@ -194,7 +194,7 @@ namespace UnitTest
                 Assert.AreEqual(clientData.rpcMsg, null);
 
                 foreach (var o in Wait()) yield return null;
-                client.Stop();
+                //  client.Stop();
             }
         }
 
