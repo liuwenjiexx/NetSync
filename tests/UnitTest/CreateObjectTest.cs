@@ -1,12 +1,11 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Net;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     public class CreateObjectTest : TestBase
@@ -14,10 +13,6 @@ namespace UnitTest
 
         [TestMethod]
         public void CreateObject()
-        {
-            Run(_CreateObject());
-        }
-        public IEnumerator _CreateObject()
         {
             using (MyServer server = new MyServer())
             {
@@ -27,8 +22,7 @@ namespace UnitTest
                 {
                     client.Connect(localAddress, localPort);
 
-                    foreach (var o in Wait()) yield return null;
-
+                    Update2(server, client);
 
                     NetworkClient.RegisterObject<MySyncVarData>((id) =>
                     {
@@ -42,12 +36,12 @@ namespace UnitTest
                     Assert.AreEqual(server.Objects.Count(), 1);
                     Assert.IsTrue(serverData.IsServer);
                     Assert.IsFalse(serverData.IsClient);
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
 
                     var clientData = client.Objects.FirstOrDefault();
                     Assert.IsNull(clientData);
                     server.AddObserver(serverData, server.Connections.First());
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
                     clientData = client.Objects.FirstOrDefault();
 
                     Assert.IsNotNull(clientData);
@@ -59,8 +53,7 @@ namespace UnitTest
 
                     server.DestroyObject(serverData);
                     Assert.AreEqual(server.Objects.Count(), 0);
-
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
                     Assert.AreEqual(client.Objects.Count(), 0);
 
                 }
@@ -71,10 +64,6 @@ namespace UnitTest
 
         [TestMethod]
         public void DestroyObject()
-        {
-            Run(_DestroyObject());
-        }
-        public IEnumerator _DestroyObject()
         {
 
             using (MyServer server = new MyServer())
@@ -93,15 +82,15 @@ namespace UnitTest
                     Assert.AreEqual(server.Objects.Count(), 0);
 
                     var serverData = server.CreateObject<MySyncVarData>();
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
 
-                    server.AddObserver(serverData,server.Connections.First());
-                    foreach (var o in Wait()) yield return null;
+                    server.AddObserver(serverData, server.Connections.First());
+                    Update2(server, client);
 
                     server.DestroyObject(serverData);
                     Assert.AreEqual(server.Objects.Count(), 0);
 
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
                     Assert.AreEqual(client.Objects.Count(), 0);
                 }
             }
@@ -110,21 +99,17 @@ namespace UnitTest
 
         [TestMethod]
         public void HostObject()
-        {
-            Run(_HostObject());
-        }
-        public IEnumerator _HostObject()
-        {
+        { 
 
             using (MyServer server = new MyServer())
             {
                 server.Start(localPort);
 
-                using (MyClient client = new MyClient(server, null, false))
+                using (MyClient client = new MyClient(server, null, true, false))
                 {
                     client.Connect(localAddress, localPort);
 
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
 
                     NetworkClient.RegisterObject<MySyncVarData>((id) =>
                     {
@@ -136,13 +121,13 @@ namespace UnitTest
                     var serverData = server.CreateObject<MySyncVarData>();
                     Assert.AreEqual(server.Objects.Count(), 1);
                     Assert.IsNotNull(serverData);
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
 
                     var clientData = client.Objects.FirstOrDefault();
                     Assert.IsNull(clientData);
 
-                    server.AddObserver(serverData,server.Connections.First());
-                    foreach (var o in Wait()) yield return null;
+                    server.AddObserver(serverData, server.Connections.First());
+                    Update2(server, client);
                     clientData = client.Objects.FirstOrDefault();
 
                     Assert.IsTrue(object.ReferenceEquals(clientData, serverData));
@@ -150,7 +135,7 @@ namespace UnitTest
                     server.DestroyObject(serverData);
                     Assert.AreEqual(server.Objects.Count(), 0);
 
-                    foreach (var o in Wait()) yield return null;
+                    Update2(server, client);
                     Assert.AreEqual(client.Objects.Count(), 0);
                 }
             }

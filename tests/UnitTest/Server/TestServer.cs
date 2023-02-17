@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     public class TestServer : TestBase

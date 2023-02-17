@@ -1,58 +1,63 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Net;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     public class TestConnectionBase : TestBase
     {
-        private NetworkConnection server;
-        private NetworkConnection client;
+        private NetworkConnection serverConn;
+        private NetworkConnection clientConn;
         private Socket serverSocket;
 
-        public NetworkConnection Server { get => server; }
-        public NetworkConnection Client { get => client; }
+        public NetworkConnection Server { get => serverConn; }
+        public NetworkConnection Client { get => clientConn; }
 
-        [TestInitialize]
-        public override void TestInitialize()
-        {
-            base.TestInitialize();
-            serverSocket = NewSocketListener();
+        //[TestInitialize]
+        //public override void TestInitialize()
+        //{
+        //    base.TestInitialize();
+        //    serverSocket = NewSocketListener();
 
-            client = new NetworkConnection();
-            client.Connect(localAddress, localPort);
+        //    clientConn = new NetworkConnection();
+        //    clientConn.Connect(localAddress, localPort);
+            
+        //    serverConn = new NetworkConnection(null,serverSocket.Accept(), true);
 
-            server = new NetworkConnection(null,serverSocket.Accept(), true);
-        }
+        //    clientConn.Update();
+        //    serverConn.Update();
+        //}
 
-        protected void CleanupConnection()
-        {
-            if (client != null)
-            {
-                client.Disconnect();
-                client.Dispose();
-                client = null;
-            }
-            if (server != null)
-            {
-                server.Disconnect();
-                server.Dispose();
-                server = null;
-            }
-            if (serverSocket != null)
-            {
-                serverSocket.Dispose();
-                serverSocket = null;
-            }
-        }
+        //protected void CleanupConnection()
+        //{
+        //    if (clientConn != null)
+        //    {
+        //        clientConn.Disconnect();
+        //        clientConn.Update();
+
+        //        clientConn.Dispose();
+        //        clientConn = null;
+        //    }
+        //    if (serverConn != null)
+        //    {
+        //        serverConn.Disconnect();
+        //        serverConn.Update();
+        //        serverConn.Dispose();
+        //        serverConn = null;
+        //    }
+        //    if (serverSocket != null)
+        //    {
+        //        serverSocket.Dispose();
+        //        serverSocket = null;
+        //    }
+        //}
 
         [TestCleanup]
         public override void TestCleanup()
         {
-            CleanupConnection();
+            Update(serverConn, clientConn);
             base.TestCleanup();
         }
     }

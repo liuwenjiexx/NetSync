@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>NetSync</RootNamespace>
+    <AssemblyName>NetSync</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Common\CoroutineBase.cs" />
+    <Compile Include="Common\Extensions.cs" />
+    <Compile Include="Common\Utils.cs" />
+    <Compile Include="Messages\BytesArrayMessage.cs" />
+    <Compile Include="Messages\BytesMessage.cs" />
+    <Compile Include="Messages\ConnectMessage.cs" />
+    <Compile Include="Messages\CreateObjectMessage.cs" />
+    <Compile Include="Messages\DestroyObjectMessage.cs" />
+    <Compile Include="Messages\Message`1.cs" />
+    <Compile Include="Messages\BaseTypeMessages.cs" />
+    <Compile Include="NetworkInstanceId.cs" />
+    <Compile Include="NetworkObjectIdAttribute.cs" />
+    <Compile Include="Rpc\RpcAttribute.cs" />
+    <Compile Include="Rpc\RpcInfo.cs" />
+    <Compile Include="Rpc\RpcMessage.cs" />
+    <Compile Include="Sync\SyncEventAttribute.cs" />
+    <Compile Include="Sync\SyncListInfo.cs" />
+    <Compile Include="Sync\SyncListJsonString.cs" />
+    <Compile Include="Sync\SyncListMessage.cs" />
+    <Compile Include="Sync\SyncListStruct`1.cs" />
+    <Compile Include="Sync\SyncList`1.cs" />
+    <Compile Include="Sync\SyncListString.cs" />
+    <Compile Include="Sync\SyncVarMessage.cs" />
+    <Compile Include="NetworkClient.cs" />
+    <Compile Include="NetworkConnection.cs" />
+    <Compile Include="NetworkMsgId.cs" />
+    <Compile Include="NetworkObject.cs" />
+    <Compile Include="NetworkObjectId.cs" />
+    <Compile Include="NetworkServer.cs" />
+    <Compile Include="NetworkReader.cs" />
+    <Compile Include="NetworkWriter.cs" />
+    <Compile Include="Messages\PingMessage.cs" />
+    <Compile Include="Common\Pool.cs" />
+    <Compile Include="MessageBase.cs" />
+    <Compile Include="NetworkMessage.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Sync\SyncVarAttribute.cs" />
+    <Compile Include="Sync\SyncVarInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>13.0.2</Version>
+    </PackageReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+</Project>

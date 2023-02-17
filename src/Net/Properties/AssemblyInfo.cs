@@ -5,11 +5,14 @@ using System.Runtime.InteropServices;
 // 有关程序集的一般信息由以下
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
+#if !NET5_0_OR_GREATER
 [assembly: AssemblyTitle("GameServer")]
-[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("GameServer")]
+#endif
+
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -22,6 +25,7 @@ using System.Runtime.InteropServices;
 // 如果此项目向 COM 公开，则下列 GUID 用于类型库的 ID
 [assembly: Guid("c87cf6fd-3004-4ca2-8170-b8c4f6bb7d62")]
 
+#if !NET5_0_OR_GREATER
 // 程序集的版本信息由下列四个值组成: 
 //
 //      主版本
@@ -34,3 +38,6 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+#endif
+
+[assembly: InternalsVisibleTo("NetSync.Test")]

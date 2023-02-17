@@ -1,5 +1,4 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Net;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +7,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Linq;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     public class NetTest : TestBase
@@ -34,19 +33,11 @@ namespace UnitTest
         [TestMethod]
         public void StartClient()
         {
-            Run(_StartClient());
-        }
-        public IEnumerator _StartClient()
-        {
-            using (NetworkServer server = new NetworkServer())
+
+            NewClient(out var server, out var client);
+            using (server)
+            using (client)
             {
-                server.Start(localPort);
-                Assert.IsTrue(server.IsRunning);
-
-                NetworkClient client = new NetworkClient();
-
-                client.Connect(localAddress, localPort);
-                foreach (var o in Wait()) yield return null;
 
                 Assert.IsTrue(client.IsRunning);
                 Assert.IsTrue(client.Connection.IsConnected);
@@ -54,7 +45,7 @@ namespace UnitTest
                 Assert.AreEqual(server.Clients.Count(), 1);
 
                 client.Dispose();
-                foreach (var o in Wait()) yield return null;
+                Update2(server, client);
                 Assert.IsFalse(client.IsRunning);
                 server.Stop();
                 Assert.IsFalse(server.IsRunning);
@@ -63,45 +54,26 @@ namespace UnitTest
         [TestMethod]
         public void ConnectionId()
         {
-            Run(_ConnectionId());
-        }
-        public IEnumerator _ConnectionId()
-        {
-            using (NetworkServer server = new NetworkServer())
+            NewClient(out var server, out var client);
+            using (server)
+            using (client)
             {
-                server.Start(localPort);
-
-                using (NetworkClient client = new NetworkClient())
-                {
-                    client.Connect(localAddress, localPort);
-                
-                    foreach (var o in Wait()) yield return null;
-
-                    Assert.AreEqual(server.Connections.Count(), 1);
-                    int connectionId = server.Connections.First().ConnectionId;
-                    Assert.IsTrue(connectionId > 0,connectionId.ToString());
-                    Assert.IsTrue(client.Connection.IsConnected);
-                    Assert.AreEqual(client.Connection.ConnectionId, connectionId);
-                    Assert.AreEqual(client.Connection, server.Connections.First());
-                }
+                Assert.AreEqual(server.Connections.Count(), 1);
+                int connectionId = server.Connections.First().ConnectionId;
+                Assert.IsTrue(connectionId > 0, connectionId.ToString());
+                Assert.IsTrue(client.Connection.IsConnected);
+                Assert.AreEqual(client.Connection.ConnectionId, connectionId);
+                Assert.AreEqual(client.Connection, server.Connections.First());
             }
         }
 
         [TestMethod]
         public void Reconnect()
         {
-            Run(_Reconnect());
-        }
-        public IEnumerator _Reconnect()
-        {
-            using (NetworkServer server = new NetworkServer())
+            NewClient(out var server, out var client);
+            using (server)
+            using (client)
             {
-                server.Start(localPort);
-
-                NetworkClient client = new NetworkClient();
-                client.Connect(localAddress, localPort);
-                foreach (var o in Wait()) yield return null;
-
                 Assert.IsTrue(client.Connection.IsConnected);
                 Assert.IsTrue(client.Connection.Socket.Connected);
 
@@ -119,12 +91,12 @@ namespace UnitTest
                     client.Connection.Connect(localAddress, localPort);
                 };
                 client.Connection.Socket.Close();
-                foreach (var o in Wait()) yield return null;
+                Update2(server, client);
 
                 Assert.IsTrue(disconnectEvent);
                 Assert.IsTrue(connectedEvent);
 
-                foreach (var o in Wait()) yield return null;
+                Update2(server, client);
                 Assert.IsTrue(connectedEvent);
                 Assert.IsTrue(client.Connection.Socket.Connected);
 

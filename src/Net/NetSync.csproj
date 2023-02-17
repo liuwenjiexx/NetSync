@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>NetSync</AssemblyName>
+    <RootNamespace>Yanmonet.NetSync</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Packages\NetSync\Runtime/*.cs" />
+    <Compile Include="../../Packages\NetSync\Runtime/*/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
+  </ItemGroup>
+
+</Project>

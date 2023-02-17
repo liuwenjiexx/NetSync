@@ -1,15 +1,17 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Net;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     public class RpcTest : TestBase
@@ -134,9 +136,12 @@ namespace UnitTest
         [TestMethod]
         public void Rpc_Test()
         {
-            Run(_Rpc_Test());
+            _Rpc_Test().Wait();
         }
-        public IEnumerator _Rpc_Test()
+
+
+
+        public async Task _Rpc_Test()
         {
 
             using (NetworkServer server = new NetworkServer())
@@ -145,8 +150,9 @@ namespace UnitTest
 
                 NetworkClient client = NewClient();
 
+                //await Update(server, client);
+                Update2(server, client);
 
-                foreach (var o in Wait()) yield return null;
                 var serverClient = server.Clients.FirstOrDefault();
 
                 NetworkClient.RegisterObject<MyData>((id) =>
@@ -156,15 +162,17 @@ namespace UnitTest
 
                 var serverData = server.CreateObject<MyData>();
                 server.AddObserver(serverData, server.Connections.First());
-                foreach (var o in Wait()) yield return null;
 
+                //await Update(server, client);
+                Update2(server, client);
                 var clientData = (MyData)client.Objects.FirstOrDefault();
 
                 serverData.rpcMsg = null;
                 clientData.rpcMsg = null;
                 serverData.RpcClient("server to client");
 
-                foreach (var o in Wait()) yield return null;
+                //await Update(server, client);
+                Update2(server, client);
 
                 Assert.AreEqual(serverData.rpcMsg, null);
                 Assert.AreEqual(clientData.rpcMsg, "server to client");
@@ -172,7 +180,9 @@ namespace UnitTest
                 serverData.rpcMsg = null;
                 clientData.rpcMsg = null;
                 serverData.RpcServer("server to server");
-                foreach (var o in Wait()) yield return null;
+                
+                //await Update(server, client);
+                Update2(server, client);
 
                 Assert.AreEqual(serverData.rpcMsg, "server to server");
                 Assert.AreEqual(clientData.rpcMsg, null);
@@ -180,7 +190,9 @@ namespace UnitTest
                 serverData.rpcMsg = null;
                 clientData.rpcMsg = null;
                 clientData.RpcClient("client to client");
-                foreach (var o in Wait()) yield return null;
+
+                //await Update(server, client);
+                Update2(server, client);
 
                 Assert.AreEqual(serverData.rpcMsg, null);
                 Assert.AreEqual(clientData.rpcMsg, "client to client");
@@ -188,16 +200,66 @@ namespace UnitTest
                 serverData.rpcMsg = null;
                 clientData.rpcMsg = null;
                 serverData.RpcServer("client to server");
-                foreach (var o in Wait()) yield return null;
 
+                //await Update(server, client);
+                Update2(server, client);
                 Assert.AreEqual(serverData.rpcMsg, "client to server");
                 Assert.AreEqual(clientData.rpcMsg, null);
 
-                foreach (var o in Wait()) yield return null;
+                //await Update(server, client);
+                Update2(server, client);
                 //  client.Stop();
             }
         }
 
+        [TestMethod]
+        public async Task ThreadId_Test()
+        {
+            Console.WriteLine("Yield Before ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            await Task.Yield();
+            Console.WriteLine("Yield After ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            Console.WriteLine("Delay Before ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            await Task.Delay(10);
+            Console.WriteLine("Delay After ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+
+
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+            await Task.Delay(10);
+            Console.WriteLine("ThreadId: " + Thread.CurrentThread.ManagedThreadId);
+        }
+
+
+    }
+
+    sealed class SingleThreadSynchronizationContext : SynchronizationContext
+    {
+        private readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> m_queue = new();
+
+        public override void Post(SendOrPostCallback d, object state)
+        {
+            m_queue.Add(new KeyValuePair<SendOrPostCallback, object>(d, state));
+        }
+
+        public void RunOnCurrentThread()
+        {
+            KeyValuePair<SendOrPostCallback, object> workItem;
+
+            while (m_queue.TryTake(out workItem, Timeout.Infinite))
+                workItem.Key(workItem.Value);
+        }
+
+        public void Complete() { m_queue.CompleteAdding(); }
 
     }
 }

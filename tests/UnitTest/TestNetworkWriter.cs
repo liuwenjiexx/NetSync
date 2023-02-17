@@ -3,9 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
-using Net;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     class TestNetworkWriter

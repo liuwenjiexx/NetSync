@@ -2,13 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Collections;
-using Net.Messages;
+using Yanmonet.NetSync.Messages;
 
-namespace UnitTest.Connection
+namespace Yanmonet.NetSync.Test.Connection
 {
     [TestClass]
     public class SendMessage : TestConnectionBase
@@ -16,41 +15,45 @@ namespace UnitTest.Connection
         [TestMethod]
         public void Empty()
         {
-            Run(_SendMessage_Empty());
-        }
-        public IEnumerator _SendMessage_Empty()
-        {
             bool success = false;
-            Client.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+            using (NewConnect(out var serverConn, out var clientConn))
+            using (serverConn)
+            using (clientConn)
             {
-                success = true;
-            });
-            Server.SendMessage((short)NetworkMsgId.Max, null);
-            foreach (var o in Wait()) yield return null;
 
-            Assert.IsTrue(success);
+                clientConn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+                {
+                    success = true;
+                });
+                serverConn.SendMessage((short)NetworkMsgId.Max, null);
+                Update(serverConn, clientConn);
+
+                Assert.IsTrue(success);
+
+            }
         }
 
 
         [TestMethod]
         public void String()
-        {
-            Run(_SendMessage_String());
-        }
-
-        public IEnumerator _SendMessage_String()
-        {
+        {      
             bool success = false;
-            Client.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+            using (NewConnect(out var serverConn, out var clientConn))
+            using (serverConn)
+            using (clientConn)
             {
-                var msg = netMsg.ReadMessage<StringMessage>();
-                Assert.AreEqual(msg.Value, "abc");
-                success = true;
-            });
-            Server.SendMessage((short)NetworkMsgId.Max, new StringMessage("abc"));
-            foreach (var o in Wait()) yield return null;
+                clientConn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+                {
+                    var msg = netMsg.ReadMessage<StringMessage>();
+                    Assert.AreEqual(msg.Value, "abc");
+                    success = true;
+                });
+                serverConn.SendMessage((short)NetworkMsgId.Max, new StringMessage("abc"));
+           
+                Update(serverConn, clientConn);
 
-            Assert.IsTrue(success);
+                Assert.IsTrue(success);
+            }
         }
 
 

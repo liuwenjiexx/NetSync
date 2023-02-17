@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{FA4012BD-D831-4061-947D-6B9B75D6090B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EAB54485-DCCE-4FBE-B41D-EBD746BDE41D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetSync.Framework", "src\Net\NetSync.Framework.csproj", "{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C87CF6FD-3004-4CA2-8170-B8C4F6BB7D62} = {FA4012BD-D831-4061-947D-6B9B75D6090B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E9A8E937-609F-47C9-A1C7-C9377C6B4F6B}
+	EndGlobalSection
+EndGlobal

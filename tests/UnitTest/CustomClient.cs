@@ -1,6 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Net;
-using Net.Messages;
+using Yanmonet.NetSync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,7 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
-namespace UnitTest
+namespace Yanmonet.NetSync.Test
 {
     [TestClass]
     public class CustomClient : TestBase
@@ -32,9 +31,9 @@ namespace UnitTest
             //    }
             //    base.OnCreateObject(instance, netMsg);
             //}
-            protected override NetworkClient AcceptClient(TcpClient netClient, MessageBase extra)
+            protected override NetworkClient AcceptTcpClient(TcpClient netClient, MessageBase extra)
             {
-                var client = new CustomContextClient(this, netClient.Client, true);
+                var client = new CustomContextClient(this, netClient.Client, true, true);
 
                 return client;
             }
@@ -42,12 +41,12 @@ namespace UnitTest
 
         class CustomContextClient : NetworkClient
         {
-            public CustomContextClient() : this(null, null, false)
+            public CustomContextClient() : this(null, null,false, false)
             {
             }
 
-            public CustomContextClient(NetworkServer server, Socket socket, bool isListen)
-                : base(server, socket, isListen)
+            public CustomContextClient(NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
+                : base(server, socket, ownerSocket, isListen)
             {
 
                 Connection.ObjectAdded += Connection_ObjectAdded;
