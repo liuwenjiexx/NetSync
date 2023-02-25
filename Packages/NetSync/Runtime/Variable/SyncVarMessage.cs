@@ -38,18 +38,18 @@ namespace Yanmonet.NetSync
         }
 
 
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
             this.bits = 0;
-        
+
             {
-                action = reader.ReadByte();
+                reader.SerializeValue(ref action);
 
                 if (action == 0)
                     throw new Exception("action is 0");
 
-                NetworkInstanceId instanceId;
-                instanceId = reader.ReadNetworkInstanceId();
+                NetworkInstanceId instanceId = default;
+                reader.SerializeValue(ref instanceId);
                 netObj = null;
 
                 netObj = conn.GetObject(instanceId);
@@ -61,7 +61,8 @@ namespace Yanmonet.NetSync
                     case Action_ResponseSyncVar:
                         while (true)
                         {
-                            byte b = reader.ReadByte();
+                            byte b = 0;
+                            reader.SerializeValue(ref b);
                             if (b == 0)
                                 break;
                             uint bits = (uint)(1 << (b - 1));
@@ -93,7 +94,7 @@ namespace Yanmonet.NetSync
                         }
                         break;
                     case Action_RequestSyncVar:
-                        bits = reader.ReadUInt32();
+                        reader.SerializeValue(ref bits);
                         break;
                 }
             }
@@ -101,14 +102,16 @@ namespace Yanmonet.NetSync
 
 
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
             if (action == 0)
                 throw new Exception("action is 0");
-             
+
             {
-                writer.WriteByte(action);
-                writer.WriteNetworkInstanceId(netObj.InstanceId);
+                byte b = 0;
+
+                writer.SerializeValue(ref action);
+                writer.SerializeValue(ref netObj.instanceId);
                 switch (action)
                 {
                     case Action_ResponseSyncVar:
@@ -118,7 +121,8 @@ namespace Yanmonet.NetSync
                             info = state.syncVarInfo;
                             if ((info.bits & bits) == info.bits)
                             {
-                                writer.WriteByte((byte)info.bits.SigleBitPosition());
+                                b = (byte)info.bits.SigleBitPosition();
+                                writer.SerializeValue(ref b);
                                 object value = state.syncVarInfo.field.GetValue(netObj);
                                 state.value = value;
 
@@ -127,10 +131,11 @@ namespace Yanmonet.NetSync
                         }
 
                         //write end
-                        writer.WriteByte((byte)0);
+                        b = 0;
+                        writer.SerializeValue(ref b);
                         break;
                     case Action_RequestSyncVar:
-                        writer.WriteUInt32(bits);
+                        writer.SerializeValue(ref bits);
                         break;
                 }
             }

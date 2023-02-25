@@ -138,8 +138,8 @@ namespace Yanmonet.NetSync
             Changed?.Invoke(op, itemIndex);
         }
 
-        protected abstract T DeserializeItem(NetworkReader reader);
-        protected abstract void SerializeItem(NetworkWriter writer, T item);
+        protected abstract T DeserializeItem(IReaderWriter reader);
+        protected abstract void SerializeItem(IReaderWriter writer, T item);
 
         public enum Operation
         {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using UnityEngine;
 
 namespace Yanmonet.NetSync
 {
@@ -38,16 +37,16 @@ namespace Yanmonet.NetSync
             };
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
 
-            writer.WriteByte(action);
-            writer.WriteNetworkInstanceId(netObj.InstanceId);
+            writer.SerializeValue(ref action);
+            writer.SerializeValue(ref netObj.instanceId);
             switch (action)
             {
                 case Action_RpcClient:
                 case Action_RpcServer:
-                    writer.WriteByte(rpcInfo.memberIndex);
+                    writer.SerializeValue(ref rpcInfo.memberIndex);
                     if (rpcInfo.paramCount > 0)
                     {
                         ParameterInfo pInfo = null;
@@ -69,11 +68,11 @@ namespace Yanmonet.NetSync
                         {
                             if (pInfo != null)
                             {
-                                Debug.LogError($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
+                                NetworkUtility.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
                             }
                             else
                             {
-                                Debug.LogError($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
+                                NetworkUtility.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
                             }
                             throw ex;
                         }
@@ -84,16 +83,16 @@ namespace Yanmonet.NetSync
         }
 
 
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
 
-            action = reader.ReadByte();
+            reader.SerializeValue(ref action);
 
             if (action == 0)
                 throw new Exception("action is 0");
 
-            NetworkInstanceId instanceId;
-            instanceId = reader.ReadNetworkInstanceId();
+            NetworkInstanceId instanceId = new();
+            reader.SerializeValue(ref instanceId);
 
             netObj = null;
 
@@ -117,7 +116,8 @@ namespace Yanmonet.NetSync
                             return;
                     }
 
-                    byte memberIndex = reader.ReadByte();
+                    byte memberIndex = 0;
+                    reader.SerializeValue(ref memberIndex);
                     rpcInfo = RpcInfo.GetRpcInfo(netObj.GetType(), memberIndex);
                     object[] args = null;
                     if (rpcInfo.paramCount > 0)

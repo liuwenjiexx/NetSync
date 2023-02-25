@@ -14,36 +14,39 @@ namespace Yanmonet.NetSync.Messages
         public byte[][] Array { get; set; }
 
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
+            int n;
 
             if (Array == null)
             {
-                writer.WriteInt32((int)0);
+                n = 0;
+                writer.SerializeValue(ref n);
             }
             else
             {
-                writer.WriteInt32((int)Array.Length);
+                n = Array.Length;
+                writer.SerializeValue(ref n);
                 for (int i = 0; i < Array.Length; i++)
                 {
                     byte[] bytes = Array[i];
                     int length = bytes.Length;
-                    writer.WriteInt32(length);
-                    writer.Write(bytes, 0, length);
+                    writer.SerializeValue(ref bytes, 0, ref length);
                 }
             }
         }
 
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
 
-            int count = reader.ReadInt32();
+            int count = 0;
+            reader.SerializeValue(ref count);
             byte[][] array = new byte[count][];
             for (int i = 0; i < count; i++)
             {
-                int length = reader.ReadInt32();
-                byte[] bytes = new byte[length];
-                reader.Read(bytes, 0, length);
+                int length = 0;
+                byte[] bytes = null;
+                reader.SerializeValue(ref bytes, 0, ref length);
                 Array[i] = bytes;
             }
 

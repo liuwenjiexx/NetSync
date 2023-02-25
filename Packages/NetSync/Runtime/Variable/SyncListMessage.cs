@@ -84,16 +84,16 @@ namespace Yanmonet.NetSync
         #endregion
 
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
             if (action == 0)
                 throw new Exception("action is 0");
 
             var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
 
-            writer.WriteByte(action);
-            writer.WriteNetworkInstanceId(netObj.InstanceId);
-            writer.WriteByte(memberIndex);
+            writer.SerializeValue(ref action);
+            writer.SerializeValue(ref netObj.instanceId);
+            writer.SerializeValue(ref memberIndex);
             switch (action)
             {
                 case Action_Add:
@@ -103,7 +103,7 @@ namespace Yanmonet.NetSync
 
                     if (action == Action_Insert || action == Action_Set)
                     {
-                        writer.WriteByte(itemIndex);
+                        writer.SerializeValue(ref itemIndex);
                     }
                     object item = info.ItemProperty.GetGetMethod().Invoke(list, new object[] { (int)itemIndex });
 
@@ -111,22 +111,22 @@ namespace Yanmonet.NetSync
                     break;
 
                 case Action_RemoveAt:
-                    writer.WriteByte(itemIndex);
+                    writer.SerializeValue(ref itemIndex);
                     break;
             }
 
         }
 
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            action = reader.ReadByte();
-            NetworkInstanceId instanceId;
-            instanceId = reader.ReadNetworkInstanceId();
+            reader.SerializeValue(ref action);
+            NetworkInstanceId instanceId = new();
+            reader.SerializeValue(ref instanceId);
             netObj = null;
             netObj = conn.GetObject(instanceId);
             if (netObj == null)
                 return;
-            memberIndex = reader.ReadByte();
+            reader.SerializeValue(ref memberIndex);
             var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
 
             object list = info.field.GetValue(netObj);
@@ -142,7 +142,7 @@ namespace Yanmonet.NetSync
                         }
                         else
                         {
-                            itemIndex = reader.ReadByte();
+                            reader.SerializeValue(ref itemIndex);
                         }
                         object item;
                         item = info.DeserializeItemMethod.Invoke(list, new object[] { reader });
@@ -157,7 +157,7 @@ namespace Yanmonet.NetSync
                     }
                     else
                     {
-                        itemIndex = reader.ReadByte();
+                        reader.SerializeValue(ref itemIndex);
                     }
                     info.RemoveAtMethod.Invoke(list, new object[] { itemIndex });
                     break;

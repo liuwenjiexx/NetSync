@@ -41,31 +41,31 @@ namespace Yanmonet.NetSync.Messages
             };
         }
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteByte(action);
+            writer.SerializeValue(ref action);
             switch (action)
             {
                 case Action_Ping:
-                    writer.WriteInt64(timestamp);
+                    writer.SerializeValue(ref timestamp);
                     break;
                 case Action_Reply:
-                    writer.WriteInt64(timestamp);
-                    writer.WriteInt64(replyTimestamp);
+                    writer.SerializeValue(ref timestamp);
+                    writer.SerializeValue(ref replyTimestamp);
                     break;
             }
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            action = reader.ReadByte();
+            reader.SerializeValue(ref action);
             switch (action)
             {
                 case Action_Ping:
-                    timestamp = reader.ReadInt64();
+                    reader.SerializeValue(ref timestamp);
                     break;
                 case Action_Reply:
-                    timestamp = reader.ReadInt64();
-                    replyTimestamp = reader.ReadInt64();
+                    reader.SerializeValue(ref timestamp);
+                    reader.SerializeValue(ref replyTimestamp);
                     break;
             }
 

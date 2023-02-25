@@ -9,18 +9,19 @@ namespace Yanmonet.NetSync
     public class SyncListJsonString<T> : SyncList<T>
     {
 
-        protected override void SerializeItem(NetworkWriter writer, T item)
+        protected override void SerializeItem(IReaderWriter writer, T item)
         {
             string str = null;
             if (item != null)
             {
                 str = MessageBase.SerializeToString(item);
             }
-            writer.WriteString(str);
+            writer.SerializeValue(ref str);
         }
-        protected override T DeserializeItem(NetworkReader reader)
+        protected override T DeserializeItem(IReaderWriter reader)
         {
-            string str = reader.ReadString();
+            string str = null;
+            reader.SerializeValue(ref str);
             if (string.IsNullOrEmpty(str))
             {
                 return default;

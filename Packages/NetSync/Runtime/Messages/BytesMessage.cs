@@ -6,35 +6,27 @@ namespace Yanmonet.NetSync.Messages
 
     public class BytesMessage : MessageBase
     {
+        private byte[] bytes;
         public BytesMessage() { }
         public BytesMessage(byte[] bytes)
         {
-            this.Bytes = bytes;
+            this.bytes = bytes;
         }
 
-        public byte[] Bytes { get; set; }
+        public byte[] Bytes { get => bytes; }
 
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            if (Bytes == null)
-            {
-                writer.WriteInt32((int)0);
-            }
-            else
-            {
-                int length = Bytes.Length;
-                writer.WriteInt32(length);
-                writer.Write(Bytes, 0, length);
-            }
+            int n = bytes.Length;
+            writer.SerializeValue(ref bytes, 0, ref n);
         }
 
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            int length = reader.ReadInt32();
-            byte[] bytes = new byte[length];
-            reader.Read(bytes, 0, length);
-            Bytes = bytes;
+            int length = 0;
+            bytes = null;
+            reader.SerializeValue(ref bytes, 0, ref length);
         }
 
     }

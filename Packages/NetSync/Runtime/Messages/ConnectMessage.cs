@@ -11,18 +11,17 @@ namespace Yanmonet.NetSync.Messages
         public bool toServer;
         public MessageBase extra;
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteUInt64(connectionId);
-            writer.WriteBool(toServer);
+            writer.SerializeValue(ref connectionId);
+            writer.SerializeValue(ref toServer);
             if (extra != null)
                 extra.Serialize(writer);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            connectionId = reader.ReadUInt64();
-            toServer = reader.ReadBool();
-
+            reader.SerializeValue(ref connectionId);
+            reader.SerializeValue(ref toServer);
         }
 
     }

@@ -13,19 +13,19 @@ namespace Yanmonet.NetSync.Messages
         public NetworkInstanceId instanceId;
         public MessageBase parameter;
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteBool(toServer);
-            writer.WriteNetworkObjectId(objectId);
-            writer.WriteNetworkInstanceId(instanceId);
+            writer.SerializeValue(ref toServer);
+            writer.SerializeValue(ref objectId);
+            writer.SerializeValue(ref instanceId);
             if (parameter != null)
                 parameter.Serialize(writer);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            toServer = reader.ReadBool();
-            objectId = reader.ReadNetworkObjectId();
-            instanceId = reader.ReadNetworkInstanceId();
+            reader.SerializeValue(ref toServer);
+            reader.SerializeValue(ref objectId);
+            reader.SerializeValue(ref instanceId);
 
         }
 

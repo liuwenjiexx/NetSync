@@ -205,7 +205,7 @@ namespace Yanmonet.NetSync
             s.BaseStream.Position = 0;
             s.BaseStream.SetLength(0);
             s.BeginWritePackage();
-            s.WriteInt16(msgId);
+            s.SerializeValue(ref msgId);
             if (msg != null)
             {
                 msg.Serialize(s);

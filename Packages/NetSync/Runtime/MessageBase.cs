@@ -7,8 +7,8 @@ namespace Yanmonet.NetSync
     public class MessageBase
     {
 
-        public static Action<NetworkReader, MessageBase> DefaultDeserialize;
-        public static Func<NetworkWriter, MessageBase, MessageBase> DefaultSerialize;
+        public static Action<IReaderWriter, MessageBase> DefaultDeserialize;
+        public static Func<IReaderWriter, MessageBase, MessageBase> DefaultSerialize;
 
         public static Action<string, object> DeserializeFromString;
         public static Func<object, string> SerializeToString;
@@ -30,7 +30,7 @@ namespace Yanmonet.NetSync
         }
 
 
-        public virtual void Serialize(NetworkWriter writer)
+        public virtual void Serialize(IReaderWriter writer)
         {
             if (DefaultSerialize != null)
             {
@@ -40,10 +40,10 @@ namespace Yanmonet.NetSync
             {
                 string str;
                 str = SerializeToString(this);
-                writer.WriteString(str);
+                writer.SerializeValue(ref str);
             }
         }
-        public virtual void Deserialize(NetworkReader reader)
+        public virtual void Deserialize(IReaderWriter reader)
         {
             if (DefaultDeserialize != null)
             {
@@ -51,7 +51,8 @@ namespace Yanmonet.NetSync
             }
             else
             {
-                string str = reader.ReadString();
+                string str = null;
+                reader.SerializeValue(ref str);
                 DeserializeFromString(str, this);
             }
 
@@ -83,7 +84,7 @@ namespace Yanmonet.NetSync
         }
 
 
-        public static void Write(NetworkWriter writer, Type valueType, object value)
+        public static void Write(IReaderWriter writer, Type valueType, object value)
         {
             if (typeof(MessageBase).IsAssignableFrom(valueType))
             {
@@ -100,27 +101,31 @@ namespace Yanmonet.NetSync
             TypeCode typeCode = Type.GetTypeCode(valueType);
             if (valueType == typeof(NetworkInstanceId))
             {
-                writer.WriteNetworkInstanceId((NetworkInstanceId)value);
+                NetworkInstanceId value2 = default;
+                writer.SerializeValue(ref value2);
+                value = value2;
                 return;
             }
 
             if (valueType == typeof(NetworkObjectId))
             {
-                writer.WriteNetworkObjectId((NetworkObjectId)value);
+                NetworkObjectId value2 = (NetworkObjectId)value;
+                writer.SerializeValue(ref value2);
                 return;
             }
-
+            int int32;
             if (valueType == typeof(byte[]))
             {
                 byte[] bytes = value as byte[];
                 if (bytes == null)
                 {
-                    writer.WriteInt32(0);
+                    int32 = 0;
+                    writer.SerializeValue(ref int32);
                 }
                 else
                 {
-                    writer.WriteInt32(bytes.Length);
-                    writer.Write(bytes, 0, bytes.Length);
+                    int32 = bytes.Length;
+                    writer.SerializeValue(ref bytes, 0, ref int32);
                 }
                 return;
             }
@@ -128,31 +133,34 @@ namespace Yanmonet.NetSync
             switch (typeCode)
             {
                 case TypeCode.Int32:
-                    writer.WriteInt32((int)value);
+                    int32 = (int)value;
+                    writer.SerializeValue(ref int32);
                     break;
                 case TypeCode.Single:
-                    writer.WriteFloat32((float)value);
+                    float float32 = (float)value;
+                    writer.SerializeValue(ref float32);
                     break;
                 case TypeCode.String:
-                    if (value == null)
-                        writer.WriteString(string.Empty);
-                    else
-                        writer.WriteString(value as string);
+                    string str = value as string;
+                    writer.SerializeValue(ref str);
                     break;
                 case TypeCode.Boolean:
-                    writer.WriteBool((bool)value);
+                    var b = (bool)value;
+                    writer.SerializeValue(ref b);
                     break;
                 case TypeCode.Byte:
-                    writer.WriteByte((byte)value);
+                    var b1 = (byte)value;
+                    writer.SerializeValue(ref b1);
                     break;
                 case TypeCode.UInt64:
-                    writer.WriteUInt64((ulong)value);
+                    var ul = (ulong)value;
+                    writer.SerializeValue(ref ul);
                     break;
             }
         }
 
 
-        public static object Read(NetworkReader reader, Type valueType)
+        public static object Read(IReaderWriter reader, Type valueType)
         {
             TypeCode typeCode = Type.GetTypeCode(valueType);
             object value = null;
@@ -166,51 +174,59 @@ namespace Yanmonet.NetSync
 
             if (valueType == typeof(NetworkInstanceId))
             {
-                value = reader.ReadNetworkInstanceId();
+                NetworkInstanceId id = new();
+                reader.SerializeValue(ref id);
+                value = id;
                 return value;
             }
 
             if (valueType == typeof(NetworkObjectId))
             {
-                value = reader.ReadNetworkObjectId();
+                NetworkObjectId id = new();
+                reader.SerializeValue(ref id);
+                value = id;
                 return value;
             }
 
             if (valueType == typeof(byte[]))
             {
-                byte[] bytes;
-                int count = reader.ReadInt32();
-                if (count > 0)
-                {
-                    bytes = new byte[count];
-                    reader.Read(bytes, 0, count);
-                }
-                else
-                {
-                    bytes = null;
-                }
+                byte[] bytes = null;
+                int count = 0;
+                reader.SerializeValue(ref bytes, 0, ref count);
                 return bytes;
             }
 
             switch (typeCode)
             {
                 case TypeCode.Int32:
-                    value = reader.ReadInt32();
+                    int i32 = 0;
+                    reader.SerializeValue(ref i32);
+                    value = i32;
                     break;
                 case TypeCode.Single:
-                    value = reader.ReadFloat32();
+                    float f32 = 0;
+                    reader.SerializeValue(ref f32);
+                    value = f32;
                     break;
                 case TypeCode.String:
-                    value = reader.ReadString();
+                    string str = null;
+                    reader.SerializeValue(ref str);
+                    value = str;
                     break;
                 case TypeCode.Boolean:
-                    value = reader.ReadBool();
+                    bool b = false;
+                    reader.SerializeValue(ref b);
+                    value = b;
                     break;
                 case TypeCode.Byte:
-                    value = reader.ReadByte();
+                    byte i8 = 0;
+                    reader.SerializeValue(ref i8);
+                    value = i8;
                     break;
                 case TypeCode.UInt64:
-                    value = reader.ReadUInt64();
+                    ulong ulong64 = 0;
+                    reader.SerializeValue(ref ulong64);
+                    value = ulong64;
                     break;
             }
             return value;

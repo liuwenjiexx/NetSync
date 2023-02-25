@@ -5,7 +5,7 @@ using System.Text;
 namespace Yanmonet.NetSync
 {
 
-    public class NetworkWriter
+    public class NetworkWriter : IReaderWriter
     {
         private Stream baseStream;
 
@@ -17,6 +17,10 @@ namespace Yanmonet.NetSync
         {
             get { return baseStream; }
         }
+
+        public bool IsReader => false;
+
+        public bool IsWriter => true;
 
         public void BeginWritePackage()
         {
@@ -50,62 +54,51 @@ namespace Yanmonet.NetSync
             WriteByte((byte)((packageSize >> 8) & 0xFF));
             WriteByte((byte)(packageSize & 0xFF));
         }
-         
-        public void WriteByte(byte value)
+
+        private void WriteByte(byte value)
         {
             baseStream.WriteByte(value);
         }
 
-        public void WriteInt8(sbyte value)
+        private void WriteInt8(sbyte value)
         {
             WriteByte((byte)value);
         }
-        public void WriteUInt8(byte value)
+        private void WriteUInt8(byte value)
         {
             WriteByte(value);
         }
-        public void WriteInt16(short value)
+        private void WriteInt16(short value)
         {
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
-        public void WriteUInt16(ushort value)
+        private void WriteUInt16(ushort value)
         {
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
-        public void WriteChar(char value)
+        private void WriteChar(char value)
         {
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
 
-        public void WriteInt32(int value)
+        private void WriteInt32(int value)
         {
             WriteByte((byte)(value >> 0x18));
             WriteByte((byte)(value >> 0x10));
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
-        public void WriteUInt32(uint value)
+        internal void WriteUInt32(uint value)
         {
             WriteByte((byte)(value >> 0x18));
             WriteByte((byte)(value >> 0x10));
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
-        public void WriteInt64(long value)
-        {
-            WriteByte((byte)(value >> 0x38));
-            WriteByte((byte)(value >> 0x30));
-            WriteByte((byte)(value >> 0x28));
-            WriteByte((byte)(value >> 0x20));
-            WriteByte((byte)(value >> 0x18));
-            WriteByte((byte)(value >> 0x10));
-            WriteByte((byte)(value >> 0x8));
-            WriteByte((byte)(value));
-        }
-        public void WriteUInt64(ulong value)
+        private void WriteInt64(long value)
         {
             WriteByte((byte)(value >> 0x38));
             WriteByte((byte)(value >> 0x30));
@@ -116,30 +109,41 @@ namespace Yanmonet.NetSync
             WriteByte((byte)(value >> 0x8));
             WriteByte((byte)(value));
         }
-        public void WriteFloat32(float value)
+        private void WriteUInt64(ulong value)
+        {
+            WriteByte((byte)(value >> 0x38));
+            WriteByte((byte)(value >> 0x30));
+            WriteByte((byte)(value >> 0x28));
+            WriteByte((byte)(value >> 0x20));
+            WriteByte((byte)(value >> 0x18));
+            WriteByte((byte)(value >> 0x10));
+            WriteByte((byte)(value >> 0x8));
+            WriteByte((byte)(value));
+        }
+        private void WriteFloat32(float value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(tmp);
             Write(tmp, 0, 4);
         }
-        public void WriteFloat64(double value)
+        private void WriteFloat64(double value)
         {
             byte[] tmp = BitConverter.GetBytes(value);
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(tmp);
             Write(tmp, 0, 8);
         }
-        public void WriteBool(bool value)
+        private void WriteBool(bool value)
         {
             WriteByte((byte)(value ? 1 : 0));
         }
-        public void Write(byte[] buffer, int offset, int count)
+        private void Write(byte[] buffer, int offset, int count)
         {
             baseStream.Write(buffer, offset, count);
         }
 
-        public void WriteString(string value)
+        private void WriteString(string value)
         {
             if (value == null || value.Length == 0)
             {
@@ -152,7 +156,7 @@ namespace Yanmonet.NetSync
                 Write(bytes, 0, bytes.Length);
             }
         }
-        public void WriteGuid(Guid value)
+        internal void WriteGuid(Guid value)
         {
             byte[] bytes = value.ToByteArray();
             //little to big
@@ -161,19 +165,85 @@ namespace Yanmonet.NetSync
             Array.Reverse(bytes, 6, 2);
             Write(bytes, 0, bytes.Length);
         }
-        public void WriteNetworkInstanceId(NetworkInstanceId value)
+        private void WriteNetworkInstanceId(NetworkInstanceId value)
         {
             WriteUInt32(value.Value);
         }
 
-        public void WriteNetworkObjectId(NetworkObjectId value)
+        private void WriteNetworkObjectId(NetworkObjectId value)
         {
             WriteGuid(value.Value);
         }
 
-       
+        public void SerializeValue(ref byte value)
+        {
+            WriteByte(value);
+        }
 
+        public void SerializeValue(ref sbyte value)
+        {
+            WriteInt8(value);
+        }
 
+        public void SerializeValue(ref short value)
+        {
+            WriteInt16(value);
+        }
+
+        public void SerializeValue(ref ushort value)
+        {
+            WriteUInt16(value);
+        }
+
+        public void SerializeValue(ref int value)
+        {
+            WriteInt32(value);
+        }
+
+        public void SerializeValue(ref uint value)
+        {
+            WriteUInt32(value);
+        }
+
+        public void SerializeValue(ref long value)
+        {
+            WriteInt64(value);
+        }
+
+        public void SerializeValue(ref ulong value)
+        {
+            WriteUInt64(value);
+        }
+
+        public void SerializeValue(ref float value)
+        {
+            WriteFloat32(value);
+        }
+
+        public void SerializeValue(ref double value)
+        {
+            WriteFloat64(value);
+        }
+
+        public void SerializeValue(ref bool value)
+        {
+            WriteBool(value);
+        }
+
+        public void SerializeValue(ref string value)
+        {
+            WriteString(value);
+        }
+
+        public void SerializeValue(ref byte[] value, int offset, ref int length)
+        {
+            WriteInt32(length);
+            Write(value, offset, length);
+        }
+        public void SerializeValue(ref Guid value)
+        {
+            WriteGuid(value);
+        }
     }
 
 

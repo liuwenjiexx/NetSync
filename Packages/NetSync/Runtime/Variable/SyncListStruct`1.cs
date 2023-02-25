@@ -17,20 +17,22 @@ namespace Yanmonet.NetSync
             }
         }
 
-        protected override void SerializeItem(NetworkWriter writer, T item)
+        protected override void SerializeItem(IReaderWriter writer, T item)
         {
             EnsureItemBuff();
 
             item.ToBytes(itemBuff);
-            writer.Write(itemBuff, 0, itemBuff.Length);
+            int n = itemBuff.Length;
+            writer.SerializeValue(ref itemBuff, 0, ref n);
         }
 
-        protected override T DeserializeItem(NetworkReader reader)
+        protected override T DeserializeItem(IReaderWriter reader)
         {
 
             EnsureItemBuff();
-
-            reader.Read(itemBuff, 0, itemBuff.Length);
+            itemBuff = null;
+            int n = 0;
+            reader.SerializeValue(ref itemBuff, 0, ref n);
             var item = itemBuff.ToStruct<T>();
             return item;
         }

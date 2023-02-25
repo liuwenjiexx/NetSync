@@ -6,7 +6,7 @@ using System.Text;
 namespace Yanmonet.NetSync
 {
 
-    public class NetworkReader
+    public class NetworkReader : IReaderWriter
     {
         private MemoryStream msReader;
         private Socket baseStream;
@@ -81,85 +81,89 @@ namespace Yanmonet.NetSync
             get { return msReader.GetBuffer(); }
         }
 
-        public byte ReadByte()
+        public bool IsReader => true;
+
+        public bool IsWriter => false;
+
+        internal byte ReadByte()
         {
             return (byte)msReader.ReadByte();
         }
 
-        public sbyte ReadInt8()
+        internal sbyte ReadInt8()
         {
             return (sbyte)msReader.ReadByte();
         }
-        public byte ReadUInt8()
+        internal byte ReadUInt8()
         {
             return (byte)msReader.ReadByte();
         }
 
-        public short ReadInt16()
+        internal short ReadInt16()
         {
             short value;
             position += BigToInt16(buffer, position, out value);
             return value;
         }
-        public ushort ReadUInt16()
+        internal ushort ReadUInt16()
         {
             ushort value;
             position += BigToUInt16(buffer, position, out value);
             return value;
         }
-        public char ReadChar()
+        internal char ReadChar()
         {
             char value;
             position += BigToChar(buffer, position, out value);
             return value;
         }
-        public int ReadInt32()
+        internal int ReadInt32()
         {
             int value;
             position += BigToInt32(buffer, position, out value);
             return value;
         }
-        public uint ReadUInt32()
+        internal uint ReadUInt32()
         {
             uint value;
             position += BigToUInt32(buffer, position, out value);
             return value;
         }
-        public long ReadInt64()
+        internal long ReadInt64()
         {
             long value;
             position += BigToInt64(buffer, position, out value);
             return value;
         }
-        public ulong ReadUInt64()
+        internal ulong ReadUInt64()
         {
             ulong value;
             position += BigToUInt64(buffer, position, out value);
             return value;
         }
-        public float ReadFloat32()
+        internal float ReadFloat32()
         {
             float value;
             position += BigToFloat32(buffer, position, out value);
             return value;
         }
-        public double ReadFloat64()
+        internal double ReadFloat64()
         {
             double value;
             position += BigToFloat64(buffer, position, out value);
             return value;
         }
-        public bool ReadBool()
+        internal bool ReadBool()
         {
             byte b;
-            b = ReadByte(); 
+            b = ReadByte();
             return b == 0 ? false : true;
         }
-        public void Read(byte[] buffer, int offset, int length)
+        internal void Read(byte[] buffer, int offset, int length)
         {
             msReader.Read(buffer, offset, length);
         }
-        public string ReadString()
+        internal string ReadString()
         {
             int count;
             count = ReadInt32();
@@ -293,8 +297,82 @@ namespace Yanmonet.NetSync
             return 16;
         }
 
+        public void SerializeValue(ref byte value)
+        {
+            value = ReadByte();
+        }
 
+        public void SerializeValue(ref sbyte value)
+        {
+            value = ReadInt8();
+        }
 
+        public void SerializeValue(ref short value)
+        {
+            value = ReadInt16();
+        }
+
+        public void SerializeValue(ref ushort value)
+        {
+            value = ReadUInt16();
+        }
+
+        public void SerializeValue(ref int value)
+        {
+            value = ReadInt32();
+        }
+
+        public void SerializeValue(ref uint value)
+        {
+            value = ReadUInt32();
+        }
+
+        public void SerializeValue(ref long value)
+        {
+            value = ReadInt64();
+        }
+
+        public void SerializeValue(ref ulong value)
+        {
+            value = ReadUInt64();
+        }
+
+        public void SerializeValue(ref float value)
+        {
+            value = ReadFloat32();
+        }
+
+        public void SerializeValue(ref double value)
+        {
+            value = ReadFloat64();
+        }
+
+        public void SerializeValue(ref bool value)
+        {
+            value = ReadBool();
+        }
+
+        public void SerializeValue(ref string value)
+        {
+            value = ReadString();
+        }
+
+        public void SerializeValue(ref byte[] value, int offset, ref int length)
+        {
+            length = ReadInt32();
+            if (value == null)
+                value = new byte[length];
+            else
+            {
+                if (value.Length < length)
+                    throw new OverflowException();
+            }
+            Read(value, offset, length);
+        }
+        public void SerializeValue(ref Guid value)
+        {
+            value = ReadGuid();
+        }
         #endregion
 
 

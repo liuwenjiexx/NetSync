@@ -13,13 +13,14 @@ namespace Yanmonet.NetSync.Messages
             this.value = value;
         }
         public string Value { get => value; set => this.value = value; }
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteString(value);
+            writer.SerializeValue(ref value);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            this.value = reader.ReadString();
+            this.value = null;
+            reader.SerializeValue(ref value);
         }
     }
 
@@ -32,13 +33,13 @@ namespace Yanmonet.NetSync.Messages
             this.value = value;
         }
         public byte Value { get => value; set => this.value = value; }
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteByte(value);
+            writer.SerializeValue(ref value);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            value = (byte)reader.ReadByte();
+            reader.SerializeValue(ref value);
         }
 
     }
@@ -51,13 +52,13 @@ namespace Yanmonet.NetSync.Messages
             this.value = value;
         }
         public int Value { get => value; set => this.value = value; }
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteInt32(value);
+            writer.SerializeValue(ref value);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            this.value = reader.ReadInt32();
+            reader.SerializeValue(ref value);
         }
 
     }
@@ -76,13 +77,13 @@ namespace Yanmonet.NetSync.Messages
         //    void Serialize(Stream writer);
         //    void Deserialize(Stream reader);
         //}
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteInt64(value);
+            writer.SerializeValue(ref value);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            this.value = reader.ReadInt64();
+            reader.SerializeValue(ref value);
         }
     }
     public class Float32Message : MessageBase
@@ -95,13 +96,13 @@ namespace Yanmonet.NetSync.Messages
         }
         public float Value { get => value; set => this.value = value; }
 
-        public override void Serialize(NetworkWriter writer)
+        public override void Serialize(IReaderWriter writer)
         {
-            writer.WriteFloat32(value);
+            writer.SerializeValue(ref value);
         }
-        public override void Deserialize(NetworkReader reader)
+        public override void Deserialize(IReaderWriter reader)
         {
-            this.value = reader.ReadFloat32();
+            reader.SerializeValue(ref value);
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Yanmonet.NetSync
 {
     public abstract class NetworkObject
     {
-        private NetworkInstanceId instanceId;
+        internal NetworkInstanceId instanceId;
         internal NetworkObjectId objectId;
         private bool isClient;
         private bool isServer;
