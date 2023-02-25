@@ -1,0 +1,14 @@
+{
+  "name": "com.yanmonet.netsync",
+  "displayName": "Network Sync",
+  "version": "0.0.1",
+  "unity": "2020.1",
+  "description": "",
+  "dependencies": {
+    "com.newtonsoft.json": "0.0.1",
+    "com.yanmonet.async": "0.0.2"
+  },
+  "hideInEditor": true,
+  "samples": [
+  ]
+}
