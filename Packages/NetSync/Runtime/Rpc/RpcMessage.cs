@@ -41,7 +41,7 @@ namespace Yanmonet.NetSync
         {
 
             writer.SerializeValue(ref action);
-            writer.SerializeValue(ref netObj.instanceId);
+            writer.SerializeValue(ref netObj.objectId);
             switch (action)
             {
                 case Action_RpcClient:
@@ -68,11 +68,11 @@ namespace Yanmonet.NetSync
                         {
                             if (pInfo != null)
                             {
-                                NetworkUtility.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
+                                conn.NetworkManager.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
                             }
                             else
                             {
-                                NetworkUtility.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
+                                conn.NetworkManager.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
                             }
                             throw ex;
                         }
@@ -91,7 +91,7 @@ namespace Yanmonet.NetSync
             if (action == 0)
                 throw new Exception("action is 0");
 
-            NetworkInstanceId instanceId = new();
+            ulong instanceId = new();
             reader.SerializeValue(ref instanceId);
 
             netObj = null;

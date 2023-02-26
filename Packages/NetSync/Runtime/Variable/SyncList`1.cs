@@ -132,7 +132,7 @@ namespace Yanmonet.NetSync
                         break;
                 }
 
-                foreach (var conn in owner.Observers)
+                foreach (var conn in owner.NetworkManager.GetConnections( owner.Observers))
                     conn.SendMessage((short)NetworkMsgId.SyncList, msg);
             }
             Changed?.Invoke(op, itemIndex);

@@ -1,9 +1,4 @@
-﻿#if UNITY_2021
-using UnityEngine;
-using YMFramework;
-#endif
-
-using Yanmonet.NetSync.Messages;
+﻿using Yanmonet.NetSync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -28,18 +23,31 @@ namespace Yanmonet.NetSync
         private int port;
         private bool isReady;
 
-        public NetworkClient()
-            : this(null, null, false, false)
+        public NetworkClient(NetworkManager manager)
+            : this(manager, null, null, false, false)
+        {
+
+        }
+        public NetworkClient(NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
+            : this(null, server, socket, ownerSocket, isListen)
         {
 
         }
 
-        public NetworkClient(NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
+        private NetworkClient(NetworkManager manager, NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
         {
             this.server = server;
             isClient = !isListen;
-
             conn = new NetworkConnection(server, socket, ownerSocket, isListen);
+
+            if (server != null)
+            {
+                networkManager = server.NetworkManager;
+            }
+            else
+            {
+                networkManager = manager;
+            }
 
             if (IsClient)
             {
@@ -59,7 +67,7 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public ulong Id
+        public ulong ClientId
         {
             get
             {
@@ -67,6 +75,11 @@ namespace Yanmonet.NetSync
                     return conn.ConnectionId;
                 return 0;
             }
+        }
+
+        public ulong ServerClientId
+        {
+            get; internal set;
         }
 
         public NetworkConnection Connection
@@ -104,21 +117,24 @@ namespace Yanmonet.NetSync
         //public event Action<NetworkClient> Connected;
         //public event Action<NetworkClient> Disconnected;
 
+        private NetworkManager networkManager;
+        public NetworkManager NetworkManager => networkManager ?? NetworkManager.Singleton;
+
         static NetworkClient()
         {
             Action<Assembly> assemblyLoad = (ass) =>
             {
-                foreach (var type in ass.GetTypes())
-                {
-                    if (!type.IsSubclassOf(typeof(NetworkObject)))
-                        continue;
-                    var attr = type.GetCustomAttributes(typeof(NetworkObjectIdAttribute), false).FirstOrDefault() as NetworkObjectIdAttribute;
-                    if (attr == null)
-                        continue;
-                    var id = NetworkObjectId.GetObjectId(type);
-                    if (!NetworkObjectInfo.Has(id))
-                        RegisterObject(id, type, _CreateObject, null);
-                }
+                //foreach (var type in ass.GetTypes())
+                //{
+                //    if (!type.IsSubclassOf(typeof(NetworkObject)))
+                //        continue;
+                //    var attr = type.GetCustomAttributes(typeof(NetworkObjectIdAttribute), false).FirstOrDefault() as NetworkObjectIdAttribute;
+                //    if (attr == null)
+                //        continue;
+                //    var id = NetworkObjectId.GetTypeId(type);
+                //    if (!NetworkObjectInfo.Has(id))
+                //        RegisterObject(id, type, _CreateObject, null);
+                //}
             };
 
             AppDomain.CurrentDomain.AssemblyLoad += (sender, args) =>
@@ -134,7 +150,7 @@ namespace Yanmonet.NetSync
 
 
 
-        static NetworkObject _CreateObject(NetworkObjectId objectId)
+        static NetworkObject _CreateObject(ulong objectId)
         {
             NetworkObjectInfo objInfo = NetworkObjectInfo.Get(objectId);
             return Activator.CreateInstance(objInfo.type) as NetworkObject;
@@ -196,13 +212,9 @@ namespace Yanmonet.NetSync
                     }
                     catch (Exception ex)
                     {
-                        NetworkUtility.Log(ex);
+                        NetworkManager.LogException(ex);
                     }
-                    //#if UNITY_2021
-                    //                    await new WaitForEndOfFrame();
-                    //#else
-                    //                    await Task.Delay(10);
-                    //#endif
+  
                 }
             }
 
@@ -285,67 +297,23 @@ namespace Yanmonet.NetSync
             NetworkObjectInfo.createInstanceInfos.Clear();
         }
 
-        #region Create Object
+        //public void CreateObject<T>(MessageBase parameter = null)
+        //   where T : NetworkObject
+        //{
+        //    var id = NetworkManager.GetObjectId(typeof(T));
+        //    CreateObject(id, parameter);
+        //}
+        //private void CreateObject(ulong objectId, MessageBase parameter = null)
+        //{
+        //    var msg = new CreateObjectMessage()
+        //    {
+        //        toServer = true,
+        //        objectId = objectId,
+        //        parameter = parameter
+        //    };
 
-
-        public static void RegisterObject<T>(CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
-        {
-            RegisterObject(typeof(T), create, destrory);
-        }
-
-        public static void RegisterObject(Type type, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
-        {
-            NetworkObjectId objectId = NetworkObjectId.GetObjectId(type);
-
-            RegisterObject(objectId, type, create, destrory);
-        }
-
-        private static void RegisterObject(NetworkObjectId objectId, Type type, CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
-        {
-            if (objectId.Value == Guid.Empty)
-                throw new ArgumentException("value is empty", nameof(objectId));
-
-            if (create == null)
-                throw new ArgumentNullException(nameof(create));
-
-            if (type != null)
-            {
-                SyncVarInfo.GetSyncVarInfos(type);
-                SyncListInfo.GetSyncListInfos(type);
-            }
-
-            NetworkObjectInfo info = new NetworkObjectInfo()
-            {
-                objectId = objectId,
-                create = create,
-                destroy = destrory,
-                type = type,
-            };
-            NetworkObjectInfo.Add(info);
-        }
-
-        public static void UnregisterObject(NetworkObjectId objectId)
-        {
-            NetworkObjectInfo.Remove(objectId);
-
-        }
-        public void CreateObject<T>(MessageBase parameter = null)
-            where T : NetworkObject
-        {
-            var id = NetworkObjectId.GetObjectId(typeof(T));
-            CreateObject(id, parameter);
-        }
-        public void CreateObject(NetworkObjectId objectId, MessageBase parameter = null)
-        {
-            var msg = new CreateObjectMessage()
-            {
-                toServer = true,
-                objectId = objectId,
-                parameter = parameter
-            };
-
-            conn.SendMessage((short)NetworkMsgId.CreateObject, msg);
-        }
+        //    conn.SendMessage((short)NetworkMsgId.CreateObject, msg);
+        //}
 
 
 
@@ -360,48 +328,47 @@ namespace Yanmonet.NetSync
             Dispose();
         }
 
-        #endregion
 
     }
 
-    public delegate NetworkObject CreateObjectDelegate(NetworkObjectId objectId);
+    public delegate NetworkObject CreateObjectDelegate(ulong objectId);
     public delegate void DestroyObjectDelegate(NetworkObject instance);
 
 
 
     internal class NetworkObjectInfo
     {
-        public NetworkObjectId objectId;
+        public ulong typeId;
         public CreateObjectDelegate create;
         public DestroyObjectDelegate destroy;
         public Type type;
-        internal static Dictionary<NetworkObjectId, NetworkObjectInfo> createInstanceInfos;
+        internal static Dictionary<ulong, NetworkObjectInfo> createInstanceInfos;
 
         public static void Add(NetworkObjectInfo objInfo)
         {
             if (createInstanceInfos == null)
-                createInstanceInfos = new Dictionary<NetworkObjectId, NetworkObjectInfo>();
+                createInstanceInfos = new Dictionary<ulong, NetworkObjectInfo>();
 
-            createInstanceInfos[objInfo.objectId] = objInfo;
+            createInstanceInfos[objInfo.typeId] = objInfo;
         }
-        public static bool Has(NetworkObjectId objectId)
+        public static bool Has(ulong typeId)
         {
-            return (createInstanceInfos != null && createInstanceInfos.ContainsKey(objectId));
+            return (createInstanceInfos != null && createInstanceInfos.ContainsKey(typeId));
         }
 
-        public static NetworkObjectInfo Get(NetworkObjectId objectId)
+        public static NetworkObjectInfo Get(ulong typeId)
         {
-            if (createInstanceInfos == null || !createInstanceInfos.ContainsKey(objectId))
-                throw new Exception("not contains object id:" + objectId);
-            var objInfo = createInstanceInfos[objectId];
+            if (createInstanceInfos == null || !createInstanceInfos.ContainsKey(typeId))
+                throw new Exception("not contains Type id:" + typeId);
+            var objInfo = createInstanceInfos[typeId];
             return objInfo;
         }
 
-        public static void Remove(NetworkObjectId objectId)
+        public static void Remove(ulong typeId)
         {
             if (createInstanceInfos != null)
             {
-                createInstanceInfos.Remove(objectId);
+                createInstanceInfos.Remove(typeId);
             }
         }
 

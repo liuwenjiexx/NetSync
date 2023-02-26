@@ -10,13 +10,12 @@ namespace Yanmonet.NetSync
 {
     public abstract class NetworkObject
     {
-        internal NetworkInstanceId instanceId;
-        internal NetworkObjectId objectId;
+        internal ulong typeId;
+        internal ulong objectId;
         private bool isClient;
         private bool isServer;
 
-        internal List<NetworkConnection> observers;
-        private ReadOnlyCollection<NetworkConnection> readonlyObservers;
+        internal List<ulong> observers;
 
         private uint syncVarDirtyBits;
         internal SyncVarState[] syncVarStates;
@@ -25,20 +24,14 @@ namespace Yanmonet.NetSync
 
         public NetworkObject()
         {
-            observers = new List<NetworkConnection>();
-            readonlyObservers = observers.AsReadOnly();
+            observers = new List<ulong>();
             RegisterSyncVar();
         }
 
-        public NetworkInstanceId InstanceId { get => instanceId; internal set { instanceId = value; } }
+        public ulong InstanceId { get => objectId; internal set { objectId = value; } }
 
-        public ReadOnlyCollection<NetworkConnection> Observers { get => readonlyObservers; }
+        public IReadOnlyList<ulong> Observers { get => observers; }
 
-        public bool IsClient { get => isClient; internal set => isClient = value; }
-
-        public bool IsServer { get => isServer; internal set => isServer = value; }
-
-        public bool IsServerAndClient { get => isServer && isClient; }
 
         public uint SyncVarDirtyBits { get => syncVarDirtyBits; }
 
@@ -62,6 +55,62 @@ namespace Yanmonet.NetSync
 
         private NetworkConnection connectionToServer;
 
+        internal NetworkManager networkManager;
+        public NetworkManager NetworkManager => networkManager ?? NetworkManager.Singleton;
+        public bool IsSpawned { get; internal set; }
+        public ulong OwnerClientId { get; internal set; }
+
+        //  public bool IsLocalPlayer => NetworkManager != null && IsPlayerObject && OwnerClientId == NetworkManager.LocalClientId;
+
+        public bool IsOwner => NetworkManager != null && OwnerClientId == NetworkManager.LocalClientId;
+
+        public bool IsOwnedByServer => NetworkManager != null && OwnerClientId == NetworkManager.ServerClientId;
+
+
+        public void Spawn()
+        {
+            Spawn(NetworkManager.ServerClientId);
+        }
+
+        public void Spawn(ulong ownerClientId)
+        {
+            if (!NetworkManager.IsServer) throw new NotServerException("Spawn only on server");
+            OwnerClientId = ownerClientId;
+
+            //if (!IsOwnedByServer)
+            //{
+            //    NetworkManager.Server.AddObserver();
+            //}
+            if (!IsOwnedByServer)
+            {
+                if (NetworkManager.clients.TryGetValue(ownerClientId, out var client))
+                {
+                    var conn = client.Connection;
+                    ConnectionToOwner = conn;
+                }
+                NetworkManager.Server.AddObserver(this, ownerClientId);
+            }
+        }
+
+        public void Despawn(bool destrory = true)
+        {
+            if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(Despawn)} only on server");
+
+            if (NetworkManager.Server.objects.ContainsKey(InstanceId))
+            {
+                foreach (var clientId in Observers.ToArray())
+                {
+                    NetworkManager.Server.RemoveObserver(this, clientId);
+                }
+
+                NetworkManager.Server.objects.Remove(InstanceId);
+            }
+
+            if (destrory)
+            {
+                Destrory();
+            }
+        }
         internal void SetConnection(NetworkConnection conn)
         {
 
@@ -218,8 +267,10 @@ namespace Yanmonet.NetSync
                     SyncVarMessage msg = SyncVarMessage.ResponseSyncVar(this, syncVarDirtyBits);
                     ClearAllDirtyBits();
 
-                    foreach (var conn in observers)
+                    foreach (var conn in NetworkManager.GetConnections(observers))
+                    {
                         conn.SendMessage((short)NetworkMsgId.SyncVar, msg);
+                    }
                 }
             }
             else if (isClient)
@@ -273,7 +324,7 @@ namespace Yanmonet.NetSync
                 }
                 else
                 {
-                    foreach (var _conn in observers)
+                    foreach (var _conn in NetworkManager.GetConnections(observers))
                     {
                         _conn.SendMessage((short)NetworkMsgId.Rpc, msg);
                     }
@@ -293,7 +344,7 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex) { destroryEx = ex; }
 
-            var info = NetworkObjectInfo.Get(objectId);
+            var info = NetworkObjectInfo.Get(typeId);
 
             if (info.destroy == null)
             {
@@ -320,13 +371,13 @@ namespace Yanmonet.NetSync
             NetworkObject netObj = obj as NetworkObject;
             if (obj == null)
                 return false;
-            return object.Equals(instanceId, netObj.instanceId);
+            return object.Equals(objectId, netObj.objectId);
         }
 
 
         public override int GetHashCode()
         {
-            return instanceId.GetHashCode();
+            return objectId.GetHashCode();
         }
 
 

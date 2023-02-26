@@ -48,7 +48,7 @@ namespace Yanmonet.NetSync
                 if (action == 0)
                     throw new Exception("action is 0");
 
-                NetworkInstanceId instanceId = default;
+                ulong instanceId = 0;
                 reader.SerializeValue(ref instanceId);
                 netObj = null;
 
@@ -89,7 +89,7 @@ namespace Yanmonet.NetSync
                             }
                             catch (Exception ex)
                             {
-                                NetworkUtility.Log(ex);
+                                conn.NetworkManager.LogException(ex);
                             }
                         }
                         break;
@@ -111,7 +111,7 @@ namespace Yanmonet.NetSync
                 byte b = 0;
 
                 writer.SerializeValue(ref action);
-                writer.SerializeValue(ref netObj.instanceId);
+                writer.SerializeValue(ref netObj.objectId);
                 switch (action)
                 {
                     case Action_ResponseSyncVar:

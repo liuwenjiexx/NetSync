@@ -65,24 +65,7 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public static void Write(this BinaryWriter writer, NetworkInstanceId value)
-        {
-            writer.Write(value.Value);
-        }
-
-        public static void Write(this BinaryWriter writer, NetworkObjectId value)
-        {
-            writer.Write(value.Value.ToString());
-        }
-
-        public static void Read(this BinaryReader reader, ref NetworkInstanceId instanceId)
-        {
-            instanceId = new NetworkInstanceId(reader.ReadUInt32());
-        }
-
-        public static void Read(this BinaryReader reader, ref NetworkObjectId objectId)
-        {
-            objectId = new NetworkObjectId(new Guid(reader.ReadString()));
-        }
+      
+    
     }
 }

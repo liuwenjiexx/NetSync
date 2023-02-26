@@ -184,21 +184,7 @@ namespace Yanmonet.NetSync
             position += BigToGuid(buffer, position, out value);
             return value;
         }
-
-        public NetworkInstanceId ReadNetworkInstanceId()
-        {
-            uint value = ReadUInt32();
-            NetworkInstanceId id = new NetworkInstanceId(value);
-            return id;
-        }
-
-        public NetworkObjectId ReadNetworkObjectId()
-        {
-            Guid guid = ReadGuid();
-            NetworkObjectId id = new NetworkObjectId(guid);
-            return id;
-        }
-
+          
 
         #region Big
 

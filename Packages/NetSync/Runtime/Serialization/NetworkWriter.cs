@@ -165,15 +165,8 @@ namespace Yanmonet.NetSync
             Array.Reverse(bytes, 6, 2);
             Write(bytes, 0, bytes.Length);
         }
-        private void WriteNetworkInstanceId(NetworkInstanceId value)
-        {
-            WriteUInt32(value.Value);
-        }
 
-        private void WriteNetworkObjectId(NetworkObjectId value)
-        {
-            WriteGuid(value.Value);
-        }
+         
 
         public void SerializeValue(ref byte value)
         {

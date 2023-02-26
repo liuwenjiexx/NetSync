@@ -1,9 +1,4 @@
-﻿#if UNITY_2021
-using UnityEngine;
-using YMFramework;
-#endif
-
-using Yanmonet.NetSync.Messages;
+﻿using Yanmonet.NetSync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,7 +8,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-
+using System.Runtime.Serialization;
 
 namespace Yanmonet.NetSync
 {
@@ -21,26 +16,27 @@ namespace Yanmonet.NetSync
     {
         private TcpListener server;
         private bool isRunning;
-        private LinkedList<NetworkClient> hostList;
-        private Dictionary<NetworkConnection, LinkedListNode<NetworkClient>> hostDic;
-        private Dictionary<NetworkInstanceId, NetworkObject> objects;
-        private uint nextInstanceId;
+
+
+        internal Dictionary<ulong, NetworkObject> objects;
+        private uint nextObjectId;
         private ulong nextConnectionId;
-        private List<NetworkInstanceId> destoryObjIds = new List<NetworkInstanceId>();
+        private List<ulong> destoryObjIds = new List<ulong>();
         private Type clientType;
         Task acceptClientTask;
         private int mainThreadId;
         private object lockObj;
         CancellationTokenSource cancellationTokenSource;
 
-        public NetworkServer(TcpListener server)
+        public NetworkServer(NetworkManager manager, TcpListener server)
         {
             this.server = server;
-            objects = new Dictionary<NetworkInstanceId, NetworkObject>();
+            objects = new Dictionary<ulong, NetworkObject>();
             lockObj = new object();
+            this.networkManager = manager;
         }
-        public NetworkServer()
-            : this(null)
+        public NetworkServer(NetworkManager manager = null)
+            : this(manager, null)
         {
         }
 
@@ -58,7 +54,7 @@ namespace Yanmonet.NetSync
         {
             get
             {
-                foreach (var item in hostList)
+                foreach (var item in Clients)
                     yield return item.Connection;
             }
         }
@@ -66,12 +62,13 @@ namespace Yanmonet.NetSync
         {
             get
             {
-                return hostList;
+                return NetworkManager.clientList;
             }
         }
         public IEnumerable<NetworkObject> Objects { get => objects.Select(o => o.Value); }
         public Type ClientType { get => clientType; set => clientType = value; }
-
+        private NetworkManager networkManager;
+        public NetworkManager NetworkManager => networkManager ?? NetworkManager.Singleton;
         public event Action<NetworkServer> Started;
         public event Action<NetworkServer> Stoped;
 
@@ -95,12 +92,10 @@ namespace Yanmonet.NetSync
             tcpListener.Start();
             this.server = tcpListener;
             cancellationTokenSource = new CancellationTokenSource();
-            hostList = new LinkedList<NetworkClient>();
-            hostDic = new Dictionary<NetworkConnection, LinkedListNode<NetworkClient>>();
 
             isRunning = true;
-            NetworkUtility.Log($"Game Server IP: {localAddress}, Port: {localPort}");
-            NetworkUtility.Log("Network Server Started");
+            NetworkManager.Log($"Game Server IP: {localAddress}, Port: {localPort}");
+            NetworkManager.Log("Network Server Started");
             //Running(cancellationTokenSource.Token);
             try
             {
@@ -123,24 +118,28 @@ namespace Yanmonet.NetSync
 
             foreach (var obj in objects.Values.ToArray())
             {
-                DestroyObject(obj);
+                Despawn(obj);
             }
+            var clientList = NetworkManager.clientList;
 
             try
             {
-                if (hostList != null)
+                if (clientList != null)
                 {
-                    foreach (var host in hostList)
+                    foreach (var host in clientList)
                     {
                         try { host.Connection.Dispose(); } catch { }
                     }
-                    hostList.Clear();
+
                 }
-                if (hostDic != null)
-                    hostDic.Clear();
+
             }
             catch { }
 
+            clientList.Clear();
+            NetworkManager.clients.Clear();
+            NetworkManager.clientIds.Clear();
+            NetworkManager.clientNodes.Clear();
             try
             {
                 server.Stop();
@@ -153,9 +152,9 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex)
             {
-                NetworkUtility.Log(ex);
+                NetworkManager.LogException(ex);
             }
-            NetworkUtility.Log("Network Server Stoped");
+            NetworkManager.Log("Network Server Stoped");
         }
 
 
@@ -167,15 +166,15 @@ namespace Yanmonet.NetSync
 
             LinkedListNode<NetworkClient> node;
             NetworkClient client;
-
-            node = hostList.First;
+            var clientList = NetworkManager.clientList;
+            node = clientList.First;
             while (node != null)
             {
                 client = node.Value;
                 if (client == null || !client.IsRunning || !client.Connection.Socket.Connected)
                 {
                     node = node.RemoveAndNext();
-                    NetworkUtility.Log("Client Disconnected");
+                    NetworkManager.Log("Client Disconnected");
                     OnClientDisconnect(client);
                     ClientDisconnected?.Invoke(this, client);
                     continue;
@@ -207,8 +206,10 @@ namespace Yanmonet.NetSync
                                 //client.Running();
                                 //}
                                 RemoveConnection(client.Connection);
-                                node = hostList.AddLast(client);
-                                hostDic[client.Connection] = node;
+                                node = clientList.AddLast(client);
+                                NetworkManager.clientNodes[client.ClientId] = node;
+                                NetworkManager.clients[client.ClientId] = client;
+                                NetworkManager.clientIds.AddLast(client.ClientId);
                             }
                         }
                         catch (Exception ex)
@@ -235,17 +236,11 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex)
             {
-                NetworkUtility.Log(ex);
+                NetworkManager.LogException(ex);
             }
 
 
 
-
-            //#if UNITY_2021
-            //                await new WaitForEndOfFrame();
-            //#else
-            //                await Task.Delay(30);
-            //#endif
 
 
         }
@@ -279,8 +274,7 @@ namespace Yanmonet.NetSync
             //var msg = netMsg.ReadMessage<ConnectMessage>();
             if (netMsg.Connection.ConnectionId == 0)
             {
-                ulong connId = ++nextConnectionId;
-                netMsg.Connection.ConnectionId = connId;
+
             }
             ClientConnected?.Invoke(this, client);
         }
@@ -297,10 +291,12 @@ namespace Yanmonet.NetSync
             }
             client = (NetworkClient)Activator.CreateInstance(clientType, new object[] { this, netClient.Client, true, true });
 
+            ulong connId = ++nextConnectionId;
+            client.Connection.ConnectionId = connId;
             //  client.Start();
             //client.Running();
 
-            NetworkUtility.Log("Accept Client");
+            NetworkManager.Log("Accept Client");
 
             return client;
         }
@@ -313,7 +309,7 @@ namespace Yanmonet.NetSync
         {
             LinkedListNode<NetworkClient> node;
 
-            if (hostDic.TryGetValue(connection, out node))
+            if (NetworkManager.clientNodes.TryGetValue(connection.ConnectionId, out node))
             {
                 NetworkClient client = node.Value;
                 if (!client.IsRunning)
@@ -328,12 +324,13 @@ namespace Yanmonet.NetSync
 
         public void RemoveConnection(NetworkConnection connection)
         {
-
-            if (hostDic.ContainsKey(connection))
+            ulong clientId = connection.ConnectionId;
+            if (NetworkManager.clientNodes.TryGetValue(clientId, out var node))
             {
-                var node = hostDic[connection];
                 node.List.Remove(node);
-                hostDic.Remove(connection);
+                NetworkManager.clientNodes.Remove(clientId);
+                NetworkManager.clientIds.Remove(clientId);
+                NetworkManager.clients.Remove(clientId);
                 try
                 {
                     if (connection.IsConnected)
@@ -362,99 +359,93 @@ namespace Yanmonet.NetSync
 
         #region Create Object
 
-        public T CreateObject<T>(NetworkMessage netMsg = null)
+        public T CreateObject<T>(INetworkSerializable parameter = null)
             where T : NetworkObject
         {
-            var id = NetworkObjectId.GetObjectId(typeof(T));
-            return (T)CreateObject(id, null);
+            var id = NetworkManager.GetTypeId(typeof(T));
+            return (T)CreateObject(id, parameter);
         }
 
-        public NetworkObject CreateObject(NetworkObjectId objectId)
+        public NetworkObject CreateObject(ulong objectId)
         {
             return CreateObject(objectId, null);
         }
 
-        internal NetworkObject CreateObject(NetworkObjectId objectId, NetworkMessage netMsg)
+        internal NetworkObject CreateObject(ulong objectId, INetworkSerializable parameter)
         {
             var objInfo = NetworkObjectInfo.Get(objectId);
 
             NetworkObject instance = objInfo.create(objectId);
             if (instance == null)
                 throw new Exception("create object, instance null");
-            instance.InstanceId = new NetworkInstanceId(++nextInstanceId);
-            instance.objectId = objectId;
-            instance.IsServer = true;
+            instance.typeId = objectId;
+            instance.InstanceId = ++nextObjectId;
+  
+            instance.OwnerClientId = NetworkManager.ServerClientId;
             objects[instance.InstanceId] = instance;
 
-            OnCreateObject(instance, netMsg);
+            OnCreateObject(instance, parameter);
 
             return instance;
         }
 
-        protected virtual void OnCreateObject(NetworkObject obj, NetworkMessage netMsg)
+        protected virtual void OnCreateObject(NetworkObject obj, INetworkSerializable parameter)
         {
         }
 
 
-        public NetworkObject GetObject(NetworkInstanceId instanceId)
+        public NetworkObject GetObject(ulong instanceId)
         {
             NetworkObject obj;
             objects.TryGetValue(instanceId, out obj);
             return obj;
         }
 
-        public void DestroyObject(NetworkObject obj)
-        {
-
-            if (objects.ContainsKey(obj.InstanceId))
-            {
-                foreach (var conn in obj.Observers.ToArray())
-                {
-                    RemoveObserver(obj, conn);
-                }
-
-                objects.Remove(obj.InstanceId);
-
-                obj.Destrory();
-            }
-        }
 
 
         #endregion
-
-
-
         public void AddObserver(NetworkObject obj, NetworkConnection conn)
         {
+        }
+        public void AddObserver(NetworkObject obj, ulong clientId)
+        {
+            if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(AddObserver)} only on server");
+
             if (obj == null) throw new ArgumentNullException(nameof(obj));
-            if (conn == null) throw new ArgumentNullException(nameof(conn));
 
-            if (!obj.IsServer)
-                throw new Exception("not server object");
+            NetworkConnection conn;
 
-            if (!obj.observers.Contains(conn))
+            if (!NetworkManager.clients.TryGetValue(clientId, out var client))
+                return;
+            conn = client.Connection;
+
+            if (!obj.observers.Contains(clientId))
             {
-                obj.observers.Add(conn);
+                obj.observers.Add(clientId);
                 conn.AddObject(obj);
 
                 conn.SendMessage((short)NetworkMsgId.CreateObject,
                     new CreateObjectMessage()
                     {
-                        toServer = false,
-                        objectId = obj.objectId,
-                        instanceId = obj.InstanceId,
+                        typeId =obj.typeId,
+                        objectId = obj.InstanceId,
+                        ownerClientId = obj.OwnerClientId,
                     });
 
                 obj.SyncAll(conn);
             }
         }
 
-        public void RemoveObserver(NetworkObject obj, NetworkConnection conn)
+        public void RemoveObserver(NetworkObject obj, ulong clientId)
         {
-            if (!obj.IsServer)
+            if (!NetworkManager.IsServer)
                 throw new Exception("not server object");
+            NetworkConnection conn;
+            if (!NetworkManager.clients.TryGetValue(clientId, out var client))
+                return;
+            conn = client.Connection;
 
-            if (obj.observers.Remove(conn))
+            if (obj.observers.Remove(clientId))
             {
                 conn.RemoveObject(obj);
 
@@ -479,12 +470,16 @@ namespace Yanmonet.NetSync
                         }
                         catch (Exception ex)
                         {
-                            NetworkUtility.Log(ex);
+                            NetworkManager.LogException(ex);
                         }
-                        var owner = netObj.ConnectionToOwner;
-                        if (owner != null && !owner.IsConnected)
+                        if (!netObj.IsOwnedByServer)
                         {
-                            destoryObjIds.Add(netObj.InstanceId);
+
+                            var owner = netObj.ConnectionToOwner;
+                            if (owner != null && !owner.IsConnected)
+                            {
+                                destoryObjIds.Add(netObj.InstanceId);
+                            }
                         }
                     }
                 }
@@ -495,7 +490,7 @@ namespace Yanmonet.NetSync
                     if (objects.TryGetValue(id, out netObj))
                     {
                         if (netObj != null)
-                            DestroyObject(netObj);
+                            netObj.Despawn();
                     }
                 }
                 destoryObjIds.Clear();

@@ -1,9 +1,4 @@
-﻿#if UNITY_2021
-using UnityEngine;
-using YMFramework;
-#endif
-
-using Yanmonet.NetSync.Messages;
+﻿using Yanmonet.NetSync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,19 +13,18 @@ namespace Yanmonet.NetSync
     public class NetworkConnection : IDisposable
     {
         private Socket socket;
-        private bool isConnecting;
-        private bool isConnected;
+        internal bool isConnecting;
+        internal bool isConnected;
         private NetworkReader reader;
         private Pool<NetworkWriter> writePool;
         private Queue<NetworkWriter> sendMsgQueue;
         private NetworkWriter currentSendMsg;
         private Dictionary<short, NetworkMessageDelegate> handlers;
-        private static Dictionary<short, NetworkMessageDelegate> defaultHandlers;
         private bool isListening;
         private bool isInital;
         //private DateTime lastTryReconnectTime;
-        private Dictionary<NetworkInstanceId, NetworkObject> objects;
-        private int pingDelay;
+        private Dictionary<ulong, NetworkObject> objects;
+        internal int pingDelay;
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
         private string address;
@@ -41,7 +35,7 @@ namespace Yanmonet.NetSync
 
         public NetworkConnection()
         {
-            objects = new Dictionary<NetworkInstanceId, NetworkObject>();
+            objects = new Dictionary<ulong, NetworkObject>();
 
         }
 
@@ -50,13 +44,17 @@ namespace Yanmonet.NetSync
         {
             //if (socket == null) throw new ArgumentNullException("socket");
             this.server = server;
+
             this.socket = socket;
 
             this.isListening = isListening;
             //ReconnectInterval = 1000;
             //AutoReconnect = true;
             this.ownerSoket = ownerSoket;
-
+            if (server != null)
+            {
+                networkManager = server.NetworkManager;
+            }
             if (socket != null)
             {
                 if (socket.Connected)
@@ -113,6 +111,7 @@ namespace Yanmonet.NetSync
 
         //public bool AutoReconnect { get; set; }
 
+
         public bool HasSendMessage
         {
             get { return currentSendMsg != null || sendMsgQueue.Count > 0; }
@@ -137,31 +136,10 @@ namespace Yanmonet.NetSync
 
         public DateTime LastSendTime { get => lastSendTime; }
         public DateTime LastReceiveTime { get => lastReceiveTime; }
+        internal NetworkManager networkManager;
+        public NetworkManager NetworkManager => networkManager ?? NetworkManager.Singleton;
 
 
-        private static Dictionary<short, NetworkMessageDelegate> DefaultHandlers
-        {
-            get
-            {
-                if (defaultHandlers == null)
-                {
-                    defaultHandlers = new Dictionary<short, NetworkMessageDelegate>();
-                    defaultHandlers[(short)NetworkMsgId.Connect] = OnMessage_Connect;
-                    defaultHandlers[(short)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
-                    defaultHandlers[(short)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
-                    defaultHandlers[(short)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
-                    defaultHandlers[(short)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
-                    defaultHandlers[(short)NetworkMsgId.SyncList] = OnMessage_SyncList;
-                    defaultHandlers[(short)NetworkMsgId.Rpc] = OnMessage_Rpc;
-                    defaultHandlers[(short)NetworkMsgId.Ping] = OnMessage_Ping;
-                }
-                return defaultHandlers;
-            }
-        }
-        public static long Timestamp
-        {
-            get { return Utils.Timestamp; }
-        }
 
         public event Action<NetworkConnection, NetworkMessage> Connected;
         public event Action<NetworkConnection> Disconnected;
@@ -246,7 +224,7 @@ namespace Yanmonet.NetSync
             if (isConnected)
             {
                 isConnected = false;
-                NetworkUtility.Log("Client Disconnect");
+                NetworkManager.Log("Client Disconnect");
                 Disconnected?.Invoke(this);
             }
         }
@@ -279,7 +257,7 @@ namespace Yanmonet.NetSync
                 {
                     s = null;
                     isConnecting = false;
-                    NetworkUtility.Log(ex);
+                    NetworkManager.LogException(ex);
                 }
 
                 if (s != null)
@@ -360,7 +338,7 @@ namespace Yanmonet.NetSync
             catch (Exception ex)
             {
                 Disconnect();
-                NetworkUtility.Log(ex);
+                NetworkManager.LogException(ex);
             }
 
 
@@ -461,7 +439,7 @@ namespace Yanmonet.NetSync
                     netMsg.Connection = this;
                     netMsg.Reader = reader;
 
-                    InvokeHandler(netMsg);
+                    NetworkManager.InvokeHandler(netMsg);
 
                     readCount = reader.ReadPackage();
                     if (readCount > 0)
@@ -479,22 +457,6 @@ namespace Yanmonet.NetSync
         }
 
 
-        public void InvokeHandler(NetworkMessage netMsg)
-        {
-            NetworkMessageDelegate handler;
-
-            if (handlers == null || !handlers.TryGetValue(netMsg.MsgId, out handler))
-            {
-                var defaultHandlers = DefaultHandlers;
-                if (defaultHandlers == null || !defaultHandlers.TryGetValue(netMsg.MsgId, out handler))
-                {
-                    Console.WriteLine("not found msgId: " + netMsg.MsgId);
-                    return;
-                }
-            }
-
-            handler(netMsg);
-        }
 
         public void Flush(int timeout)
         {
@@ -559,17 +521,18 @@ namespace Yanmonet.NetSync
             }
         }
 
-        internal bool ContainsObject(NetworkInstanceId instanceId)
+        internal bool ContainsObject(ulong instanceId)
         {
             return objects.ContainsKey(instanceId);
         }
 
-        public NetworkObject GetObject(NetworkInstanceId instanceId)
+        public NetworkObject GetObject(ulong instanceId)
         {
             if (objects.ContainsKey(instanceId))
                 return objects[instanceId];
             return null;
         }
+
         void CheckServer()
         {
             if (server == null)
@@ -584,6 +547,29 @@ namespace Yanmonet.NetSync
             }
             catch { }
         }
+        public void Ping()
+        {
+            long timestamp = NetworkManager.Timestamp;
+            SendMessage((short)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
+        }
+
+
+        public void OnConnected(NetworkMessage msg)
+        {
+            Connected?.Invoke(this, msg);
+        }
+        public void OnDisconnected()
+        {
+            Disconnected?.Invoke(this);
+        }
+        public void OnObjectAdded(NetworkObject obj)
+        {
+            ObjectAdded?.Invoke(obj);
+        }
+        public void OnObjectRemoved(NetworkObject obj)
+        {
+            ObjectRemoved?.Invoke(obj);
+        }
 
         public override bool Equals(object obj)
         {
@@ -592,178 +578,10 @@ namespace Yanmonet.NetSync
                 return connectionId != 0 && object.Equals(connectionId, conn.connectionId);
             return false;
         }
-
         public override int GetHashCode()
         {
             return connectionId.GetHashCode();
         }
-
-
-        #region Receive Message
-
-
-        private static void OnMessage_Connect(NetworkMessage netMsg)
-        {
-            var msg = netMsg.ReadMessage<ConnectMessage>();
-            var conn = netMsg.Connection;
-
-            if (conn.isConnecting)
-            {
-                conn.isConnecting = false;
-                conn.isConnected = true;
-                if (msg.toServer)
-                {
-                    try
-                    {
-                        conn.Connected?.Invoke(conn, netMsg);
-                    }
-                    catch (Exception ex)
-                    {
-                        conn.Disconnect();
-                        throw ex;
-                    }
-                    if (conn.IsConnected)
-                    {
-                        conn.SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
-                        {
-                            connectionId = conn.connectionId,
-                            toServer = false,
-                        });
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        conn.ConnectionId = msg.connectionId;
-                        conn.Connected?.Invoke(conn, null);
-                    }
-                    catch (Exception ex)
-                    {
-                        conn.Disconnect();
-                        throw ex;
-                    }
-                }
-            }
-        }
-        private static void OnMessage_Disconnect(NetworkMessage netMsg)
-        {
-            netMsg.Connection.Disconnect();
-        }
-
-
-        private static void OnMessage_CreateObject(NetworkMessage netMsg)
-        {
-            var conn = netMsg.Connection;
-            var msg = netMsg.ReadMessage<CreateObjectMessage>();
-            NetworkObjectId objectId = msg.objectId;
-            if (msg.toServer)
-            {
-                conn.CheckServer();
-                var server = conn.server;
-                var obj = conn.server.CreateObject(objectId, netMsg);
-                if (obj != null)
-                {
-                    obj.ConnectionToOwner = conn;
-                    server.AddObserver(obj, conn);
-                }
-            }
-            else
-            {
-
-                NetworkInstanceId instanceId = msg.instanceId;
-
-                if (!conn.ContainsObject(instanceId))
-                {
-                    NetworkObject instance = null;
-                    if (conn.server != null)
-                    {
-                        instance = conn.server.GetObject(instanceId);
-                    }
-                    else
-                    {
-                        var info = NetworkObjectInfo.Get(objectId);
-                        instance = info.create(objectId);
-                        if (instance == null)
-                            throw new Exception("create instance null, object id:" + objectId);
-                        instance.InstanceId = instanceId;
-                        instance.objectId = objectId;
-                        instance.ConnectionToOwner = conn;
-                    }
-                    instance.IsClient = true;
-
-                    instance.ConnectionToServer = conn;
-                    conn.AddObject(instance);
-                }
-            }
-        }
-        private static void OnMessage_DestroryObject(NetworkMessage netMsg)
-        {
-            var conn = netMsg.Connection;
-            var msg = netMsg.ReadMessage<DestroyObjectMessage>();
-
-            NetworkInstanceId instanceId = msg.instanceId;
-
-            NetworkObject instance;
-            instance = conn.GetObject(instanceId);
-            if (instance != null)
-            {
-                if (instance.IsClient)
-                {
-                    conn.RemoveObject(instance);
-                    if (!instance.IsServer)
-                    {
-                        instance.Destrory();
-                    }
-                }
-            }
-        }
-
-        private static void OnMessage_SyncVar(NetworkMessage netMsg)
-        {
-            var msg = new SyncVarMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg);
-        }
-        private static void OnMessage_SyncList(NetworkMessage netMsg)
-        {
-            var msg = new SyncListMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg);
-        }
-        private static void OnMessage_Rpc(NetworkMessage netMsg)
-        {
-            var msg = new RpcMessage();
-            msg.conn = netMsg.Connection;
-
-            netMsg.ReadMessage(msg);
-        }
-
-        public void Ping()
-        {
-            long timestamp = Timestamp;
-            SendMessage((short)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
-        }
-
-        private static void OnMessage_Ping(NetworkMessage netMsg)
-        {
-            var conn = netMsg.Connection;
-            var pingMsg = netMsg.ReadMessage<PingMessage>();
-            switch (pingMsg.Action)
-            {
-                case PingMessage.Action_Ping:
-                    conn.SendMessage((short)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
-                    break;
-                case PingMessage.Action_Reply:
-                    int timeout = (int)(pingMsg.ReplyTimestamp - pingMsg.Timestamp);
-                    conn.pingDelay = timeout;
-                    break;
-            }
-        }
-
-        #endregion
 
     }
 }

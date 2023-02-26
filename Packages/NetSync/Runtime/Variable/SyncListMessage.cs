@@ -92,7 +92,7 @@ namespace Yanmonet.NetSync
             var info = SyncListInfo.GetSyncListInfo(netObj.GetType(), memberIndex);
 
             writer.SerializeValue(ref action);
-            writer.SerializeValue(ref netObj.instanceId);
+            writer.SerializeValue(ref netObj.objectId);
             writer.SerializeValue(ref memberIndex);
             switch (action)
             {
@@ -120,7 +120,7 @@ namespace Yanmonet.NetSync
         public override void Deserialize(IReaderWriter reader)
         {
             reader.SerializeValue(ref action);
-            NetworkInstanceId instanceId = new();
+            ulong instanceId = 0;
             reader.SerializeValue(ref instanceId);
             netObj = null;
             netObj = conn.GetObject(instanceId);

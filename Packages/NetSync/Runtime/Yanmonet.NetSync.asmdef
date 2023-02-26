@@ -6,16 +6,16 @@
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
         {
-            "name": "Select...",
+            "name": "Unity",
             "expression": "",
-            "define": "UNITY"
+            "define": "UNITY_ENGINE"
         }
     ],
     "noEngineReferences": false

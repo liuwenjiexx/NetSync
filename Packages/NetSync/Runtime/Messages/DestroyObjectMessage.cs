@@ -7,6 +7,6 @@ namespace Yanmonet.NetSync.Messages
 {
     internal class DestroyObjectMessage : MessageBase
     {
-        public NetworkInstanceId instanceId;
+        public ulong instanceId;
     }
 }

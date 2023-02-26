@@ -64,10 +64,7 @@ namespace Yanmonet.NetSync
                 return true;
 
             TypeCode typeCode = Type.GetTypeCode(type);
-            if (type == typeof(NetworkInstanceId))
-                return true;
-            if (type == typeof(NetworkObjectId))
-                return true;
+         
             if (type == typeof(byte[]))
                 return true;
             switch (typeCode)
@@ -86,6 +83,17 @@ namespace Yanmonet.NetSync
 
         public static void Write(IReaderWriter writer, Type valueType, object value)
         {
+            if (typeof(INetworkSerializable).IsAssignableFrom(valueType))
+            {
+                INetworkSerializable s = value as INetworkSerializable;
+                if (s == null)
+                {
+                    throw new Exception("Write object null, value type: " + valueType);
+                }
+                s.NetworkSerialize(writer);
+                return;
+            }
+
             if (typeof(MessageBase).IsAssignableFrom(valueType))
             {
                 if (value == null)
@@ -99,20 +107,7 @@ namespace Yanmonet.NetSync
 
 
             TypeCode typeCode = Type.GetTypeCode(valueType);
-            if (valueType == typeof(NetworkInstanceId))
-            {
-                NetworkInstanceId value2 = default;
-                writer.SerializeValue(ref value2);
-                value = value2;
-                return;
-            }
-
-            if (valueType == typeof(NetworkObjectId))
-            {
-                NetworkObjectId value2 = (NetworkObjectId)value;
-                writer.SerializeValue(ref value2);
-                return;
-            }
+        
             int int32;
             if (valueType == typeof(byte[]))
             {
@@ -165,28 +160,20 @@ namespace Yanmonet.NetSync
             TypeCode typeCode = Type.GetTypeCode(valueType);
             object value = null;
 
+            if (typeof(INetworkSerializable).IsAssignableFrom(valueType))
+            {
+                INetworkSerializable s = (INetworkSerializable)Activator.CreateInstance(valueType);
+                s.NetworkSerialize(reader);
+                return s;
+            }
+
             if (typeof(MessageBase).IsAssignableFrom(valueType))
             {
                 MessageBase messageBase = (MessageBase)Activator.CreateInstance(valueType);
                 messageBase.Deserialize(reader);
                 return messageBase;
             }
-
-            if (valueType == typeof(NetworkInstanceId))
-            {
-                NetworkInstanceId id = new();
-                reader.SerializeValue(ref id);
-                value = id;
-                return value;
-            }
-
-            if (valueType == typeof(NetworkObjectId))
-            {
-                NetworkObjectId id = new();
-                reader.SerializeValue(ref id);
-                value = id;
-                return value;
-            }
+ 
 
             if (valueType == typeof(byte[]))
             {
