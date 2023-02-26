@@ -10,3 +10,4 @@ packages-lock.json
 Newtonsoft.Json
 Logs/
 .vsconfig
+boot.config
