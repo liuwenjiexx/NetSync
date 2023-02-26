@@ -19,7 +19,7 @@ namespace Yanmonet.NetSync
 
 
         internal Dictionary<ulong, NetworkObject> objects;
-        private uint nextObjectId;
+        internal uint nextObjectId;
         private ulong nextConnectionId;
         private List<ulong> destoryObjIds = new List<ulong>();
         private Type clientType;
@@ -118,7 +118,7 @@ namespace Yanmonet.NetSync
 
             foreach (var obj in objects.Values.ToArray())
             {
-                Despawn(obj);
+                obj.Despawn(true);
             }
             var clientList = NetworkManager.clientList;
 
@@ -363,36 +363,23 @@ namespace Yanmonet.NetSync
             where T : NetworkObject
         {
             var id = NetworkManager.GetTypeId(typeof(T));
-            return (T)CreateObject(id, parameter);
+            return (T)CreateObject(id );
         }
 
-        public NetworkObject CreateObject(ulong objectId)
-        {
-            return CreateObject(objectId, null);
-        }
+ 
+        internal NetworkObject CreateObject(uint typeId)
+        { 
+            var objInfo = NetworkObjectInfo.Get(typeId);
 
-        internal NetworkObject CreateObject(ulong objectId, INetworkSerializable parameter)
-        {
-            var objInfo = NetworkObjectInfo.Get(objectId);
-
-            NetworkObject instance = objInfo.create(objectId);
+            NetworkObject instance = objInfo.create(typeId);
             if (instance == null)
                 throw new Exception("create object, instance null");
-            instance.typeId = objectId;
-            instance.InstanceId = ++nextObjectId;
-  
-            instance.OwnerClientId = NetworkManager.ServerClientId;
-            objects[instance.InstanceId] = instance;
-
-            OnCreateObject(instance, parameter);
-
+            instance.typeId = typeId;
+            instance.networkManager = NetworkManager;
             return instance;
         }
 
-        protected virtual void OnCreateObject(NetworkObject obj, INetworkSerializable parameter)
-        {
-        }
-
+     
 
         public NetworkObject GetObject(ulong instanceId)
         {
@@ -427,7 +414,7 @@ namespace Yanmonet.NetSync
                 conn.SendMessage((short)NetworkMsgId.CreateObject,
                     new CreateObjectMessage()
                     {
-                        typeId =obj.typeId,
+                        typeId = obj.typeId,
                         objectId = obj.InstanceId,
                         ownerClientId = obj.OwnerClientId,
                     });

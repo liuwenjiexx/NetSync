@@ -203,9 +203,9 @@ namespace Yanmonet.NetSync
 
         #region Network Object
 
-        internal ulong GetTypeId(Type type)
+        internal uint GetTypeId(Type type)
         {
-            ulong objectId = type.Hash32();
+            uint objectId = type.Hash32();
             return objectId;
         }
 
@@ -230,6 +230,7 @@ namespace Yanmonet.NetSync
             {
                 SyncVarInfo.GetSyncVarInfos(type);
                 SyncListInfo.GetSyncListInfos(type);
+                RpcInfo.GetRpcInfos(type);
             }
 
             NetworkObjectInfo info = new NetworkObjectInfo()
@@ -257,9 +258,11 @@ namespace Yanmonet.NetSync
         {
             NetworkMessageDelegate handler;
 
+
+
             if (msgHandlers == null || !msgHandlers.TryGetValue(netMsg.MsgId, out handler))
             {
-                Console.WriteLine("not found msgId: " + netMsg.MsgId);
+                // Console.WriteLine("not found msgId: " + netMsg.MsgId);
                 return;
             }
 
@@ -294,11 +297,27 @@ namespace Yanmonet.NetSync
             }
         }
 
+        public T CreateObject<T>()
+          where T : NetworkObject
+        {
+            T instance;
+
+            var typeId = GetTypeId(typeof(T));
+            var objInfo = NetworkObjectInfo.Get(typeId);
+
+            instance = objInfo.create(typeId) as T;
+            if (instance == null)
+                throw new Exception("create object, instance null");
+            instance.typeId = typeId;
+            instance.networkManager = this;
+            return instance;
+        }
 
         public void Shutdown()
         {
             IsServer = false;
             IsClient = false;
+
             if (localClient != null)
             {
                 try
@@ -317,6 +336,14 @@ namespace Yanmonet.NetSync
                 catch { }
                 server = null;
             }
+            if (clientIds != null)
+            {
+                clientIds.Clear();
+                clientList.Clear();
+                clientNodes.Clear();
+                clients.Clear();
+            }
+            LocalClientId = ulong.MaxValue;
         }
 
         public void Log(string msg)
@@ -413,7 +440,7 @@ namespace Yanmonet.NetSync
         {
             var conn = netMsg.Connection;
             var msg = netMsg.ReadMessage<CreateObjectMessage>();
-            ulong typeId = msg.typeId;
+            uint typeId = msg.typeId;
             //if (msg.toServer)
             //{
             //    conn.CheckServer();
@@ -446,6 +473,7 @@ namespace Yanmonet.NetSync
                     instance.typeId = typeId;
                     instance.InstanceId = instanceId;
                     instance.networkManager = conn.NetworkManager;
+                    instance.IsSpawned = true;
                     instance.ConnectionToOwner = conn;
                     instance.OwnerClientId = msg.ownerClientId;
                 }

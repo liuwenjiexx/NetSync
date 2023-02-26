@@ -86,6 +86,25 @@ namespace Yanmonet.NetSync.Test
                     client.Update();
             }
         }
+        protected  void Update(params NetworkManager[] manager)
+        { 
+            for (int i = 0; i < 5; i++)
+            {
+                foreach (var mgr in manager)
+                {
+                    mgr.Update();
+                }
+            }
+        }
+
+        protected async Task UpdateAsync(NetworkManager manager)
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                manager.Update();
+                await Task.Delay(10);
+            }
+        }
 
         protected void Update()
         {
@@ -147,19 +166,19 @@ namespace Yanmonet.NetSync.Test
             socket.Connect(localAddress, localPort);
             return socket;
         }
-        protected NetworkClient NewClient(MessageBase extra = null)
+        protected NetworkClient NewClient(NetworkManager manager, MessageBase extra = null)
         {
-            NetworkClient client = new NetworkClient();
+            NetworkClient client = new NetworkClient(manager);
             client.Connect(localAddress, localPort, extra);
             return client;
         }
 
-        protected void NewClient(out NetworkServer server, out NetworkClient client)
+        protected void NewClient(NetworkManager manager, out NetworkServer server, out NetworkClient client)
         {
-            server = new NetworkServer();
+            server = new NetworkServer(manager);
             server.Start(localPort);
 
-            client = new NetworkClient();
+            client = new NetworkClient(manager);
             client.Connect(localAddress, localPort);
 
             Update2(server, client);

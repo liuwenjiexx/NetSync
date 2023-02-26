@@ -9,12 +9,18 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace Yanmonet.NetSync.Test
 {
 
     class MyServer : NetworkServer
     {
+        public MyServer(NetworkManager manager)
+            : base(manager)
+        {
+        }
+
         protected override NetworkClient AcceptTcpClient(TcpClient client, MessageBase extra)
         {
             var c = new MyClient(this, client.Client, true, true);
@@ -31,8 +37,8 @@ namespace Yanmonet.NetSync.Test
         //[SyncVar(Bits = 0x4)]
         //private float floatVar;
 
-        public MyClient()
-            : base(null, null, false, false)
+        public MyClient(NetworkManager manager)
+            : base(manager)
         {
         }
 
@@ -45,7 +51,7 @@ namespace Yanmonet.NetSync.Test
         //public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
         //public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
     }
-    [NetworkObjectId("cb0518d9-8c72-4764-a463-6d6eba57cb83")]
+
     class MySyncVarData : NetworkObject
     {
         [SyncVar(Bits = 0x1)]
@@ -79,34 +85,37 @@ namespace Yanmonet.NetSync.Test
         [TestInitialize]
         public override void TestInitialize()
         {
-            Console.WriteLine("TestInitialize");
-            server = new MyServer();
-            server.Start(localPort);
+            //Console.WriteLine("TestInitialize");
+            //NetworkManager manager = new NetworkManager();
+            //server = new MyServer(manager);
+            //server.Start(localPort);
 
-            client = new MyClient();
-            client.Connect(localAddress, localPort);
+            //client = new MyClient(manager);
+            //client.Connect(localAddress, localPort);
 
-            Update2(server, client);
+            //             Update(serverManager, clientManager);
+            //manager.Dispose();
+ 
         }
 
         [TestCleanup]
         public override void TestCleanup()
         {
 
-            Update2(server, client);
+            //             Update(serverManager, clientManager);
 
-            if (server != null)
-            {
-                server.Dispose();
-                server = null;
-            }
+            //if (server != null)
+            //{
+            //    server.Dispose();
+            //    server = null;
+            //}
 
-            if (client != null)
-            {
-                client.Dispose();
-                client = null;
-            }
-            Console.WriteLine("TestCleanup");
+            //if (client != null)
+            //{
+            //    client.Dispose();
+            //    client = null;
+            //}
+            //Console.WriteLine("TestCleanup");
         }
 
         public void Start()
@@ -115,12 +124,13 @@ namespace Yanmonet.NetSync.Test
         }
         IEnumerator _Start()
         {
-            using (MyServer server = new MyServer())
+            NetworkManager manager = new NetworkManager();
+            using (MyServer server = new MyServer(manager))
             {
                 server.Start(localPort);
                 Assert.IsTrue(server.IsRunning);
 
-                MyClient client = new MyClient();
+                MyClient client = new MyClient(manager);
                 client.Connect(localAddress, localPort);
                 Assert.IsTrue(client.IsRunning);
 
@@ -129,6 +139,8 @@ namespace Yanmonet.NetSync.Test
                 Assert.IsFalse(client.IsRunning);
                 yield return null;
             }
+
+            manager.Dispose();
         }
 
 
@@ -153,109 +165,162 @@ namespace Yanmonet.NetSync.Test
         [TestMethod]
         public void SyncVar()
         {
-            //Assert.AreEqual(GetSigleBitsLength(0), 0);
-            //Assert.AreEqual(GetSigleBitsLength(1<<0), 1);
-            //Assert.AreEqual(GetSigleBitsLength(1 << 1), 2);
-            //Assert.AreEqual(GetSigleBitsLength(1 << 2), 3);
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
+            {
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
+                //Assert.AreEqual(GetSigleBitsLength(0), 0);
+                //Assert.AreEqual(GetSigleBitsLength(1<<0), 1);
+                //Assert.AreEqual(GetSigleBitsLength(1 << 1), 2);
+                //Assert.AreEqual(GetSigleBitsLength(1 << 2), 3);
 
-            //    MyClient client = new MyClient();
-            //    client.Connect(localAddress, localPort);
+                //using (MyServer server = new MyServer())
+                //{
+                //    server.Start(localPort);
 
-            //Update2(server, client);
+                //    MyClient client = new MyClient();
+                //    client.Connect(localAddress, localPort);
 
-
-            MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
-            Assert.IsNotNull(serverClient);
-
-
-            NetworkClient.RegisterObject<MySyncVarData>((id) =>
-           {
-               return new MySyncVarData();
-           });
-            var serverData = server.CreateObject<MySyncVarData>();
-            server.AddObserver(serverData, server.Connections.First());
-
-            Update2(server, client);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+                //             Update(serverManager, clientManager);
 
 
-            serverData.IntVar = 1;
+                serverManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
 
-            Update2(server, client);
-            Assert.AreEqual(clientData.IntVar, serverData.IntVar);
+                var serverData = server.CreateObject<MySyncVarData>();
+                serverData.Spawn(clientManager.LocalClientId);
+                Update(serverManager, clientManager);
+                var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
 
-            serverData.StringVar = "hello";
 
-            Update2(server, client);
-            Assert.AreEqual(clientData.StringVar, serverData.StringVar);
+                serverData.IntVar = 1;
 
-            serverData.FloatVar = 0.1f;
-            Update2(server, client);
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.IntVar, serverData.IntVar);
 
-            Assert.AreEqual(clientData.FloatVar, serverData.FloatVar);
+                serverData.StringVar = "hello";
 
-            Update2(server, client);
-            //client.Stop();
-            //}
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.StringVar, serverData.StringVar);
+
+                serverData.FloatVar = 0.1f;
+                Update(serverManager, clientManager);
+
+                Assert.AreEqual(clientData.FloatVar, serverData.FloatVar);
+
+                Update(serverManager, clientManager);
+                //client.Stop();
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
         }
 
         [TestMethod]
         public void SyncVar_Int32_1()
         {
-
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
-            //    using (MyClient client = new MyClient())
-            //    {
-            //        client.Connect(localAddress, localPort);
-            //        Update2(server, client);
-
-            NetworkClient.RegisterObject<MySyncVarData>((id) =>
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
             {
-                return new MySyncVarData();
-            });
-            var serverData = server.CreateObject<MySyncVarData>();
-            server.AddObserver(serverData, server.Connections.First());
-            serverData.IntVar = 1;
-            Update2(server, client);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
-            Update2(server, client);
-            Assert.AreEqual(clientData.IntVar, serverData.IntVar);
-            //    }
-            //}
+                //using (MyServer server = new MyServer())
+                //{
+                //    server.Start(localPort);
+                //    using (MyClient client = new MyClient())
+                //    {
+                //        client.Connect(localAddress, localPort);
+                //                     Update(serverManager, clientManager);
+
+
+                serverManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+
+                var serverData = server.CreateObject<MySyncVarData>();
+                serverData.Spawn(clientManager.LocalClientId);
+                serverData.IntVar = 1;
+                Update(serverManager, clientManager);
+                var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.IntVar, serverData.IntVar);
+                //    }
+            }
+            finally
+            {
+                clientManager.Shutdown();
+                serverManager.Shutdown();
+            }
         }
         [TestMethod]
         public void SyncVar_Int32_2()
         {
-
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
-            //    using (MyClient client = new MyClient())
-            //    {
-            //        client.Connect(localAddress, localPort);
-            //        Update2(server, client);
-
-            NetworkClient.RegisterObject<MySyncVarData>((id) =>
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
             {
-                return new MySyncVarData();
-            });
-            var serverData = server.CreateObject<MySyncVarData>();
-            serverData.IntVar = 1;
-            server.AddObserver(serverData, server.Connections.First());
-            Update2(server, client);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
-            Update2(server, client);
-            Assert.AreEqual(clientData.IntVar, serverData.IntVar);
-            //}
-            //}
+                //using (MyServer server = new MyServer())
+                //{
+                //    server.Start(localPort);
+                //    using (MyClient client = new MyClient())
+                //    {
+                //        client.Connect(localAddress, localPort);
+                //                     Update(serverManager, clientManager);
+
+                serverManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+                var serverData = server.CreateObject<MySyncVarData>();
+                serverData.IntVar = 1;
+                serverData.Spawn(clientManager.LocalClientId);
+                Update(serverManager, clientManager);
+                var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
+
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.IntVar, serverData.IntVar);
+                //}
+            }
+            finally
+            {
+                clientManager.Shutdown();
+                serverManager.Shutdown();
+            }
         }
 
 
@@ -273,7 +338,7 @@ namespace Yanmonet.NetSync.Test
         }
 
 
-        [NetworkObjectId("a549c043-089e-4d8a-a909-1ecb8f8f10bc")]
+
         class MySyncListData : NetworkObject
         {
             public SyncListString stringList = new SyncListString();
@@ -302,217 +367,255 @@ namespace Yanmonet.NetSync.Test
         }
 
 
+
         [TestMethod]
         public void SyncLisString_Test()
         {
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
+            {
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
+                serverManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
+                clientManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
 
-            //    MyClient client = new MyClient();
-            //    client.Connect(localAddress, localPort);
-
-            //    Update2(server, client);
-            MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
 
 
-            NetworkClient.RegisterObject<MySyncListData>((id) =>
-           {
-               return new MySyncListData();
-           });
+                var serverData = server.CreateObject<MySyncListData>();
+                serverData.Spawn(serverManager.clientIds.First());
+                Update(serverManager, clientManager);
 
-            var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-            server.AddObserver(serverData, server.Connections.First());
-            Update2(server, client);
-            var clientData = (MySyncListData)client.Objects.FirstOrDefault();
+                var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
-            Assert.AreEqual(serverData.stringList.Count, 0);
-            serverData.stringList.Add("hello");
-            Update2(server, client);
-            Assert.AreEqual(clientData.stringList.Count, 1);
-            Assert.AreEqual(clientData.stringList[0], serverData.stringList[0]);
+                Assert.AreEqual(serverData.stringList.Count, 0);
+                serverData.stringList.Add("hello");
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.stringList.Count, 1);
+                Assert.AreEqual(clientData.stringList[0], serverData.stringList[0]);
 
-            serverData.stringList.Add("world");
-            Update2(server, client);
-            Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
+                serverData.stringList.Add("world");
+                Update(serverManager, clientManager);
+                Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
 
-            serverData.stringList.RemoveAt(0);
-            Update2(server, client);
-            Assert.AreEqual(clientData.stringList[0], "world");
+                serverData.stringList.RemoveAt(0);
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.stringList[0], "world");
 
-            serverData.stringList.Insert(0, "hello");
-            Update2(server, client);
-            Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
+                serverData.stringList.Insert(0, "hello");
+                Update(serverManager, clientManager);
+                Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
 
-            serverData.stringList.Clear();
-            Update2(server, client);
-            Assert.AreEqual(clientData.stringList.Count, 0);
+                serverData.stringList.Clear();
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.stringList.Count, 0);
 
-            serverData.stringList.Add("a");
-            serverData.stringList.Add("b");
-            serverData.stringList.Add("c");
-            serverData.stringList.RemoveAt(1);
-            Update2(server, client);
-            Assert.AreEqual(string.Join("", clientData.stringList.ToArray()), "ac");
+                serverData.stringList.Add("a");
+                serverData.stringList.Add("b");
+                serverData.stringList.Add("c");
+                serverData.stringList.RemoveAt(1);
+                Update(serverManager, clientManager);
+                Assert.AreEqual(string.Join("", clientData.stringList.ToArray()), "ac");
 
-            //Update2(server, client);
-            //client.Stop();
-            //}
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+                Thread.Sleep(100);
+            }
         }
 
 
         [TestMethod]
         public void SyncListAfter()
         {
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
+            {
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
 
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
+                serverManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
+                clientManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
 
-            NetworkClient.RegisterObject<MySyncListData>((id) =>
-           {
-               return new MySyncListData();
-           });
+                var serverData = serverManager.CreateObject<MySyncListData>();
+                serverData.stringList.Add("hello");
+                serverData.stringList.Add("world");
 
+                //client = new MyClient();
+                //client.Connect(localAddress, localPort);
+                //             Update(serverManager, clientManager);
 
-            var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-            serverData.stringList.Add("hello");
-            serverData.stringList.Add("world");
+                serverData.Spawn(serverManager.ConnnectedClientIds.First());
+                Update(serverManager, clientManager);
+                var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
-            //client = new MyClient();
-            //client.Connect(localAddress, localPort);
-            //Update2(server, client);
+                Assert.AreEqual(serverData.stringList.Count, 2);
+                Assert.AreEqual(clientData.stringList[0], "hello");
+                Assert.AreEqual(clientData.stringList[1], "world");
 
-            MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
-            server.AddObserver(serverData, server.Connections.First());
-            Update2(server, client);
-            var clientData = (MySyncListData)client.Objects.FirstOrDefault();
-
-            Assert.AreEqual(serverData.stringList.Count, 2);
-            Assert.AreEqual(clientData.stringList[0], "hello");
-            Assert.AreEqual(clientData.stringList[1], "world");
-
-            // client.Stop();
-            //}
+                // client.Stop();
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
         }
 
         [TestMethod]
         public void SyncList2()
         {
 
-
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
-
-            //    MyClient client = new MyClient();
-            //    client.Connect(localAddress, localPort);
-
-            //    Update2(server, client);
-            MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
-
-
-            NetworkClient.RegisterObject<MySyncListData>((id) =>
-           {
-               return new MySyncListData();
-           });
-
-            var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-            server.AddObserver(serverData, server.Connections.First());
-            Update2(server, client);
-            var clientData = (MySyncListData)client.Objects.FirstOrDefault();
-
-            Assert.AreEqual(serverData.stringList.Count, 0);
-            serverData.stringList.Add("hello");
-            serverData.stringList2.Add("world");
-            Update2(server, client);
-
-            Assert.AreEqual(clientData.stringList[0], "hello");
-            Assert.AreEqual(clientData.stringList2[0], "world");
-
-            serverData.stringList.Add("abc");
-            serverData.stringList2.Add("123");
-            Update2(server, client);
-            Assert.AreEqual(clientData.stringList[1], "abc");
-            Assert.AreEqual(clientData.stringList2[1], "123");
-
-            serverData.stringList.RemoveAt(1);
-            serverData.stringList2.RemoveAt(1);
-            serverData.stringList.Insert(1, "world");
-            serverData.stringList2.Insert(0, "hello");
-            Update2(server, client);
-            Assert.AreEqual(string.Join(" ", serverData.stringList.ToArray()), "hello world");
-            Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
-            Assert.AreEqual(string.Join(" ", clientData.stringList2.ToArray()), "hello world");
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
+            {
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
 
-            serverData.stringList2.Clear();
-            Update2(server, client);
-            Assert.AreEqual(clientData.stringList2.Count, 0);
-            //Update2(server, client);
-            // client.Stop();
-            //}
+                serverManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
+                clientManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
+
+                var serverData = server.CreateObject<MySyncListData>();
+                serverData.Spawn(serverManager.ConnnectedClientIds.First());
+                Update(serverManager, clientManager);
+                var clientData = (MySyncListData)client.Objects.FirstOrDefault();
+
+                Assert.AreEqual(serverData.stringList.Count, 0);
+                serverData.stringList.Add("hello");
+                serverData.stringList2.Add("world");
+                Update(serverManager, clientManager);
+
+                Assert.AreEqual(clientData.stringList[0], "hello");
+                Assert.AreEqual(clientData.stringList2[0], "world");
+
+                serverData.stringList.Add("abc");
+                serverData.stringList2.Add("123");
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.stringList[1], "abc");
+                Assert.AreEqual(clientData.stringList2[1], "123");
+
+                serverData.stringList.RemoveAt(1);
+                serverData.stringList2.RemoveAt(1);
+                serverData.stringList.Insert(1, "world");
+                serverData.stringList2.Insert(0, "hello");
+                Update(serverManager, clientManager);
+                Assert.AreEqual(string.Join(" ", serverData.stringList.ToArray()), "hello world");
+                Assert.AreEqual(string.Join(" ", clientData.stringList.ToArray()), "hello world");
+                Assert.AreEqual(string.Join(" ", clientData.stringList2.ToArray()), "hello world");
+
+
+                serverData.stringList2.Clear();
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.stringList2.Count, 0);
+                //             Update(serverManager, clientManager);
+                // client.Stop();
+            }
+            finally
+            {
+                clientManager.Shutdown();
+                serverManager.Shutdown();
+            }
         }
 
 
         [TestMethod]
         public void SyncLisStruct_Test()
         {
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
+            {
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                Update(serverManager, clientManager);
 
+                serverManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
+                clientManager.RegisterObject<MySyncListData>((id) =>
+                {
+                    return new MySyncListData();
+                });
 
-            //using (MyServer server = new MyServer())
-            //{
-            //    server.Start(localPort);
+                var itemSize2 = Marshal.SizeOf(new MyStruct() { int32 = 1, str = "hello" });
+                var itemSize3 = Marshal.SizeOf(new MyStruct() { int32 = 1, str = "helloaa" });
+                Assert.AreEqual(itemSize2, itemSize3);
+                var serverData = serverManager.CreateObject<MySyncListData>();
+                serverData.Spawn(serverManager.ConnnectedClientIds.First());
+                Update(serverManager, clientManager);
+                var clientData = (MySyncListData)client.Objects.FirstOrDefault();
 
-            //    MyClient client = new MyClient();
-            //    client.Connect(localAddress, localPort);
-            //    Update2(server, client);
-            MyClient serverClient = (MyClient)server.Clients.FirstOrDefault();
+                Assert.AreEqual(serverData.structList1.Count, 0);
 
+                serverData.structList1.Add(new MyStruct() { int32 = 1, str = "hello" });
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.structList1.Count, 1);
+                Assert.AreEqual(clientData.structList1[0].int32, 1);
+                Assert.AreEqual(clientData.structList1[0].str, "hello");
 
-            NetworkClient.RegisterObject<MySyncListData>((id) =>
-           {
-               return new MySyncListData();
-           });
-            var itemSize2 = System.Runtime.InteropServices.Marshal.SizeOf(new MyStruct() { int32 = 1, str = "hello" });
-            var itemSize3 = System.Runtime.InteropServices.Marshal.SizeOf(new MyStruct() { int32 = 1, str = "helloaa" });
-            Assert.AreEqual(itemSize2, itemSize3);
-            var serverData = (MySyncListData)server.CreateObject<MySyncListData>();
-            server.AddObserver(serverData, server.Connections.First());
-            Update2(server, client);
-            var clientData = (MySyncListData)client.Objects.FirstOrDefault();
+                serverData.structList1.Add(new MyStruct() { int32 = 2, str = "world" });
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.structList1[1].str, "world");
 
-            Assert.AreEqual(serverData.structList1.Count, 0);
+                serverData.structList1.RemoveAt(0);
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.structList1[0].str, "world");
 
-            serverData.structList1.Add(new MyStruct() { int32 = 1, str = "hello" });
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            Update2(server, client);
-            Assert.AreEqual(clientData.structList1.Count, 1);
-            Assert.AreEqual(clientData.structList1[0].int32, 1);
-            Assert.AreEqual(clientData.structList1[0].str, "hello");
+                serverData.structList1.Insert(0, new MyStruct() { str = "a" });
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.structList1[0].str, "a");
 
-            serverData.structList1.Add(new MyStruct() { int32 = 2, str = "world" });
-            Update2(server, client);
-            Assert.AreEqual(clientData.structList1[1].str, "world");
+                serverData.structList1.Clear();
+                Update(serverManager, clientManager);
+                Assert.AreEqual(clientData.structList1.Count, 0);
 
-            serverData.structList1.RemoveAt(0);
-            Update2(server, client);
-            Assert.AreEqual(clientData.structList1[0].str, "world");
-
-            serverData.structList1.Insert(0, new MyStruct() { str = "a" });
-            Update2(server, client);
-            Assert.AreEqual(clientData.structList1[0].str, "a");
-
-            serverData.structList1.Clear();
-            Update2(server, client);
-            Assert.AreEqual(clientData.structList1.Count, 0);
-
-            //Update2(server, client);
-            //     client.Stop();
-            //}
+                //             Update(serverManager, clientManager);
+                //     client.Stop();
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
         }
 
 

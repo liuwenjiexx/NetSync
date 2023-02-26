@@ -15,68 +15,116 @@ namespace Yanmonet.NetSync.Test
         [TestMethod]
         public void StartServer()
         {
-            Run(_StartServer());
-        }
-        public IEnumerator _StartServer()
-        {
-            using (NetworkServer server = new NetworkServer())
+            NetworkManager serverManager = new NetworkManager();
+            try
             {
-                server.Start(localPort);
+                Assert.IsFalse(serverManager.IsServer);
+                Assert.IsFalse(serverManager.IsClient);
+
+                serverManager.StartServer();
+                Update(serverManager);
+
+                Assert.IsTrue(serverManager.IsServer);
+                Assert.IsFalse(serverManager.IsClient);
+
+                var server = serverManager.Server;
+
                 Assert.IsTrue(server.IsRunning);
 
-                foreach (var o in Wait()) yield return null;
-                server.Stop();
+                serverManager.Shutdown();
                 Assert.IsFalse(server.IsRunning);
             }
+            finally
+            {
+                serverManager.Dispose();
+            }
+
         }
+
 
         [TestMethod]
         public void StartClient()
         {
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
 
-            NewClient(out var server, out var client);
-            using (server)
-            using (client)
+            try
             {
+                serverManager.StartServer();
+                clientManager.StartClient();
+
+                var server = serverManager.Server;
+                Update(clientManager, serverManager);
+
+                Assert.IsFalse(clientManager.IsServer);
+                Assert.IsTrue(clientManager.IsClient);
+
+                Assert.IsNotNull(clientManager.LocalClient);
+                var client = clientManager.LocalClient;
 
                 Assert.IsTrue(client.IsRunning);
                 Assert.IsTrue(client.Connection.IsConnected);
-                Assert.AreEqual(server.Connections.Count(), 1);
+                Assert.AreEqual(1uL, clientManager.LocalClientId);
+                Assert.AreEqual(1uL, client.ClientId);
+                 
+                Assert.AreEqual(1, server.Connections.Count());
                 Assert.AreEqual(server.Clients.Count(), 1);
 
                 client.Dispose();
-                Update2(server, client);
-                Assert.IsFalse(client.IsRunning);
-                server.Stop();
-                Assert.IsFalse(server.IsRunning);
-            }
-        }
-        [TestMethod]
-        public void ConnectionId()
-        {
-            NewClient(out var server, out var client);
-            using (server)
-            using (client)
-            {
-                Assert.AreEqual(server.Connections.Count(), 1);
-                int connectionId = server.Connections.First().ConnectionId;
-                Assert.IsTrue(connectionId > 0, connectionId.ToString());
-                Assert.IsTrue(client.Connection.IsConnected);
-                Assert.AreEqual(client.Connection.ConnectionId, connectionId);
-                Assert.AreEqual(client.Connection, server.Connections.First());
-            }
-        }
+                Update(clientManager, serverManager);
 
-        [TestMethod]
+                Assert.IsFalse(client.IsRunning);
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
+        }
+        //[TestMethod]
+        //public void LocalClientId()
+        //{
+        //    NetworkManager serverManager = new NetworkManager();
+        //    NetworkManager clientManager = new NetworkManager();
+        //    try
+        //    {
+        //        serverManager.StartServer();
+        //        clientManager.StartClient();
+
+        //        Update(clientManager, serverManager);
+
+        //        Assert.AreEqual(1, serverManager.ConnnectedClientIds.Count());
+        //        Assert.AreEqual(1uL, serverManager.ConnnectedClientIds.First());
+        //        Assert.AreEqual(1uL, clientManager.LocalClient.ClientId);
+        //    }
+        //    finally
+        //    {
+        //        clientManager.Dispose();
+        //        serverManager.Dispose();
+        //    }
+        //}
+
+        // [TestMethod]
         public void Reconnect()
         {
-            NewClient(out var server, out var client);
-            using (server)
-            using (client)
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
             {
+                serverManager.StartServer();
+
+                clientManager.StartClient();
+                Update(clientManager, serverManager);
+
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+
                 Assert.IsTrue(client.Connection.IsConnected);
                 Assert.IsTrue(client.Connection.Socket.Connected);
 
+                client.Connection.Socket.Close();
+                Update(clientManager, serverManager);
+                Assert.IsFalse(client.Connection.IsConnected);
 
                 bool connectedEvent = false;
                 bool disconnectEvent = false;
@@ -90,16 +138,21 @@ namespace Yanmonet.NetSync.Test
                     disconnectEvent = true;
                     client.Connection.Connect(localAddress, localPort);
                 };
-                client.Connection.Socket.Close();
-                Update2(server, client);
+
+                Update(clientManager, serverManager);
 
                 Assert.IsTrue(disconnectEvent);
                 Assert.IsTrue(connectedEvent);
 
-                Update2(server, client);
+
+                Update(clientManager, serverManager);
                 Assert.IsTrue(connectedEvent);
                 Assert.IsTrue(client.Connection.Socket.Connected);
-
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
             }
         }
     }

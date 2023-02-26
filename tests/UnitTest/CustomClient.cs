@@ -81,8 +81,7 @@ namespace Yanmonet.NetSync.Test
 
         }
 
-
-        [NetworkObjectId("cdd65abe-627b-40ed-a855-f811fde11752")]
+         
         class CustomContext : NetworkObject
         {
             [SyncVar]

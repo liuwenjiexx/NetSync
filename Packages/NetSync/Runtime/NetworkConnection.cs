@@ -38,8 +38,12 @@ namespace Yanmonet.NetSync
             objects = new Dictionary<ulong, NetworkObject>();
 
         }
+        internal NetworkConnection(NetworkServer server, Socket socket, bool ownerSoket, bool isListening, MessageBase extra = null)
+            : this(null, server, socket, ownerSoket, isListening, extra)
+        {
 
-        public NetworkConnection(NetworkServer server, Socket socket, bool ownerSoket, bool isListening, MessageBase extra = null)
+        }
+        internal NetworkConnection(NetworkManager networkManager, NetworkServer server, Socket socket, bool ownerSoket, bool isListening, MessageBase extra = null)
             : this()
         {
             //if (socket == null) throw new ArgumentNullException("socket");
@@ -51,9 +55,13 @@ namespace Yanmonet.NetSync
             //ReconnectInterval = 1000;
             //AutoReconnect = true;
             this.ownerSoket = ownerSoket;
-            if (server != null)
+            if (networkManager != null)
             {
-                networkManager = server.NetworkManager;
+                this.networkManager = networkManager;
+            }
+            else if (server != null)
+            {
+                this.networkManager = server.NetworkManager;
             }
             if (socket != null)
             {
@@ -280,7 +288,6 @@ namespace Yanmonet.NetSync
                 isConnecting = true;
                 SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
                 {
-                    connectionId = connectionId,
                     toServer = true,
                     extra = extra,
                 });
@@ -450,6 +457,7 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex)
             {
+                NetworkManager.LogException(ex);
                 //Debug.LogException(ex);
                 Disconnect();
                 //throw;

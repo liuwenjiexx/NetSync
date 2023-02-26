@@ -3,12 +3,11 @@
   "displayName": "Network Sync",
   "version": "0.0.1",
   "unity": "2020.1",
-  "description": "",
   "dependencies": {
     "com.newtonsoft.json": "0.0.1",
-    "com.yanmonet.async": "0.0.2"
+    "com.yanmonet.async": "0.0.2",
+    "com.unity.nuget.mono-cecil": "1.10.1"
   },
   "hideInEditor": true,
-  "samples": [
-  ]
+  "samples": []
 }

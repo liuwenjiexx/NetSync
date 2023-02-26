@@ -8,7 +8,7 @@ namespace Yanmonet.NetSync.Messages
 
     internal class CreateObjectMessage : MessageBase
     { 
-        public ulong typeId;
+        public uint typeId;
         public ulong objectId;
         public ulong ownerClientId;
 

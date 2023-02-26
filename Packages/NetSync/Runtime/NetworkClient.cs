@@ -38,16 +38,16 @@ namespace Yanmonet.NetSync
         {
             this.server = server;
             isClient = !isListen;
-            conn = new NetworkConnection(server, socket, ownerSocket, isListen);
-
-            if (server != null)
-            {
-                networkManager = server.NetworkManager;
-            }
-            else
+            if (manager != null)
             {
                 networkManager = manager;
             }
+            else if (server != null)
+            {
+                networkManager = server.NetworkManager;
+            }
+            conn = new NetworkConnection(networkManager, server, socket, ownerSocket, isListen);
+
 
             if (IsClient)
             {
@@ -214,7 +214,7 @@ namespace Yanmonet.NetSync
                     {
                         NetworkManager.LogException(ex);
                     }
-  
+
                 }
             }
 

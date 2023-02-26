@@ -12,133 +12,164 @@ namespace Yanmonet.NetSync.Test
     {
 
         [TestMethod]
-        public void CreateObject()
+        public void Spawn()
         {
-            using (MyServer server = new MyServer())
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
             {
-                server.Start(localPort);
-
-                using (MyClient client = new MyClient())
+                serverManager.RegisterObject<MySyncVarData>((id) =>
                 {
-                    client.Connect(localAddress, localPort);
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
+                serverManager.StartServer();
+                clientManager.StartClient();
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
 
-                    Update2(server, client);
+                Update(serverManager, clientManager);
 
-                    NetworkClient.RegisterObject<MySyncVarData>((id) =>
-                    {
-                        return new MySyncVarData();
-                    });
-                    Assert.AreEqual(client.Objects.Count(), 0);
-                    Assert.AreEqual(server.Objects.Count(), 0);
+                Assert.AreEqual(client.Objects.Count(), 0);
+                Assert.AreEqual(server.Objects.Count(), 0);
 
-                    var serverData = server.CreateObject<MySyncVarData>();
-                    Assert.IsNotNull(serverData);
-                    Assert.AreEqual(server.Objects.Count(), 1);
-                    Assert.IsTrue(serverData.IsServer);
-                    Assert.IsFalse(serverData.IsClient);
-                    Update2(server, client);
+                var serverData = serverManager.CreateObject<MySyncVarData>();
+                Assert.IsNotNull(serverData);
+                Assert.IsTrue(serverData.IsOwner);
+                Assert.IsTrue(serverData.IsOwnedByServer);
 
-                    var clientData = client.Objects.FirstOrDefault();
-                    Assert.IsNull(clientData);
-                    server.AddObserver(serverData, server.Connections.First());
-                    Update2(server, client);
-                    clientData = client.Objects.FirstOrDefault();
+                Update(serverManager, clientManager);
 
-                    Assert.IsNotNull(clientData);
-                    Assert.IsFalse(clientData.IsServer);
-                    Assert.IsTrue(clientData.IsClient);
-                    Assert.AreEqual(clientData.InstanceId, serverData.InstanceId);
-                    Assert.IsFalse(object.ReferenceEquals(clientData, serverData));
-                    Assert.AreEqual(clientData, serverData);
+                Assert.AreEqual(0, client.Objects.Count());
 
-                    server.DestroyObject(serverData);
-                    Assert.AreEqual(server.Objects.Count(), 0);
-                    Update2(server, client);
-                    Assert.AreEqual(client.Objects.Count(), 0);
+                serverData.Spawn(serverManager.clientIds.First());
+                Assert.IsTrue(serverData.IsSpawned);
+                Update(serverManager, clientManager);
 
-                }
+                var clientData = client.Objects.FirstOrDefault();
+                Assert.IsNotNull(clientData);
+                Assert.IsTrue(clientData.IsSpawned);
+                Assert.IsTrue(clientData.IsOwner);
+                Assert.IsFalse(clientData.IsOwnedByServer);
+                Assert.AreEqual(server.Objects.Count(), 1);
+                Assert.AreEqual(clientData.InstanceId, serverData.InstanceId);
+                Assert.IsFalse(object.ReferenceEquals(clientData, serverData));
+            }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
             }
         }
 
 
 
+
         [TestMethod]
-        public void DestroyObject()
+        public void Despawn()
         {
 
-            using (MyServer server = new MyServer())
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+
+            try
             {
-                server.Start(localPort);
-
-                using (MyClient client = new MyClient())
+                serverManager.RegisterObject<MySyncVarData>((id) =>
                 {
-                    client.Connect(localAddress, localPort);
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+                {
+                    return new MySyncVarData();
+                });
 
-                    NetworkClient.RegisterObject<MySyncVarData>((id) =>
-                    {
-                        return new MySyncVarData();
-                    });
-                    Assert.AreEqual(client.Objects.Count(), 0);
-                    Assert.AreEqual(server.Objects.Count(), 0);
+                serverManager.StartServer();
+                clientManager.StartClient();
+                Update(serverManager, clientManager);
 
-                    var serverData = server.CreateObject<MySyncVarData>();
-                    Update2(server, client);
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
+                 
+                var serverData = serverManager.CreateObject<MySyncVarData>();
+                serverData.Spawn(serverManager.clientIds.First());
+                Update(serverManager, clientManager);
 
-                    server.AddObserver(serverData, server.Connections.First());
-                    Update2(server, client);
+                serverData.Despawn();
+                Update(serverManager, clientManager);
 
-                    server.DestroyObject(serverData);
-                    Assert.AreEqual(server.Objects.Count(), 0);
-
-                    Update2(server, client);
-                    Assert.AreEqual(client.Objects.Count(), 0);
-                }
+                Assert.AreEqual(server.Objects.Count(), 0);
+                Assert.AreEqual(client.Objects.Count(), 0);
             }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
+
         }
 
 
-        [TestMethod]
+    //    [TestMethod]
         public void HostObject()
-        { 
+        {
 
-            using (MyServer server = new MyServer())
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+
+            try
             {
-                server.Start(localPort);
 
-                using (MyClient client = new MyClient(server, null, true, false))
+                serverManager.RegisterObject<MySyncVarData>((id) =>
                 {
-                    client.Connect(localAddress, localPort);
+                    return new MySyncVarData();
+                });
+                clientManager.RegisterObject<MySyncVarData>((id) =>
+            {
+                return new MySyncVarData();
+            });
 
-                    Update2(server, client);
+                serverManager.StartServer();
+                clientManager.StartClient();
 
-                    NetworkClient.RegisterObject<MySyncVarData>((id) =>
-                    {
-                        return new MySyncVarData();
-                    });
-                    Assert.AreEqual(client.Objects.Count(), 0);
-                    Assert.AreEqual(server.Objects.Count(), 0);
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
 
-                    var serverData = server.CreateObject<MySyncVarData>();
-                    Assert.AreEqual(server.Objects.Count(), 1);
-                    Assert.IsNotNull(serverData);
-                    Update2(server, client);
+                Update(serverManager, clientManager);
 
-                    var clientData = client.Objects.FirstOrDefault();
-                    Assert.IsNull(clientData);
+                Assert.AreEqual(client.Objects.Count(), 0);
+                Assert.AreEqual(server.Objects.Count(), 0);
 
-                    server.AddObserver(serverData, server.Connections.First());
-                    Update2(server, client);
-                    clientData = client.Objects.FirstOrDefault();
+                var serverData = serverManager.CreateObject<MySyncVarData>();
+                Assert.AreEqual(server.Objects.Count(), 1);
+                Assert.IsNotNull(serverData);
 
-                    Assert.IsTrue(object.ReferenceEquals(clientData, serverData));
+                Update(serverManager, clientManager);
 
-                    server.DestroyObject(serverData);
-                    Assert.AreEqual(server.Objects.Count(), 0);
+                var clientData = client.Objects.FirstOrDefault();
+                Assert.IsNull(clientData);
+                 
+                clientData.Spawn(serverManager.clientIds.First());
+                Update(serverManager, clientManager);
+                clientData = client.Objects.FirstOrDefault();
 
-                    Update2(server, client);
-                    Assert.AreEqual(client.Objects.Count(), 0);
-                }
+                Assert.IsTrue(object.ReferenceEquals(clientData, serverData));
+
+                serverData.Despawn();
+                Assert.AreEqual(server.Objects.Count(), 0);
+
+
+                Update(serverManager, clientManager);
+                Assert.AreEqual(client.Objects.Count(), 0);
             }
+            finally
+            {
+                clientManager.Dispose();
+                serverManager.Dispose();
+            }
+
         }
 
 

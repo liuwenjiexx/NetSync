@@ -7,12 +7,13 @@ namespace Yanmonet.NetSync
 {
     internal class RpcInfo
     {
-        public byte memberIndex;
+        public uint methodId; 
         public MethodInfo method;
         public ParameterInfo[] parameters;
         public int paramCount;
 
-        private static Dictionary<Type, RpcInfo[]> cachedRpcs;
+        private static Dictionary<uint, RpcInfo> cachedIdMapRpcs;
+        private static Dictionary<Type, RpcInfo[]> cachedTypeMapRpcs;
 
         public static RpcInfo GetRpcInfo(Type type, string methodName)
         {
@@ -31,16 +32,27 @@ namespace Yanmonet.NetSync
 
             return infos[memberIndex];
         }
+        public static RpcInfo GetRpcInfo(uint methodId)
+        {
+            if (!cachedIdMapRpcs.TryGetValue(methodId, out var info))
+                throw new Exception("not found rpc method, id: " + methodId);
+
+            return info;
+        }
 
         public static RpcInfo[] GetRpcInfos(Type type)
         {
             if (type == null)
                 throw new ArgumentNullException(nameof(type));
 
-            if (cachedRpcs == null)
-                cachedRpcs = new Dictionary<Type, RpcInfo[]>();
+            if (cachedTypeMapRpcs == null)
+            {
+                cachedTypeMapRpcs = new();
+                cachedIdMapRpcs = new();
+            }
+
             RpcInfo[] infos;
-            if (!cachedRpcs.TryGetValue(type, out infos))
+            if (!cachedTypeMapRpcs.TryGetValue(type, out infos))
             {
                 List<RpcInfo> list = null;
                 foreach (var mInfo in type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
@@ -73,19 +85,17 @@ namespace Yanmonet.NetSync
                         method = mInfo,
                         parameters = mInfo.GetParameters()
                     };
+                    info.methodId = NetworkUtility.GetMethodSignatureHash(mInfo);
                     info.paramCount = info.parameters.Length;
                     list.Add(info);
+                    cachedIdMapRpcs[info.methodId] = info;
                 }
 
                 if (list != null && list.Count > 0)
                 {
                     infos = list.OrderBy(o => o.method.Name).ToArray();
-                    for (int i = 0; i < infos.Length; i++)
-                    {
-                        var info = infos[i];
-                        info.memberIndex = (byte)i;
-                    }
-                    cachedRpcs[type] = infos;
+                   
+                    cachedTypeMapRpcs[type] = infos;
                 }
             }
             return infos;

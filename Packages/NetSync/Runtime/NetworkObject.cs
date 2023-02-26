@@ -5,15 +5,15 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using static Yanmonet.NetSync.NetworkObject;
+using System.Linq;
 
 namespace Yanmonet.NetSync
 {
     public abstract class NetworkObject
     {
-        internal ulong typeId;
+        internal uint typeId;
         internal ulong objectId;
-        private bool isClient;
-        private bool isServer;
+ 
 
         internal List<ulong> observers;
 
@@ -66,6 +66,8 @@ namespace Yanmonet.NetSync
 
         public bool IsOwnedByServer => NetworkManager != null && OwnerClientId == NetworkManager.ServerClientId;
 
+        public bool IsServer => NetworkManager.IsServer;
+        public bool IsClient => NetworkManager.IsClient;
 
         public void Spawn()
         {
@@ -75,6 +77,13 @@ namespace Yanmonet.NetSync
         public void Spawn(ulong ownerClientId)
         {
             if (!NetworkManager.IsServer) throw new NotServerException("Spawn only on server");
+            if (IsSpawned) throw new Exception("is Spawned");
+            IsSpawned = true;
+
+            typeId = NetworkManager.GetTypeId(GetType());
+            InstanceId = ++NetworkManager.Server.nextObjectId;
+
+            NetworkManager.Server.objects[InstanceId] = this;
             OwnerClientId = ownerClientId;
 
             //if (!IsOwnedByServer)
@@ -96,14 +105,20 @@ namespace Yanmonet.NetSync
         {
             if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(Despawn)} only on server");
 
-            if (NetworkManager.Server.objects.ContainsKey(InstanceId))
+            if (IsSpawned)
             {
-                foreach (var clientId in Observers.ToArray())
+                if (NetworkManager.Server.objects.ContainsKey(InstanceId))
                 {
-                    NetworkManager.Server.RemoveObserver(this, clientId);
+                    foreach (var clientId in Observers.ToArray())
+                    {
+                        NetworkManager.Server.RemoveObserver(this, clientId);
+                    }
+
+                    NetworkManager.Server.objects.Remove(InstanceId);
                 }
 
-                NetworkManager.Server.objects.Remove(InstanceId);
+                InstanceId = default;
+                IsSpawned = false;
             }
 
             if (destrory)
@@ -260,7 +275,7 @@ namespace Yanmonet.NetSync
 
         void UpdateSyncVar()
         {
-            if (isServer)
+            if (IsServer)
             {
                 if (syncVarDirtyBits != 0)
                 {
@@ -273,7 +288,7 @@ namespace Yanmonet.NetSync
                     }
                 }
             }
-            else if (isClient)
+            else if (IsClient)
             {
                 if (syncVarDirtyBits != 0)
                 {
@@ -310,12 +325,12 @@ namespace Yanmonet.NetSync
 
             RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
 
-            if (isClient)
+            if (IsClient)
             {
                 var msg = RpcMessage.RpcServer(this, rpcInfo, args);
                 connectionToServer.SendMessage((short)NetworkMsgId.Rpc, msg);
             }
-            else if (isServer)
+            else if (IsServer)
             {
                 var msg = RpcMessage.RpcClient(this, rpcInfo, args);
                 if (conn != null)

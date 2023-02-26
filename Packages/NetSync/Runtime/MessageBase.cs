@@ -219,6 +219,12 @@ namespace Yanmonet.NetSync
             return value;
 
         }
+
+        public virtual void Handle(NetworkMessage netMsg)
+        {
+
+        }
+
     }
 
 

@@ -5,6 +5,7 @@ namespace Yanmonet.NetSync
 {
     internal class RpcMessage : MessageBase
     {
+        public uint methodId;
         public byte action;
         public NetworkObject netObj;
         public object[] args;
@@ -20,6 +21,7 @@ namespace Yanmonet.NetSync
         {
             return new RpcMessage()
             {
+                methodId = rpcInfo.methodId,
                 action = Action_RpcClient,
                 netObj = netObj,
                 rpcInfo = rpcInfo,
@@ -30,6 +32,7 @@ namespace Yanmonet.NetSync
         {
             return new RpcMessage()
             {
+                methodId = rpcInfo.methodId,
                 action = Action_RpcServer,
                 netObj = netObj,
                 rpcInfo = rpcInfo,
@@ -39,14 +42,13 @@ namespace Yanmonet.NetSync
 
         public override void Serialize(IReaderWriter writer)
         {
-
+            writer.SerializeValue(ref methodId);
             writer.SerializeValue(ref action);
             writer.SerializeValue(ref netObj.objectId);
             switch (action)
             {
                 case Action_RpcClient:
-                case Action_RpcServer:
-                    writer.SerializeValue(ref rpcInfo.memberIndex);
+                case Action_RpcServer: 
                     if (rpcInfo.paramCount > 0)
                     {
                         ParameterInfo pInfo = null;
@@ -86,11 +88,11 @@ namespace Yanmonet.NetSync
         public override void Deserialize(IReaderWriter reader)
         {
 
+            reader.SerializeValue(ref methodId);
             reader.SerializeValue(ref action);
 
             if (action == 0)
                 throw new Exception("action is 0");
-
             ulong instanceId = new();
             reader.SerializeValue(ref instanceId);
 
@@ -107,18 +109,16 @@ namespace Yanmonet.NetSync
 
                     if (action == Action_RpcClient)
                     {
-                        if (!netObj.IsClient)
+                        if (!netObj.NetworkManager.IsClient)
                             return;
                     }
                     else if (action == Action_RpcServer)
                     {
-                        if (!netObj.IsServer)
+                        if (!netObj.NetworkManager.IsServer)
                             return;
                     }
-
-                    byte memberIndex = 0;
-                    reader.SerializeValue(ref memberIndex);
-                    rpcInfo = RpcInfo.GetRpcInfo(netObj.GetType(), memberIndex);
+                     
+                    rpcInfo = RpcInfo.GetRpcInfo(methodId);
                     object[] args = null;
                     if (rpcInfo.paramCount > 0)
                     {

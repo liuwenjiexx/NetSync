@@ -17,7 +17,6 @@ namespace Yanmonet.NetSync.Test
     public class RpcTest : TestBase
     {
 
-        [NetworkObjectId("6ebd8e0c-4c32-4c9d-bd3e-a60bb2f68af3")]
         class MyData : NetworkObject
         {
             [SyncVar(Bits = 0x1)]
@@ -31,7 +30,7 @@ namespace Yanmonet.NetSync.Test
             public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
             public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
 
-            public string rpcMsg;
+            public string result;
 
             public MyData()
             {
@@ -39,28 +38,28 @@ namespace Yanmonet.NetSync.Test
             }
             public void SetRpcMsg(string msg)
             {
-                this.rpcMsg = msg;
+                this.result = msg;
             }
-            [Rpc]
-            public void RpcClient(string msg)
+            [ClientRpc]
+            public void ClientRpc(string msg)
             {
                 if (!IsClient)
                 {
-                    Rpc("RpcClient", new object[] { msg });
+                    Rpc(nameof(ClientRpc), new object[] { msg });
                     return;
                 }
-                this.rpcMsg = msg;
+                this.result = msg;
             }
-            [Rpc]
-            public void RpcServer(string msg)
+            [ServerRpc]
+            public void ServerRpc(string msg)
             {
 
                 if (!IsServer)
                 {
-                    Rpc("RpcServer", new object[] { msg });
+                    Rpc(nameof(ServerRpc), new object[] { msg });
                     return;
                 }
-                this.rpcMsg = msg;
+                this.result = msg;
             }
 
         }
@@ -72,13 +71,9 @@ namespace Yanmonet.NetSync.Test
             var typeCode = Type.GetTypeCode(type);
             type = typeof(string);
             type = typeof(int);
+            bool b= typeof(string).IsPrimitive;
         }
 
-        [TestMethod]
-        public void NewGuid()
-        {
-            Console.WriteLine(Guid.NewGuid().ToString());
-        }
 
         [TestMethod]
         public void RefPerformance()
@@ -143,72 +138,76 @@ namespace Yanmonet.NetSync.Test
 
         public async Task _Rpc_Test()
         {
-
-            using (NetworkServer server = new NetworkServer())
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
+            try
             {
-                server.Start(localPort);
-
-                NetworkClient client = NewClient();
-
-                //await Update(server, client);
-                Update2(server, client);
-
-                var serverClient = server.Clients.FirstOrDefault();
-
-                NetworkClient.RegisterObject<MyData>((id) =>
+                serverManager.RegisterObject<MyData>((id) =>
                 {
                     return new MyData();
                 });
+                clientManager.RegisterObject<MyData>((id) =>
+                {
+                    return new MyData();
+                });
+                serverManager.StartServer();
+                clientManager.StartClient();
 
-                var serverData = server.CreateObject<MyData>();
-                server.AddObserver(serverData, server.Connections.First());
+                var server = serverManager.Server;
+                var client = clientManager.LocalClient;
 
-                //await Update(server, client);
-                Update2(server, client);
+                Update(serverManager, clientManager);
+
+                var serverClient = serverManager.ConnnectedClientList.First();
+                 
+                var serverData = serverManager.CreateObject<MyData>();
+                serverData.Spawn(serverClient.ClientId);             
+                Update(serverManager, clientManager);
+
                 var clientData = (MyData)client.Objects.FirstOrDefault();
 
-                serverData.rpcMsg = null;
-                clientData.rpcMsg = null;
-                serverData.RpcClient("server to client");
+                serverData.result = null;
+                clientData.result = null;
+                serverData.ClientRpc("server to client");                 
+                Update(serverManager, clientManager);
+                Update(serverManager, clientManager);
 
-                //await Update(server, client);
-                Update2(server, client);
+                Assert.AreEqual(serverData.result, null);
+                Assert.AreEqual(clientData.result, "server to client");
 
-                Assert.AreEqual(serverData.rpcMsg, null);
-                Assert.AreEqual(clientData.rpcMsg, "server to client");
+                serverData.result = null;
+                clientData.result = null;
+                serverData.ServerRpc("server to server");
 
-                serverData.rpcMsg = null;
-                clientData.rpcMsg = null;
-                serverData.RpcServer("server to server");
-                
-                //await Update(server, client);
-                Update2(server, client);
+                Update(serverManager, clientManager);
 
-                Assert.AreEqual(serverData.rpcMsg, "server to server");
-                Assert.AreEqual(clientData.rpcMsg, null);
+                Assert.AreEqual(serverData.result, "server to server");
+                Assert.AreEqual(clientData.result, null);
 
-                serverData.rpcMsg = null;
-                clientData.rpcMsg = null;
-                clientData.RpcClient("client to client");
+                serverData.result = null;
+                clientData.result = null;
+                clientData.ClientRpc("client to client");
 
-                //await Update(server, client);
-                Update2(server, client);
+                Update(serverManager, clientManager);
 
-                Assert.AreEqual(serverData.rpcMsg, null);
-                Assert.AreEqual(clientData.rpcMsg, "client to client");
+                Assert.AreEqual(serverData.result, null);
+                Assert.AreEqual(clientData.result, "client to client");
 
-                serverData.rpcMsg = null;
-                clientData.rpcMsg = null;
-                serverData.RpcServer("client to server");
+                serverData.result = null;
+                clientData.result = null;
+                serverData.ServerRpc("client to server");
 
-                //await Update(server, client);
-                Update2(server, client);
-                Assert.AreEqual(serverData.rpcMsg, "client to server");
-                Assert.AreEqual(clientData.rpcMsg, null);
+                Update(serverManager, clientManager);
+                Assert.AreEqual(serverData.result, "client to server");
+                Assert.AreEqual(clientData.result, null);
 
-                //await Update(server, client);
-                Update2(server, client);
+                Update(serverManager, clientManager);
                 //  client.Stop();
+            }
+            finally
+            {
+                serverManager.Dispose();
+                clientManager.Dispose();
             }
         }
 
