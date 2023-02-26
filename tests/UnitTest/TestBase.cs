@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
@@ -16,8 +17,69 @@ namespace Yanmonet.NetSync.Test
         public static int localPort = 7001;
         public static string UserId = "userid";
 
-        internal MyServer server;
-        internal MyClient client;
+        protected NetworkServer server;
+        protected NetworkClient client;
+
+        protected NetworkManager serverManager;
+        protected NetworkManager clientManager;
+        static int nextPort = 7777;
+
+        protected void OpenNetwork()
+        {
+            Assert.IsNull(serverManager);
+            Assert.IsNull(clientManager);
+
+            Console.WriteLine("Open Network");
+            serverManager = new NetworkManager();
+            clientManager = new NetworkManager();
+            nextPort++;
+            //Console.WriteLine("Port: " + nextPort);
+            serverManager.port = nextPort;
+            clientManager.port = nextPort;
+            serverManager.StartServer();
+            clientManager.StartClient();
+            server = serverManager.Server;
+            client = clientManager.LocalClient;
+            Update(serverManager, clientManager);
+
+        }
+
+        protected void OpenNetwork<T>()
+            where T : NetworkObject, new()
+        {
+            OpenNetwork();
+            RegisterObject<T>();
+        }
+
+        protected void RegisterObject<T>()
+            where T : NetworkObject, new()
+        {
+            serverManager.RegisterObject<T>((id) =>
+            {
+                return new T();
+            });
+            clientManager.RegisterObject<T>((id) =>
+            {
+                return new T();
+            });
+        }
+
+        protected void CloseNetwork()
+        {
+            Console.WriteLine("Close Network");
+            if (clientManager != null)
+            {
+                clientManager.Dispose();
+                clientManager = null;
+            }
+
+            if (serverManager != null)
+            {
+                serverManager.Dispose();
+                serverManager = null;
+            }
+        }
+
 
         [TestInitialize]
         public virtual void TestInitialize()
@@ -31,6 +93,8 @@ namespace Yanmonet.NetSync.Test
             int n = 10;
             //while (n-- > 0)
             //    CoroutineBase.UpdateCoroutine();
+
+            CloseNetwork();
         }
 
         protected void Run(IEnumerator r)
@@ -86,8 +150,8 @@ namespace Yanmonet.NetSync.Test
                     client.Update();
             }
         }
-        protected  void Update(params NetworkManager[] manager)
-        { 
+        protected void Update(params NetworkManager[] manager)
+        {
             for (int i = 0; i < 5; i++)
             {
                 foreach (var mgr in manager)
@@ -108,10 +172,12 @@ namespace Yanmonet.NetSync.Test
 
         protected void Update()
         {
-            if (server != null)
-                server.Update();
-            if (client != null)
-                client.Update();
+            //if (server != null)
+            //    server.Update();
+            //if (client != null)
+            //    client.Update();
+            serverManager?.Update();
+            clientManager?.Update();
         }
         protected void Update(NetworkConnection server, NetworkConnection client)
         {
