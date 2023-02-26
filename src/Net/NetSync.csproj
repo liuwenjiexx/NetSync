@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>NetSync</AssemblyName>
     <RootNamespace>Yanmonet.NetSync</RootNamespace>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Packages\NetSync\Runtime/*.cs" />
