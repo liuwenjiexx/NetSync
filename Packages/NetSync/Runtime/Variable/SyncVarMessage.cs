@@ -92,6 +92,18 @@ namespace Yanmonet.NetSync
                                 conn.NetworkManager.LogException(ex);
                             }
                         }
+
+                        if (netObj.IsServer)
+                        {
+                            foreach (var _conn in netObj.NetworkManager.GetAvaliableConnections(netObj.Observers))
+                            {
+                                if (_conn.ConnectionId == netObj.OwnerClientId)
+                                    continue;
+                                _conn.SendMessage((short)NetworkMsgId.SyncVar, this);
+                            }
+
+                        }
+
                         break;
                     case Action_RequestSyncVar:
                         reader.SerializeValue(ref bits);

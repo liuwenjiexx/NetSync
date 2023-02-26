@@ -278,6 +278,7 @@ namespace Yanmonet.NetSync
             if (IsClient)
             {
                 localClient.Update();
+                localClient.Connection.UpdateObjects();
             }
         }
 
@@ -288,7 +289,7 @@ namespace Yanmonet.NetSync
             return null;
         }
 
-        public IEnumerable<NetworkConnection> GetConnections(IEnumerable<ulong> clientIds)
+        public IEnumerable<NetworkConnection> GetAvaliableConnections(IEnumerable<ulong> clientIds)
         {
             foreach (var clientId in clientIds)
             {

@@ -461,7 +461,6 @@ namespace Yanmonet.NetSync
                         }
                         if (!netObj.IsOwnedByServer)
                         {
-
                             var owner = netObj.ConnectionToOwner;
                             if (owner != null && !owner.IsConnected)
                             {

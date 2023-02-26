@@ -482,6 +482,36 @@ namespace Yanmonet.NetSync
 
         }
 
+        internal void UpdateObjects()
+        {
+
+            foreach (var netObj in objects.Values)
+            {
+                if (netObj != null)
+                {
+                    try
+                    {
+                        netObj.InternalUpdate();
+                    }
+                    catch (Exception ex)
+                    {
+                        NetworkManager.LogException(ex);
+                    }
+                  
+                }
+            }
+
+            //foreach (var id in destoryObjIds)
+            //{
+            //    NetworkObject netObj;
+            //    if (objects.TryGetValue(id, out netObj))
+            //    {
+            //        if (netObj != null)
+            //            netObj.Despawn();
+            //    }
+            //}
+            //  destoryObjIds.Clear(); 
+        }
 
         public IEnumerator WaitConnected(int timeout)
         {

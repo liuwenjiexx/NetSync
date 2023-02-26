@@ -13,7 +13,7 @@ namespace Yanmonet.NetSync
     {
         internal uint typeId;
         internal ulong objectId;
- 
+
 
         internal List<ulong> observers;
 
@@ -126,6 +126,19 @@ namespace Yanmonet.NetSync
                 Destrory();
             }
         }
+
+        public void AddObserver(ulong clientId)
+        {
+            if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(AddObserver)} only on server");
+            NetworkManager.Server.AddObserver(this, clientId);
+        }
+
+        public void RemoveObserver(ulong clientId)
+        {
+            if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(RemoveObserver)} only on server");
+            NetworkManager.Server.RemoveObserver(this, clientId);
+        }
+
         internal void SetConnection(NetworkConnection conn)
         {
 
@@ -275,29 +288,24 @@ namespace Yanmonet.NetSync
 
         void UpdateSyncVar()
         {
-            if (IsServer)
+            if (IsOwner && syncVarDirtyBits != 0)
             {
-                if (syncVarDirtyBits != 0)
+                SyncVarMessage msg = SyncVarMessage.ResponseSyncVar(this, syncVarDirtyBits);
+                ClearAllDirtyBits();
+                if (IsServer)
                 {
-                    SyncVarMessage msg = SyncVarMessage.ResponseSyncVar(this, syncVarDirtyBits);
-                    ClearAllDirtyBits();
-
-                    foreach (var conn in NetworkManager.GetConnections(observers))
+                    foreach (var conn in NetworkManager.GetAvaliableConnections(observers))
                     {
+                        if (conn.ConnectionId == OwnerClientId)
+                            continue;
                         conn.SendMessage((short)NetworkMsgId.SyncVar, msg);
                     }
                 }
-            }
-            else if (IsClient)
-            {
-                if (syncVarDirtyBits != 0)
+                else
                 {
-                    if (connectionToServer != null)
-                    {
-                        SyncVarMessage msg = SyncVarMessage.RequestSyncVar(this, syncVarDirtyBits);
-                        ClearAllDirtyBits();
-                        connectionToServer.SendMessage((short)NetworkMsgId.SyncVar, msg);
-                    }
+                    //connectionToServer.SendMessage((short)NetworkMsgId.SyncVar, msg);
+                    bool bbb = NetworkManager.LocalClient.Connection == connectionToServer;
+                    NetworkManager.LocalClient.Connection.SendMessage((short)NetworkMsgId.SyncVar, msg);
                 }
             }
         }
@@ -339,7 +347,7 @@ namespace Yanmonet.NetSync
                 }
                 else
                 {
-                    foreach (var _conn in NetworkManager.GetConnections(observers))
+                    foreach (var _conn in NetworkManager.GetAvaliableConnections(observers))
                     {
                         _conn.SendMessage((short)NetworkMsgId.Rpc, msg);
                     }

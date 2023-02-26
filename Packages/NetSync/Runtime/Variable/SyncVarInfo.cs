@@ -53,7 +53,7 @@ namespace Yanmonet.NetSync
 
                     if (list == null)
                         list = new List<SyncVarInfo>();
-                    info.index = list.Count();
+
                     list.Add(info);
                     if (list.Count > 32)
                         throw new Exception("max 32 sync var");
@@ -62,6 +62,12 @@ namespace Yanmonet.NetSync
                 if (list != null)
                 {
                     infos = new SyncVarInfo[list.Count];
+
+                    int index = 0;
+                    foreach (var item in list.OrderBy(o => o.field.Name))
+                    {
+                        item.index = index++;
+                    }
 
                     int n = 0;
                     for (int i = 0; i < list.Count; i++)
@@ -89,7 +95,7 @@ namespace Yanmonet.NetSync
                             for (int j = i - 1; j >= 0; j--)
                             {
                                 if (list[j].bits == info.bits)
-                                    throw new Exception("type: "+ type.Name + " , field: " + info.field + ", repeat bits " + info.bits);
+                                    throw new Exception("type: " + type.Name + " , field: " + info.field + ", repeat bits " + info.bits);
                             }
 
                         }
