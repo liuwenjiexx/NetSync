@@ -60,6 +60,9 @@ namespace Yanmonet.NetSync
 
         public static bool CanSerializeType(Type type)
         {
+            if (typeof(INetworkSerializable).IsAssignableFrom(type))
+                return true;
+
             if (typeof(MessageBase).IsAssignableFrom(type))
                 return true;
 

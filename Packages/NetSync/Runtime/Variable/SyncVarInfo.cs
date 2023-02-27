@@ -7,9 +7,10 @@ namespace Yanmonet.NetSync
 {
     internal class SyncVarInfo
     {
-        public int index;
+        public byte index;
         public TypeCode typeCode;
         public uint bits;
+        public uint hash;
         public FieldInfo field;
         public MethodInfo changeCallback;
 
@@ -39,6 +40,7 @@ namespace Yanmonet.NetSync
                     info.bits = syncVarAttr.Bits;
                     info.field = field;
                     info.typeCode = Type.GetTypeCode(field.FieldType);
+                    info.hash = field.Name.Hash32();
 
                     if (!SyncVarMessage.CanSerializeType(field.FieldType))
                         throw new Exception("not implment type:" + field.FieldType);
@@ -63,11 +65,12 @@ namespace Yanmonet.NetSync
                 {
                     infos = new SyncVarInfo[list.Count];
 
-                    int index = 0;
+                    byte index = 0;
                     foreach (var item in list.OrderBy(o => o.field.Name))
                     {
                         item.index = index++;
                     }
+
 
                     int n = 0;
                     for (int i = 0; i < list.Count; i++)

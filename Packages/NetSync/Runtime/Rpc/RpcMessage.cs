@@ -48,7 +48,7 @@ namespace Yanmonet.NetSync
             switch (action)
             {
                 case Action_RpcClient:
-                case Action_RpcServer: 
+                case Action_RpcServer:
                     if (rpcInfo.paramCount > 0)
                     {
                         ParameterInfo pInfo = null;
@@ -96,11 +96,23 @@ namespace Yanmonet.NetSync
             ulong instanceId = new();
             reader.SerializeValue(ref instanceId);
 
+            rpcInfo = RpcInfo.GetRpcInfo(methodId);
             netObj = null;
 
-            netObj = conn.GetObject(instanceId);
+            if (conn.NetworkManager.IsServer)
+            {
+                netObj = conn.NetworkManager.Server.GetObject(instanceId);
+            }
+            else
+            {
+                netObj = conn.GetObject(instanceId);
+            }
+
             if (netObj == null)
+            {
+                NetworkManager.Singleton.Log($"Rpc '{rpcInfo.methodSignature}', Get Object null, instance: {instanceId}");
                 return;
+            }
 
             switch (action)
             {
@@ -117,8 +129,7 @@ namespace Yanmonet.NetSync
                         if (!netObj.NetworkManager.IsServer)
                             return;
                     }
-                     
-                    rpcInfo = RpcInfo.GetRpcInfo(methodId);
+
                     object[] args = null;
                     if (rpcInfo.paramCount > 0)
                     {

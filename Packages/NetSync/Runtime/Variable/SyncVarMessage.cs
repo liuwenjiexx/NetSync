@@ -52,7 +52,15 @@ namespace Yanmonet.NetSync
                 reader.SerializeValue(ref instanceId);
                 netObj = null;
 
-                netObj = conn.GetObject(instanceId);
+                if (conn.NetworkManager.IsServer)
+                {
+                    netObj = conn.NetworkManager.Server.GetObject(instanceId);
+                }
+                else
+                {
+                    netObj = conn.GetObject(instanceId);
+                }
+
                 if (netObj == null)
                     return;
 
@@ -65,9 +73,14 @@ namespace Yanmonet.NetSync
                             reader.SerializeValue(ref b);
                             if (b == 0)
                                 break;
-                            uint bits = (uint)(1 << (b - 1));
-                            this.bits |= bits;
-                            var state = netObj.GetStateByBits(bits);
+                            b--;
+                            //netObj.NetworkManager.Log($"Read variable, type: {netObj.GetType().Name}, instance: {instanceId}, index: {b}");
+                            var state = netObj.GetStateByIndex(b);
+                            if (state == null)
+                            {
+                                throw new NullReferenceException($"{netObj.GetType()}, State null, instance: {instanceId}, index: {b}");
+                            }
+
                             object value = null;
 
                             value = Read(reader, state.syncVarInfo.field.FieldType);
@@ -99,7 +112,7 @@ namespace Yanmonet.NetSync
                             {
                                 if (_conn.ConnectionId == netObj.OwnerClientId)
                                     continue;
-                                _conn.SendMessage((short)NetworkMsgId.SyncVar, this);
+                                _conn.SendMessage((ushort)NetworkMsgId.SyncVar, this);
                             }
 
                         }
@@ -133,7 +146,8 @@ namespace Yanmonet.NetSync
                             info = state.syncVarInfo;
                             if ((info.bits & bits) == info.bits)
                             {
-                                b = (byte)info.bits.SigleBitPosition();
+                                //netObj.NetworkManager.Log($"Write variable, type: {netObj.GetType().Name}, instance: {netObj.InstanceId}, index: {info.index}");
+                                b = (byte)(info.index + 1);
                                 writer.SerializeValue(ref b);
                                 object value = state.syncVarInfo.field.GetValue(netObj);
                                 state.value = value;

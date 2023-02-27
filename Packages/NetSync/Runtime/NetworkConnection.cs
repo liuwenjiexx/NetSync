@@ -19,7 +19,7 @@ namespace Yanmonet.NetSync
         private Pool<NetworkWriter> writePool;
         private Queue<NetworkWriter> sendMsgQueue;
         private NetworkWriter currentSendMsg;
-        private Dictionary<short, NetworkMessageDelegate> handlers;
+        private Dictionary<ushort, NetworkMessageDelegate> handlers;
         private bool isListening;
         private bool isInital;
         //private DateTime lastTryReconnectTime;
@@ -72,9 +72,10 @@ namespace Yanmonet.NetSync
                     isConnecting = true;
                     if (!isListening)
                     {
-                        SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
+                        NetworkManager.Log($"Send Connect Msg, Client To Server ClientId: {connectionId}");
+                        SendMessage((ushort)NetworkMsgId.Connect, new ConnectMessage()
                         {
-                            connectionId = connectionId,
+                            clientId = connectionId,
                             toServer = true,
                             extra = extra,
                         });
@@ -158,7 +159,7 @@ namespace Yanmonet.NetSync
         {
             return socket;
         }
-        public bool HasHandler(short msgId)
+        public bool HasHandler(ushort msgId)
         {
             if (handlers == null)
                 return false;
@@ -166,26 +167,26 @@ namespace Yanmonet.NetSync
         }
 
 
-        public void RegisterHandler(short msgId, NetworkMessageDelegate handler)
+        public void RegisterHandler(ushort msgId, NetworkMessageDelegate handler)
         {
             if (handler == null)
                 return;
             if (handlers == null)
-                handlers = new Dictionary<short, NetworkMessageDelegate>();
+                handlers = new();
             handlers[msgId] = handler;
         }
 
-        public void UnregisterHandler(short msgId)
+        public void UnregisterHandler(ushort msgId)
         {
             if (handlers == null)
                 return;
             handlers.Remove(msgId);
         }
 
-        public void SendMessage(short msgId, MessageBase msg = null)
+        public void SendMessage(ushort msgId, MessageBase msg = null)
         {
             NetworkWriter s;
-
+            //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
             s = writePool.Get();
 
             s.BaseStream.Position = 0;
@@ -286,7 +287,7 @@ namespace Yanmonet.NetSync
             if (socket != null && socket.Connected)
             {
                 isConnecting = true;
-                SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
+                SendMessage((ushort)NetworkMsgId.Connect, new ConnectMessage()
                 {
                     toServer = true,
                     extra = extra,
@@ -351,6 +352,8 @@ namespace Yanmonet.NetSync
 
             if (!(isConnecting || isConnected))
                 return;
+
+            UpdateObjects();
 
             ProcessSendMessage();
 
@@ -446,6 +449,7 @@ namespace Yanmonet.NetSync
                     netMsg.Connection = this;
                     netMsg.Reader = reader;
 
+                    //NetworkManager.Log($"Receive Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
                     NetworkManager.InvokeHandler(netMsg);
 
                     readCount = reader.ReadPackage();
@@ -484,20 +488,22 @@ namespace Yanmonet.NetSync
 
         internal void UpdateObjects()
         {
-
-            foreach (var netObj in objects.Values)
+            if (!NetworkManager.IsServer)
             {
-                if (netObj != null)
+                foreach (var netObj in objects.Values)
                 {
-                    try
+                    if (netObj != null)
                     {
-                        netObj.InternalUpdate();
+                        try
+                        {
+                            netObj.InternalUpdate();
+                        }
+                        catch (Exception ex)
+                        {
+                            NetworkManager.LogException(ex);
+                        }
+
                     }
-                    catch (Exception ex)
-                    {
-                        NetworkManager.LogException(ex);
-                    }
-                  
                 }
             }
 
@@ -588,7 +594,7 @@ namespace Yanmonet.NetSync
         public void Ping()
         {
             long timestamp = NetworkManager.Timestamp;
-            SendMessage((short)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
+            SendMessage((ushort)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
         }
 
 

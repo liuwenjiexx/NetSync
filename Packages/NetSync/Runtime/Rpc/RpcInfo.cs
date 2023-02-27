@@ -7,10 +7,11 @@ namespace Yanmonet.NetSync
 {
     internal class RpcInfo
     {
-        public uint methodId; 
+        public uint methodId;
         public MethodInfo method;
         public ParameterInfo[] parameters;
         public int paramCount;
+        public string methodSignature;
 
         private static Dictionary<uint, RpcInfo> cachedIdMapRpcs;
         private static Dictionary<Type, RpcInfo[]> cachedTypeMapRpcs;
@@ -85,6 +86,7 @@ namespace Yanmonet.NetSync
                         method = mInfo,
                         parameters = mInfo.GetParameters()
                     };
+                    info.methodSignature = NetworkUtility.GetMethodSignature(mInfo);
                     info.methodId = NetworkUtility.GetMethodSignatureHash(mInfo);
                     info.paramCount = info.parameters.Length;
                     list.Add(info);
@@ -94,7 +96,7 @@ namespace Yanmonet.NetSync
                 if (list != null && list.Count > 0)
                 {
                     infos = list.OrderBy(o => o.method.Name).ToArray();
-                   
+
                     cachedTypeMapRpcs[type] = infos;
                 }
             }

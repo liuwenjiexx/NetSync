@@ -349,7 +349,7 @@ namespace Yanmonet.NetSync
 
         protected virtual void OnUpdate() { }
 
-        public void SendToAll(short msgId, MessageBase msg = null)
+        public void SendToAll(ushort msgId, MessageBase msg = null)
         {
             foreach (var conn in Connections)
             {
@@ -411,15 +411,18 @@ namespace Yanmonet.NetSync
                 obj.observers.Add(clientId);
                 conn.AddObject(obj);
 
-                conn.SendMessage((short)NetworkMsgId.CreateObject,
-                    new CreateObjectMessage()
-                    {
-                        typeId = obj.typeId,
-                        objectId = obj.InstanceId,
-                        ownerClientId = obj.OwnerClientId,
-                    });
+                //if (obj.IsSpawned)
+                //{
+                //    conn.SendMessage((ushort)NetworkMsgId.CreateObject,
+                //        new CreateObjectMessage()
+                //        {
+                //            typeId = obj.typeId,
+                //            objectId = obj.InstanceId,
+                //            ownerClientId = obj.OwnerClientId,
+                //        });
 
-                obj.SyncAll(conn);
+                //    obj.SyncAll(conn);
+                //}
             }
         }
 
@@ -436,7 +439,7 @@ namespace Yanmonet.NetSync
             {
                 conn.RemoveObject(obj);
 
-                conn.SendMessage((short)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
+                conn.SendMessage((ushort)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
                 {
                     instanceId = obj.InstanceId,
                 });

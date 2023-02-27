@@ -174,7 +174,7 @@ namespace Yanmonet.NetSync
             {
                 try
                 {
-                    conn.SendMessage((short)NetworkMsgId.Disconnect);
+                    conn.SendMessage((ushort)NetworkMsgId.Disconnect);
                     conn.Flush(1000);
                 }
                 catch { }
@@ -195,9 +195,12 @@ namespace Yanmonet.NetSync
 
         public void Update()
         {
-            if (!(conn.IsConnecting || conn.IsConnected))
-                return;
 
+            if (!(conn.IsConnecting || conn.IsConnected))
+            {
+                NetworkManager.Log($"Connection Update: {conn.ConnectionId}, IsConnecting: {conn.IsConnecting}, IsConnected: {conn.IsConnected}");
+                return;
+            }
 
 
             //using (Connection)
@@ -222,7 +225,7 @@ namespace Yanmonet.NetSync
 
         }
 
-        public void Send(short msgId, MessageBase msg = null)
+        public void Send(ushort msgId, MessageBase msg = null)
         {
             Connection.SendMessage(msgId, msg);
         }

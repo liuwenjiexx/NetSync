@@ -19,7 +19,7 @@ namespace Yanmonet.NetSync
         internal Dictionary<short, NetworkMessageDelegate> msgHandlers;
 
         public const ulong ServerClientId = 0;
-        public static Action<string> LogCallback;
+        public Action<string> LogCallback;
 
         public NetworkManager()
         {
@@ -278,7 +278,6 @@ namespace Yanmonet.NetSync
             if (IsClient)
             {
                 localClient.Update();
-                localClient.Connection.UpdateObjects();
             }
         }
 
@@ -302,11 +301,16 @@ namespace Yanmonet.NetSync
           where T : NetworkObject
         {
             T instance;
-
             var typeId = GetTypeId(typeof(T));
+            instance = (T)CreateObject(typeId);
+            return instance;
+        }
+
+        public NetworkObject CreateObject(uint typeId)
+        {
             var objInfo = NetworkObjectInfo.Get(typeId);
 
-            instance = objInfo.create(typeId) as T;
+            NetworkObject instance = objInfo.create(typeId);
             if (instance == null)
                 throw new Exception("create object, instance null");
             instance.typeId = typeId;
@@ -389,33 +393,40 @@ namespace Yanmonet.NetSync
 
             if (conn.isConnecting)
             {
-                conn.isConnecting = false;
-                conn.isConnected = true;
+
                 if (msg.toServer)
                 {
+                    if (!IsServer) throw new NotServerException("Connect To Server Msg only server");
+
+                    conn.isConnecting = false;
+                    conn.isConnected = true;
+
+                    Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
+                    conn.SendMessage((ushort)NetworkMsgId.Connect, new ConnectMessage()
+                    {
+                        clientId = conn.ConnectionId,
+                        toServer = false,
+                    });
+
                     try
                     {
                         conn.OnConnected(netMsg);
                     }
                     catch (Exception ex)
                     {
+                        conn.isConnected = false;
                         conn.Disconnect();
                         throw ex;
-                    }
-                    if (conn.IsConnected)
-                    {
-                        conn.SendMessage((short)NetworkMsgId.Connect, new ConnectMessage()
-                        {
-                            connectionId = conn.ConnectionId,
-                            toServer = false,
-                        });
                     }
                 }
                 else
                 {
                     try
                     {
-                        conn.ConnectionId = msg.connectionId;
+                        Log($"Client Receive Connect Msg, ClientId: {msg.clientId}");
+                        conn.isConnecting = false;
+                        conn.isConnected = true;
+                        conn.ConnectionId = msg.clientId;
                         if (LocalClient != null && LocalClient.Connection == conn)
                         {
                             LocalClientId = conn.ConnectionId;
@@ -424,6 +435,7 @@ namespace Yanmonet.NetSync
                     }
                     catch (Exception ex)
                     {
+                        conn.isConnected = false;
                         conn.Disconnect();
                         throw ex;
                     }
@@ -440,6 +452,9 @@ namespace Yanmonet.NetSync
         private static void OnMessage_CreateObject(NetworkMessage netMsg)
         {
             var conn = netMsg.Connection;
+            if (conn.NetworkManager.IsServer)
+                return;
+
             var msg = netMsg.ReadMessage<CreateObjectMessage>();
             uint typeId = msg.typeId;
             //if (msg.toServer)
@@ -461,26 +476,34 @@ namespace Yanmonet.NetSync
             if (!conn.ContainsObject(instanceId))
             {
                 NetworkObject instance = null;
-                if (conn.server != null)
+                if (conn.NetworkManager.IsServer)
                 {
-                    instance = conn.server.GetObject(instanceId);
+                    instance = conn.NetworkManager.Server.GetObject(instanceId);
                 }
                 else
                 {
                     var info = NetworkObjectInfo.Get(typeId);
-                    instance = info.create(typeId);
+                    conn.NetworkManager.Log($"Spawn Object '{info.type.Name}', instance: {instanceId}");
+
+                    instance = conn.NetworkManager.CreateObject(typeId);
                     if (instance == null)
                         throw new Exception("create instance null, Type id:" + typeId);
                     instance.typeId = typeId;
                     instance.InstanceId = instanceId;
                     instance.networkManager = conn.NetworkManager;
                     instance.IsSpawned = true;
+
                     instance.ConnectionToOwner = conn;
                     instance.OwnerClientId = msg.ownerClientId;
+                    instance.ConnectionToServer = conn;
+                    if (instance.IsOwner)
+                    {
+                        instance.ConnectionToOwner = conn;
+                    }
+                    conn.AddObject(instance);
+                    instance.OnSpawned();
                 }
 
-                instance.ConnectionToServer = conn;
-                conn.AddObject(instance);
             }
             //}
         }
@@ -537,7 +560,7 @@ namespace Yanmonet.NetSync
             switch (pingMsg.Action)
             {
                 case PingMessage.Action_Ping:
-                    conn.SendMessage((short)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
+                    conn.SendMessage((ushort)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
                     break;
                 case PingMessage.Action_Reply:
                     int timeout = (int)(pingMsg.ReplyTimestamp - pingMsg.Timestamp);

@@ -133,7 +133,7 @@ namespace Yanmonet.NetSync
                 }
 
                 foreach (var conn in owner.NetworkManager.GetAvaliableConnections( owner.Observers))
-                    conn.SendMessage((short)NetworkMsgId.SyncList, msg);
+                    conn.SendMessage((ushort)NetworkMsgId.SyncList, msg);
             }
             Changed?.Invoke(op, itemIndex);
         }

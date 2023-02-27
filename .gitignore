@@ -11,3 +11,4 @@ Newtonsoft.Json
 Logs/
 .vsconfig
 boot.config
+src/packages
