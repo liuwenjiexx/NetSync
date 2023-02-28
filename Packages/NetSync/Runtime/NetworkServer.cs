@@ -210,6 +210,7 @@ namespace Yanmonet.NetSync
                                 NetworkManager.clientNodes[client.ClientId] = node;
                                 NetworkManager.clients[client.ClientId] = client;
                                 NetworkManager.clientIds.AddLast(client.ClientId);
+
                             }
                         }
                         catch (Exception ex)
@@ -276,7 +277,7 @@ namespace Yanmonet.NetSync
             {
 
             }
-            ClientConnected?.Invoke(this, client);
+            //ClientConnected?.Invoke(this, client);
         }
 
 
@@ -363,12 +364,12 @@ namespace Yanmonet.NetSync
             where T : NetworkObject
         {
             var id = NetworkManager.GetTypeId(typeof(T));
-            return (T)CreateObject(id );
+            return (T)CreateObject(id);
         }
 
- 
+
         internal NetworkObject CreateObject(uint typeId)
-        { 
+        {
             var objInfo = NetworkObjectInfo.Get(typeId);
 
             NetworkObject instance = objInfo.create(typeId);
@@ -379,7 +380,7 @@ namespace Yanmonet.NetSync
             return instance;
         }
 
-     
+
 
         public NetworkObject GetObject(ulong instanceId)
         {
@@ -387,6 +388,7 @@ namespace Yanmonet.NetSync
             objects.TryGetValue(instanceId, out obj);
             return obj;
         }
+
 
 
 
@@ -495,6 +497,11 @@ namespace Yanmonet.NetSync
             //{               
             //    throw new Exception("Not main thread " + mainThreadId + "," + Thread.CurrentThread.ManagedThreadId);
             //}
+        }
+
+        public void OnClientConnected(NetworkClient client)
+        {
+            ClientConnected?.Invoke(this, client);
         }
 
         public virtual void Dispose()

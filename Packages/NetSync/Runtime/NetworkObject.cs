@@ -15,19 +15,21 @@ namespace Yanmonet.NetSync
         internal uint typeId;
         internal ulong objectId;
 
+        private bool isDirty;
 
         internal List<ulong> observers;
 
 
         private uint syncVarDirtyBits;
         internal SyncVarState[] syncVarStates;
+        internal Dictionary<uint, NetworkVariableBase> variables;
 
 
 
         public NetworkObject()
         {
             observers = new List<ulong>();
-            RegisterSyncVar();
+            InitalizeVariable();
         }
 
         public ulong InstanceId { get => objectId; internal set { objectId = value; } }
@@ -48,6 +50,7 @@ namespace Yanmonet.NetSync
                 }
             }
         }
+
         //public NetworkConnection ConnectionToClient { get; internal set; }
 
         /// <summary>
@@ -70,6 +73,7 @@ namespace Yanmonet.NetSync
 
         public bool IsServer => NetworkManager.IsServer;
         public bool IsClient => NetworkManager.IsClient;
+
 
         public void Spawn()
         {
@@ -102,20 +106,34 @@ namespace Yanmonet.NetSync
                 AddObserver(ownerClientId);
             }
 
+            foreach (var variable in variables.Values)
+            {
+                variable.ResetDirty();
+            }
+            isDirty = false;
+
             SendSpawnMsg();
 
             OnSpawned();
+
+            if (IsClient)
+            {
+                NetworkManager.LocalClient.Connection.OnObjectAdded(this);
+            }
         }
 
         internal protected virtual void OnSpawned()
         {
         }
+        internal protected virtual void OnDespawned()
+        {
+        }
+
 
         private HashSet<ulong> sendSpawned;
 
         private void SendSpawnMsg()
         {
-
             foreach (var conn in NetworkManager.GetAvaliableConnections(observers))
             {
                 if (!conn.IsConnected)
@@ -124,6 +142,7 @@ namespace Yanmonet.NetSync
                     continue;
                 sendSpawned.Add(conn.ConnectionId);
                 NetworkManager.Log($"Send Create Object Msg, Type: {GetType()}");
+
                 conn.SendMessage((ushort)NetworkMsgId.CreateObject, new CreateObjectMessage()
                 {
                     typeId = typeId,
@@ -226,6 +245,7 @@ namespace Yanmonet.NetSync
         {
             for (int i = 0, len = syncVarStates.Length; i < len; i++)
             {
+                if (syncVarStates[i] == null) continue;
                 if ((syncVarStates[i].syncVarInfo.bits & bits) == bits)
                     return syncVarStates[i].syncVarInfo;
             }
@@ -245,6 +265,7 @@ namespace Yanmonet.NetSync
         {
             for (int i = 0, len = syncVarStates.Length; i < len; i++)
             {
+                if (syncVarStates[i] == null) continue;
                 if (syncVarStates[i].syncVarInfo.index == index)
                     return syncVarStates[i];
             }
@@ -252,20 +273,39 @@ namespace Yanmonet.NetSync
         }
 
 
-        private void RegisterSyncVar()
+        private void InitalizeVariable()
         {
+            if (variables == null)
+                variables = new();
+            variables.Clear();
             Type type = GetType();
             var syncVarInfos = SyncVarInfo.GetSyncVarInfos(type);
             if (syncVarInfos != null && syncVarInfos.Length > 0)
             {
-
                 syncVarStates = new SyncVarState[syncVarInfos.Length];
                 for (int i = 0; i < syncVarStates.Length; i++)
                 {
-                    syncVarStates[i] = new SyncVarState()
+                    var varInfo = syncVarInfos[i];
+                    var field = varInfo.field;
+                    if (varInfo.isVariable)
                     {
-                        syncVarInfo = syncVarInfos[i],
-                    };
+                        var variable = field.GetValue(this) as NetworkVariableBase;
+                        if (variable == null)
+                        {
+                            variable = Activator.CreateInstance(field.FieldType) as NetworkVariableBase;
+                            field.SetValue(this, variable);
+                        }
+                        variable.Name = varInfo.field.Name;
+                        variables[varInfo.hash] = variable;
+                        variable.Initialize(this);
+                    }
+                    else
+                    {
+                        syncVarStates[i] = new SyncVarState()
+                        {
+                            syncVarInfo = syncVarInfos[i],
+                        };
+                    }
                 }
             }
 
@@ -279,6 +319,8 @@ namespace Yanmonet.NetSync
                 for (int i = 0; i < syncListInfos.Length; i++)
                 {
                     var info = syncListInfos[i];
+                    if (info == null)
+                        continue;
                     object syncList = info.field.GetValue(this);
                     if (syncList != null)
                     {
@@ -291,8 +333,6 @@ namespace Yanmonet.NetSync
         }
 
         public static readonly MethodInfo SyncListInitMethod = typeof(SyncList<>).GetMethod("init", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-
-
 
         public void ResetValues()
         {
@@ -308,7 +348,7 @@ namespace Yanmonet.NetSync
 
             if (syncVarStates != null)
             {
-                conn.SendMessage((ushort)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
+                // conn.SendMessage((ushort)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
             }
 
             var syncListInfos = SyncListInfo.GetSyncListInfos(GetType());
@@ -326,6 +366,49 @@ namespace Yanmonet.NetSync
                     }
                 }
             }
+
+
+
+            conn.SendMessage((ushort)NetworkMsgId.SyncVar, new SyncVarMessage(this, false, true));
+
+        }
+
+        internal void UpdateVariable()
+        {
+
+            byte[] packet = null;
+            SyncVarMessage msg = null;
+            foreach (var pair in variables)
+            {
+                var variable = pair.Value;
+                if (variable.CanClientWrite(NetworkManager.LocalClientId))
+                {
+                    if (variable.IsDirty())
+                    {
+                        msg = new SyncVarMessage(this, true, false);
+                        packet = NetworkUtility.PackMessage((ushort)NetworkMsgId.SyncVar, msg);
+
+                        break;
+                    }
+                }
+            }
+
+            if (packet != null)
+            {
+                if (IsServer)
+                {
+                    foreach (var conn in NetworkManager.GetAvaliableConnections(observers))
+                    {
+                        conn.SendPacket((ushort)NetworkMsgId.SyncVar, packet);
+                    }
+                }
+                else
+                {
+                    NetworkManager.LocalClient.Connection.SendPacket((ushort)NetworkMsgId.SyncVar, packet);
+                }
+            }
+
+
         }
 
         internal void InternalUpdate()
@@ -338,18 +421,34 @@ namespace Yanmonet.NetSync
                 }
 
                 UpdateSyncVar();
+                UpdateVariable();
+                isDirty = false;
             }
+
 
             Update();
         }
+
+
+        public bool IsDirty()
+        {
+            return isDirty;
+        }
+
+        public virtual void SetDirty()
+        {
+            this.isDirty = true;
+        }
+
+
 
         protected virtual void Update()
         {
 
         }
 
-       protected float time = 0;
-        
+        protected float time = 0;
+
         void UpdateSyncVar()
         {
             if (Time.time > time)
@@ -357,7 +456,7 @@ namespace Yanmonet.NetSync
                 time = Time.time + 3;
             }
             if (IsOwner && syncVarDirtyBits != 0)
-            {
+            {/*
                 NetworkManager.Log($"{GetType().Name}, instance: {InstanceId}, isOwner: {IsOwner}, diryBits: {syncVarDirtyBits}");
                 SyncVarMessage msg = SyncVarMessage.ResponseSyncVar(this, syncVarDirtyBits);
                 ClearAllDirtyBits();
@@ -374,7 +473,7 @@ namespace Yanmonet.NetSync
                 {
                     bool bbb = NetworkManager.LocalClient.Connection == connectionToServer;
                     NetworkManager.LocalClient.Connection.SendMessage((ushort)NetworkMsgId.SyncVar, msg);
-                }
+                }*/
             }
         }
 
@@ -471,7 +570,10 @@ namespace Yanmonet.NetSync
             return objectId.GetHashCode();
         }
 
-
+        public override string ToString()
+        {
+            return $"{GetType().Name}({InstanceId})";
+        }
 
     }
 }

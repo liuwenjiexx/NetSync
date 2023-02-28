@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Yanmonet.NetSync
@@ -8,6 +9,7 @@ namespace Yanmonet.NetSync
     public class NetworkWriter : IReaderWriter
     {
         private Stream baseStream;
+        public int refCount;
 
         internal NetworkWriter(Stream baseStream)
         {
@@ -166,7 +168,7 @@ namespace Yanmonet.NetSync
             Write(bytes, 0, bytes.Length);
         }
 
-         
+
 
         public void SerializeValue(ref byte value)
         {
@@ -236,6 +238,47 @@ namespace Yanmonet.NetSync
         public void SerializeValue(ref Guid value)
         {
             WriteGuid(value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void SerializeValue<T>(ref T value, Unused unused = default) where T : unmanaged, Enum
+        {
+            int size = sizeof(T);
+
+            switch (size)
+            {
+                case 1:
+                    {
+                        byte n = (byte)(object)value;
+                        SerializeValue(ref n);
+                    }
+                    break;
+                case 2:
+                    {
+                        short n = (short)(object)value;
+                        SerializeValue(ref n);
+                    }
+                    break;
+                case 4:
+                    {
+                        int n = (int)(object)value;
+                        SerializeValue(ref n);
+                    }
+                    break;
+                case 8:
+                    {
+                        long n = (long)(object)value;
+                        SerializeValue(ref n);
+                    }
+                    break;
+            }
+
+        }
+
+        public void SerializeValue<T>(ref T value)
+            where T : INetworkSerializable
+        {
+            value.NetworkSerialize(this);
         }
     }
 

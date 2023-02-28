@@ -198,7 +198,7 @@ namespace Yanmonet.NetSync
 
             if (!(conn.IsConnecting || conn.IsConnected))
             {
-                NetworkManager.Log($"Connection Update: {conn.ConnectionId}, IsConnecting: {conn.IsConnecting}, IsConnected: {conn.IsConnected}");
+                //NetworkManager.Log($"Connection Update: {conn.ConnectionId}, IsConnecting: {conn.IsConnecting}, IsConnected: {conn.IsConnected}");
                 return;
             }
 
@@ -334,7 +334,7 @@ namespace Yanmonet.NetSync
 
     }
 
-    public delegate NetworkObject CreateObjectDelegate(ulong objectId);
+    public delegate NetworkObject CreateObjectDelegate(ulong typeId);
     public delegate void DestroyObjectDelegate(NetworkObject instance);
 
 

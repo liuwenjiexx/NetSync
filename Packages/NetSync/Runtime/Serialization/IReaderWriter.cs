@@ -23,6 +23,16 @@ namespace Yanmonet.NetSync
         void SerializeValue(ref bool value);
         void SerializeValue(ref string value);
         void SerializeValue(ref byte[] value, int offset, ref int length);
-        void SerializeValue( ref Guid value);
+        void SerializeValue(ref Guid value);
+
+        void SerializeValue<T>(ref T value, Unused unused = default) where T : unmanaged, Enum;
+
+
+        void SerializeValue<T>(ref T value) where T : INetworkSerializable;
+    }
+
+    public enum Unused
+    {
+
     }
 }

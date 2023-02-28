@@ -16,13 +16,15 @@ namespace Yanmonet.NetSync
         public int port = 7777;
         private NetworkServer server;
         private NetworkClient localClient;
-        internal Dictionary<short, NetworkMessageDelegate> msgHandlers;
+        internal Dictionary<ushort, NetworkMessageDelegate> msgHandlers;
 
         public const ulong ServerClientId = 0;
         public Action<string> LogCallback;
 
         public NetworkManager()
         {
+            InitializeIntegerSerialization();
+
             if (Singleton == null)
             {
                 Singleton = this;
@@ -90,27 +92,60 @@ namespace Yanmonet.NetSync
 
         void InitalizeMessageHandler()
         {
-            msgHandlers = new Dictionary<short, NetworkMessageDelegate>();
+            msgHandlers = new Dictionary<ushort, NetworkMessageDelegate>();
 
-            msgHandlers = new Dictionary<short, NetworkMessageDelegate>();
-            msgHandlers[(short)NetworkMsgId.Connect] = OnMessage_Connect;
-            msgHandlers[(short)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
-            msgHandlers[(short)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
-            msgHandlers[(short)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
-            msgHandlers[(short)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
-            msgHandlers[(short)NetworkMsgId.SyncList] = OnMessage_SyncList;
-            msgHandlers[(short)NetworkMsgId.Rpc] = OnMessage_Rpc;
-            msgHandlers[(short)NetworkMsgId.Ping] = OnMessage_Ping;
+            msgHandlers = new Dictionary<ushort, NetworkMessageDelegate>();
+            msgHandlers[(ushort)NetworkMsgId.Connect] = OnMessage_Connect;
+            msgHandlers[(ushort)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
+            msgHandlers[(ushort)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
+            msgHandlers[(ushort)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
+            msgHandlers[(ushort)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
+            msgHandlers[(ushort)NetworkMsgId.SyncList] = OnMessage_SyncList;
+            msgHandlers[(ushort)NetworkMsgId.Rpc] = OnMessage_Rpc;
+            msgHandlers[(ushort)NetworkMsgId.Ping] = OnMessage_Ping;
 
         }
 
+        static bool serializationInitalized;
+
+        internal static void InitializeIntegerSerialization()
+        {
+            if (serializationInitalized)
+                return;
+            serializationInitalized = true;
+
+            NetworkVariable<byte>.Serializer = new UInt8Serializer();
+            NetworkVariable<byte>.AreEqual = NetworkVariable<byte>.ValueEquals;
+            NetworkVariable<short>.Serializer = new Int16Serializer();
+            NetworkVariable<short>.AreEqual = NetworkVariable<short>.ValueEquals;
+            NetworkVariable<ushort>.Serializer = new UInt16Serializer();
+            NetworkVariable<ushort>.AreEqual = NetworkVariable<ushort>.ValueEquals;
+            NetworkVariable<int>.Serializer = new Int32Serializer();
+            NetworkVariable<int>.AreEqual = NetworkVariable<int>.ValueEquals;
+            NetworkVariable<uint>.Serializer = new UInt32Serializer();
+            NetworkVariable<uint>.AreEqual = NetworkVariable<uint>.ValueEquals;
+            NetworkVariable<long>.Serializer = new Int64Serializer();
+            NetworkVariable<long>.AreEqual = NetworkVariable<long>.ValueEquals;
+            NetworkVariable<ulong>.Serializer = new UInt64Serializer();
+            NetworkVariable<ulong>.AreEqual = NetworkVariable<ulong>.ValueEquals;
+            NetworkVariable<float>.Serializer = new Float32Serializer();
+            NetworkVariable<float>.AreEqual = NetworkVariable<float>.ValueEquals;
+            NetworkVariable<double>.Serializer = new Float64Serializer();
+            NetworkVariable<double>.AreEqual = NetworkVariable<double>.ValueEquals;
+            NetworkVariable<bool>.Serializer = new BoolSerializer();
+            NetworkVariable<bool>.AreEqual = NetworkVariable<bool>.ValueEquals;
+            NetworkVariable<string>.Serializer = new StringSerializer();
+            NetworkVariable<string>.AreEqual = NetworkVariable<bool>.EqualityEqualsObject;
+            NetworkVariable<Guid>.Serializer = new GuidSerializer();
+            NetworkVariable<Guid>.AreEqual = NetworkVariable<Guid>.ValueEquals;
+        }
 
         public void StartHost()
         {
             Initalize();
             IsServer = true;
             IsClient = true;
-            LocalClientId = ulong.MaxValue;
+            LocalClientId = ServerClientId;
 
             try
             {
@@ -118,9 +153,8 @@ namespace Yanmonet.NetSync
                 server.Start(listenAddress, port);
 
                 localClient = new NetworkClient(this);
-                localClient.Connection.ConnectionId = ServerClientId;
-                localClient.Connect(address, port);
-                LocalClientId = localClient.ClientId;
+
+                delayConn = true;
             }
             catch
             {
@@ -144,6 +178,8 @@ namespace Yanmonet.NetSync
                     catch { }
                     server = null;
                 }
+
+                LocalClientId = ulong.MaxValue;
                 throw;
             }
         }
@@ -170,6 +206,8 @@ namespace Yanmonet.NetSync
                     catch { }
                     server = null;
                 }
+
+                LocalClientId = ulong.MaxValue;
                 throw;
             }
         }
@@ -196,6 +234,8 @@ namespace Yanmonet.NetSync
                     catch { }
                     localClient = null;
                 }
+
+                LocalClientId = ulong.MaxValue;
                 throw;
             }
         }
@@ -207,6 +247,12 @@ namespace Yanmonet.NetSync
         {
             uint objectId = type.Hash32();
             return objectId;
+        }
+
+        public void RegisterObject<T>()
+            where T : NetworkObject, new()
+        {
+            RegisterObject(typeof(T), typeId => new T());
         }
 
         public void RegisterObject<T>(CreateObjectDelegate create, DestroyObjectDelegate destrory = null)
@@ -268,9 +314,23 @@ namespace Yanmonet.NetSync
 
             handler(netMsg);
         }
-
+        bool delayConn;
         public void Update()
         {
+            if (delayConn)
+            {
+                delayConn = false;
+
+                Server.OnClientConnected(localClient);
+
+                NetworkMessage netMsg = new NetworkMessage();
+
+                localClient.Connection.ConnectionId = ServerClientId;
+                localClient.Connection.IsConnecting = false;
+                localClient.Connection.IsConnected = true;
+                LocalClient.Connection.OnConnected(netMsg);
+            }
+
             if (IsServer)
             {
                 server.Update();
@@ -408,8 +468,15 @@ namespace Yanmonet.NetSync
                         toServer = false,
                     });
 
+                    NetworkClient client;
+
                     try
                     {
+                        if (!clients.TryGetValue(conn.ConnectionId, out client))
+                        {
+                            throw new Exception("Not found client id: " + conn.ConnectionId);
+                        }
+                        Server.OnClientConnected(client);
                         conn.OnConnected(netMsg);
                     }
                     catch (Exception ex)
@@ -526,12 +593,25 @@ namespace Yanmonet.NetSync
             }
         }
 
-        private static void OnMessage_SyncVar(NetworkMessage netMsg)
+        private void OnMessage_SyncVar(NetworkMessage netMsg)
         {
             var msg = new SyncVarMessage();
             msg.conn = netMsg.Connection;
 
             netMsg.ReadMessage(msg);
+
+            if (IsServer)
+            {
+                //服务端收到的变量转发给其它端
+                foreach (var conn in GetAvaliableConnections(msg.netObj.observers))
+                {
+                    if (conn.ConnectionId == msg.netObj.OwnerClientId)
+                        continue;
+                    conn.SendPacket(netMsg.MsgId, netMsg.rawPacket);
+                    Log("Redirect Variable Msg: " + conn.ConnectionId);
+                }
+            }
+
         }
         private static void OnMessage_SyncList(NetworkMessage netMsg)
         {

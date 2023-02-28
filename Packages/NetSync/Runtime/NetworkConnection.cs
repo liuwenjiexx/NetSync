@@ -17,8 +17,9 @@ namespace Yanmonet.NetSync
         internal bool isConnected;
         private NetworkReader reader;
         private Pool<NetworkWriter> writePool;
-        private Queue<NetworkWriter> sendMsgQueue;
-        private NetworkWriter currentSendMsg;
+        private Queue<byte[]> sendMsgQueue;
+        private byte[] currentSendMsg;
+        private int currentSendPosition;
         private Dictionary<ushort, NetworkMessageDelegate> handlers;
         private bool isListening;
         private bool isInital;
@@ -102,11 +103,13 @@ namespace Yanmonet.NetSync
         public bool IsConnecting
         {
             get { return isConnecting; }
+            internal set { isConnecting = value; }
         }
 
         public bool IsConnected
         {
             get { return isConnected; }
+            internal set { isConnected = value; }
         }
 
         public bool IsSocketConnected
@@ -185,6 +188,24 @@ namespace Yanmonet.NetSync
 
         public void SendMessage(ushort msgId, MessageBase msg = null)
         {
+            var s = PackMessage(msgId, msg);
+            SendPacket(msgId, s);
+        }
+
+        public void SendPacket(ushort msgId, byte[] packet)
+        {
+            if (connectionId == NetworkManager.ServerClientId)
+            {
+                ClientProcessReceiveMessage(msgId, packet);
+            }
+            else
+            {
+                sendMsgQueue.Enqueue(packet);
+            }
+        }
+
+        public byte[] PackMessage(ushort msgId, MessageBase msg = null)
+        {
             NetworkWriter s;
             //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
             s = writePool.Get();
@@ -199,8 +220,11 @@ namespace Yanmonet.NetSync
             }
 
             s.EndWritePackage();
-
-            sendMsgQueue.Enqueue(s);
+            byte[] bytes = new byte[s.BaseStream.Length];
+            s.BaseStream.Position = 0;
+            s.BaseStream.Read(bytes, 0, bytes.Length);
+            writePool.Unused(s);
+            return bytes;
         }
 
 
@@ -312,14 +336,14 @@ namespace Yanmonet.NetSync
 
             if (sendMsgQueue == null)
             {
-                sendMsgQueue = new Queue<NetworkWriter>();
+                sendMsgQueue = new();
             }
             else
             {
                 while (sendMsgQueue.Count > 0)
                 {
                     var tmp = sendMsgQueue.Dequeue();
-                    writePool.Unused(tmp);
+                    //writePool.Unused(tmp);
                 }
             }
 
@@ -388,11 +412,12 @@ namespace Yanmonet.NetSync
                     if (sendMsgQueue.Count > 0)
                     {
                         currentSendMsg = sendMsgQueue.Dequeue();
-                        if (currentSendMsg != null)
-                        {
-                            ms = (MemoryStream)currentSendMsg.BaseStream;
-                            ms.Position = 0;
-                        }
+                        currentSendPosition = 0;
+                        //if (currentSendMsg != null)
+                        //{
+                        //    ms = (MemoryStream)currentSendMsg.BaseStream;
+                        //    ms.Position = 0;
+                        //}
                     }
                 }
 
@@ -400,23 +425,25 @@ namespace Yanmonet.NetSync
                     break;
 
 
-                ms = (MemoryStream)currentSendMsg.BaseStream;
-                int count = (int)(ms.Length - ms.Position);
+                //ms = (MemoryStream)currentSendMsg.BaseStream;
+                //int count = (int)(ms.Length - ms.Position);
+                int count = currentSendMsg.Length - currentSendPosition;
                 if (count > 0)
                 {
 
-                    int sendCount = socket.Send(ms.GetBuffer(), (int)ms.Position, count, SocketFlags.None);
-
+                    //int sendCount = socket.Send(ms.GetBuffer(), (int)ms.Position, count, SocketFlags.None);
+                    int sendCount = socket.Send(currentSendMsg, currentSendPosition, count, SocketFlags.None);
                     if (sendCount > 0)
                     {
-                        ms.Position += sendCount;
+                        currentSendPosition += sendCount;
                         lastSendTime = DateTime.UtcNow;
                     }
                 }
-                if (ms.Position >= ms.Length)
+                if (currentSendPosition >= currentSendMsg.Length)
                 {
-                    writePool.Unused(currentSendMsg);
+                    //writePool.Unused(currentSendMsg);
                     currentSendMsg = null;
+                    currentSendPosition = 0;
                 }
                 else
                 {
@@ -442,12 +469,13 @@ namespace Yanmonet.NetSync
                 while (readCount > 0)
                 {
 
-                    short msgId = reader.ReadInt16();
+                    ushort msgId = reader.ReadUInt16();
 
                     NetworkMessage netMsg = new NetworkMessage();
                     netMsg.MsgId = msgId;
                     netMsg.Connection = this;
                     netMsg.Reader = reader;
+                    netMsg.rawPacket = reader.rawPacket;
 
                     //NetworkManager.Log($"Receive Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
                     NetworkManager.InvokeHandler(netMsg);
@@ -468,7 +496,21 @@ namespace Yanmonet.NetSync
             }
         }
 
+        void ClientProcessReceiveMessage(ushort msgId, byte[] packet)
+        {
+            MemoryStream ms = new MemoryStream(packet);
+            ms.Position = 0;
+            ms.SetLength(packet.Length);
+            NetworkReader reader = new NetworkReader(ms);
+            reader.rawPacket = packet;
 
+            NetworkMessage netMsg = new NetworkMessage();
+            netMsg.MsgId = msgId;
+            netMsg.Connection = this;
+            netMsg.Reader = reader;
+            netMsg.rawPacket = packet;
+            NetworkManager.InvokeHandler(netMsg);
+        }
 
         public void Flush(int timeout)
         {

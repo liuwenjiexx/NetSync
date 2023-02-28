@@ -6,15 +6,15 @@ namespace Yanmonet.NetSync
 
     public class NetworkMessage
     {
-        private short msgId;
+        private ushort msgId;
         private NetworkReader reader;
         private NetworkConnection connection;
-
+        public byte[] rawPacket;
 
         public NetworkMessage()
         {
         }
-        public short MsgId { get => msgId; set => msgId = value; }
+        public ushort MsgId { get => msgId; set => msgId = value; }
         public NetworkConnection Connection { get => connection; set => connection = value; }
         public NetworkReader Reader { get => reader; set => reader = value; }
 

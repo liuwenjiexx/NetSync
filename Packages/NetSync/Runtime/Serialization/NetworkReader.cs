@@ -1,8 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
-
 namespace Yanmonet.NetSync
 {
 
@@ -14,17 +14,24 @@ namespace Yanmonet.NetSync
         internal NetworkReader(Socket socket)
         {
             this.baseStream = socket;
-            msReader = new MemoryStream(100);
+            msReader = new MemoryStream(1024);
         }
 
-        private ushort packageSIze;
+        internal NetworkReader(MemoryStream  ms)
+        {
+            msReader = ms;
+        }
+
+        private ushort packageSize;
         public MemoryStream ReaderStream { get { return msReader; } }
 
-        public ushort PackageSize { get { return packageSIze; } }
+        public ushort PackageSize { get { return packageSize; } }
+
+        public byte[] rawPacket;
 
         public ushort ReadPackage()
         {
-            if (packageSIze > 0)
+            if (packageSize > 0)
             {
                 return ReadPackageContent();
             }
@@ -34,11 +41,11 @@ namespace Yanmonet.NetSync
 
                 byte[] buff = msReader.GetBuffer();
                 baseStream.Receive(buff, 2, SocketFlags.None);
-                packageSIze = (ushort)(buff[0] << 8);
-                packageSIze |= (ushort)(buff[1]);
+                packageSize = (ushort)(buff[0] << 8);
+                packageSize |= (ushort)(buff[1]);
 
                 msReader.Position = 0;
-                msReader.SetLength(packageSIze);
+                msReader.SetLength(packageSize);
 
                 return ReadPackageContent();
             }
@@ -46,10 +53,10 @@ namespace Yanmonet.NetSync
         }
         private ushort ReadPackageContent()
         {
-            if (packageSIze > 0)
+            if (packageSize > 0)
             {
 
-                int count = packageSIze - (int)msReader.Position;
+                int count = packageSize - (int)msReader.Position;
                 if (count > 0)
                 {
                     int readCount;
@@ -59,11 +66,13 @@ namespace Yanmonet.NetSync
                         msReader.Position += readCount;
                     }
                 }
-                if (msReader.Position >= packageSIze)
+                if (msReader.Position >= packageSize)
                 {
-                    var tmp = packageSIze;
-                    packageSIze = 0;
+                    var tmp = packageSize;
+                    packageSize = 0;
                     msReader.Position = 0;
+                    rawPacket = new byte[tmp];
+                    Array.Copy(msReader.GetBuffer(), 0, rawPacket, 0, tmp);
                     return tmp;
                 }
             }
@@ -102,55 +111,55 @@ namespace Yanmonet.NetSync
         internal short ReadInt16()
         {
             short value;
-            position += BigToInt16(buffer, position, out value);
+            position += NetworkBit.ReadInt16(buffer, position, out value);
             return value;
         }
         internal ushort ReadUInt16()
         {
             ushort value;
-            position += BigToUInt16(buffer, position, out value);
+            position += NetworkBit.ReadUInt16(buffer, position, out value);
             return value;
         }
         internal char ReadChar()
         {
             char value;
-            position += BigToChar(buffer, position, out value);
+            position += NetworkBit.ReadChar(buffer, position, out value);
             return value;
         }
         internal int ReadInt32()
         {
             int value;
-            position += BigToInt32(buffer, position, out value);
+            position += NetworkBit.ReadInt32(buffer, position, out value);
             return value;
         }
         internal uint ReadUInt32()
         {
             uint value;
-            position += BigToUInt32(buffer, position, out value);
+            position += NetworkBit.ReadUInt32(buffer, position, out value);
             return value;
         }
         internal long ReadInt64()
         {
             long value;
-            position += BigToInt64(buffer, position, out value);
+            position += NetworkBit.ReadInt64(buffer, position, out value);
             return value;
         }
         internal ulong ReadUInt64()
         {
             ulong value;
-            position += BigToUInt64(buffer, position, out value);
+            position += NetworkBit.ReadUInt64(buffer, position, out value);
             return value;
         }
         internal float ReadFloat32()
         {
             float value;
-            position += BigToFloat32(buffer, position, out value);
+            position += NetworkBit.ReadFloat32(buffer, position, out value);
             return value;
         }
         internal double ReadFloat64()
         {
             double value;
-            position += BigToFloat64(buffer, position, out value);
+            position += NetworkBit.ReadFloat64(buffer, position, out value);
             return value;
         }
         internal bool ReadBool()
@@ -181,107 +190,11 @@ namespace Yanmonet.NetSync
         public Guid ReadGuid()
         {
             Guid value;
-            position += BigToGuid(buffer, position, out value);
+            position += NetworkBit.ReadGuid(buffer, position, out value);
             return value;
         }
-          
-
-        #region Big
-
-        public static int BigToChar(byte[] buffer, int offset, out char value)
-        {
-            value = (char)((buffer[offset] << 0x8) | buffer[offset + 1]);
-            return 2;
-        }
-
-        public static int BigToInt16(byte[] buffer, int offset, out short value)
-        {
-            value = (short)((buffer[offset] << 0x8) | buffer[offset + 1]);
-            return 2;
-        }
-
-        public static int BigToUInt16(byte[] buffer, int offset, out ushort value)
-        {
-            value = (ushort)((buffer[offset] << 0x8) | buffer[offset + 1]);
-            return 2;
-        }
-
-        public static int BigToInt32(byte[] buffer, int offset, out int value)
-        {
-            value = (buffer[offset] << 0x18) | (buffer[offset + 1] << 0x10) | (buffer[offset + 2] << 0x8) | buffer[offset + 3];
-            return 4;
-        }
-
-        public static int BigToUInt32(byte[] buffer, int offset, out uint value)
-        {
-            value = (uint)((buffer[offset] << 0x18) | (buffer[offset + 1] << 0x10) | (buffer[offset + 2] << 0x8) | buffer[offset + 3]);
-            return 4;
-        }
-
-        public static int BigToInt64(byte[] buffer, int offset, out long value)
-        {
-            long h = ((buffer[offset] << 0x18) | (buffer[offset + 1] << 0x10) | (buffer[offset + 2] << 0x8) | buffer[offset + 3]);
-            long l = ((uint)((buffer[offset + 4] << 0x18) | (buffer[offset + 5] << 0x10) | (buffer[offset + 6] << 0x8) | buffer[offset + 7]));
-
-            value = l | (h << 0x20);
-            return 8;
-        }
-
-        public static int BigToUInt64(byte[] buffer, int offset, out ulong value)
-        {
-            long l;
-            BigToInt64(buffer, offset, out l);
-            value = (ulong)l;
-            return 8;
-        }
 
 
-        public static int BigToFloat32(byte[] buffer, int offset, out float value)
-        {
-            if (BitConverter.IsLittleEndian)
-            {
-                byte[] tmp = new byte[4];
-                Array.Copy(buffer, offset, tmp, 0, tmp.Length);
-                Array.Reverse(tmp);
-                value = BitConverter.ToSingle(tmp, 0);
-            }
-            else
-            {
-                value = BitConverter.ToSingle(buffer, offset);
-            }
-            return 4;
-        }
-
-        public static int BigToFloat64(byte[] buffer, int offset, out double value)
-        {
-            if (BitConverter.IsLittleEndian)
-            {
-                byte[] tmp = new byte[8];
-                Array.Copy(buffer, offset, tmp, 0, tmp.Length);
-                Array.Reverse(tmp);
-                value = BitConverter.ToDouble(tmp, 0);
-            }
-            else
-            {
-                value = BitConverter.ToDouble(buffer, offset);
-            }
-            return 8;
-        }
-
-
-        public static int BigToGuid(byte[] buffer, int offset, out Guid value)
-        {
-            byte[] bytes = new byte[16];
-
-            Array.Copy(buffer, offset, bytes, 0, 16);
-            //big to little
-            Array.Reverse(bytes, 0, 4);
-            Array.Reverse(bytes, 4, 2);
-            Array.Reverse(bytes, 6, 2);
-
-            value = new Guid(bytes);
-            return 16;
-        }
 
         public void SerializeValue(ref byte value)
         {
@@ -359,10 +272,56 @@ namespace Yanmonet.NetSync
         {
             value = ReadGuid();
         }
-        #endregion
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void SerializeValue<T>(ref T value, Unused unused = default) where T : unmanaged, Enum
+        {
+            int size = sizeof(T);
+
+            switch (size)
+            {
+                case 1:
+                    {
+                        byte n = default;
+                        SerializeValue(ref n);
+                        value = (T)(object)n;
+                    }
+                    break;
+                case 2:
+                    {
+                        short n = default;
+                        SerializeValue(ref n);
+                        value = (T)(object)n;
+                    }
+                    break;
+                case 4:
+                    {
+                        int n = default;
+                        SerializeValue(ref n);
+                        value = (T)(object)n;
+                    }
+                    break;
+                case 8:
+                    {
+                        long n = default;
+                        SerializeValue(ref n);
+                        value = (T)(object)n;
+                    }
+                    break;
+            }
+
+        }
+
+
+        public void SerializeValue<T>(ref T value)
+            where T : INetworkSerializable
+        {
+            value.NetworkSerialize(this);
+        }
 
 
 
     }
+
 }
