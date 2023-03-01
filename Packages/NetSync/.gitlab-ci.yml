@@ -1,0 +1,7 @@
+include:
+  - project: 'CICD/NpmGitlabCI'
+    ref: master
+    file: 'npm_deploy.yml'
+  
+stages:
+  - deploy_npm
