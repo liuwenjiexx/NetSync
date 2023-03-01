@@ -10,7 +10,11 @@ namespace Yanmonet.NetSync
 {
     public static class NetworkBit
     {
-
+        public static unsafe int GetSize<T>()
+         where T : unmanaged
+        {
+            return sizeof(T);
+        }
 
         #region Read
 

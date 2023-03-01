@@ -7,7 +7,8 @@ namespace Yanmonet.NetSync
         /// <summary>
         /// 连接
         /// </summary>
-        Connect = 1,
+        ConnectRequest = 1,
+        ConnectResponse,
         /// <summary>
         /// 断开连接消息
         /// </summary>

@@ -94,7 +94,7 @@ namespace Yanmonet.NetSync
             cancellationTokenSource = new CancellationTokenSource();
 
             isRunning = true;
-            NetworkManager.Log($"Game Server IP: {localAddress}, Port: {localPort}");
+            NetworkManager.Log($"Network Server IP: {localAddress}, Port: {localPort}");
             NetworkManager.Log("Network Server Started");
             //Running(cancellationTokenSource.Token);
             try
@@ -118,8 +118,14 @@ namespace Yanmonet.NetSync
 
             foreach (var obj in objects.Values.ToArray())
             {
-                obj.Despawn(true);
+                try
+                {
+                    obj.Despawn(true);
+                }
+                catch { }
             }
+            objects.Clear();
+
             var clientList = NetworkManager.clientList;
 
             try
@@ -142,6 +148,7 @@ namespace Yanmonet.NetSync
             NetworkManager.clientNodes.Clear();
             try
             {
+                NetworkManager.Log("Server Stop");
                 server.Stop();
             }
             catch { }
@@ -256,7 +263,7 @@ namespace Yanmonet.NetSync
               {
                   //try
                   //{
-                  OnClientConnect(client, netMsg);
+                  // OnClientConnect(client, netMsg);
                   //}
                   //catch (Exception ex)
                   //{
@@ -290,14 +297,12 @@ namespace Yanmonet.NetSync
             {
                 clientType = typeof(NetworkClient);
             }
-            client = (NetworkClient)Activator.CreateInstance(clientType, new object[] { this, netClient.Client, true, true });
+            client = new NetworkClient(NetworkManager, this, netClient.Client, true, true);
 
             ulong connId = ++nextConnectionId;
-            client.Connection.ConnectionId = connId;
-            //  client.Start();
-            //client.Running();
-
-            NetworkManager.Log("Accept Client");
+            client.Connection.ConnectionId = connId;    
+            client.Connection.isConnecting = true;
+            NetworkManager.Log($"Accept Client {connId}");
 
             return client;
         }

@@ -77,6 +77,11 @@ namespace Yanmonet.NetSync
             }
         }
 
+        public int Version;
+        public byte[] ConnectionData = new byte[0];
+
+        public Func<int, byte[], byte[]> ValidateConnect;
+
         public static NetworkManager Singleton { get; private set; }
 
         private void Initalize()
@@ -95,12 +100,12 @@ namespace Yanmonet.NetSync
             msgHandlers = new Dictionary<ushort, NetworkMessageDelegate>();
 
             msgHandlers = new Dictionary<ushort, NetworkMessageDelegate>();
-            msgHandlers[(ushort)NetworkMsgId.Connect] = OnMessage_Connect;
+            msgHandlers[(ushort)NetworkMsgId.ConnectRequest] = OnMessage_ConnectRequest;
+            msgHandlers[(ushort)NetworkMsgId.ConnectResponse] = OnMessage_ConnectResponse;
             msgHandlers[(ushort)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
             msgHandlers[(ushort)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
             msgHandlers[(ushort)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
             msgHandlers[(ushort)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
-            msgHandlers[(ushort)NetworkMsgId.SyncList] = OnMessage_SyncList;
             msgHandlers[(ushort)NetworkMsgId.Rpc] = OnMessage_Rpc;
             msgHandlers[(ushort)NetworkMsgId.Ping] = OnMessage_Ping;
 
@@ -154,7 +159,7 @@ namespace Yanmonet.NetSync
 
                 localClient = new NetworkClient(this);
 
-                delayConn = true;
+                delayHostConn = true;
             }
             catch
             {
@@ -221,7 +226,7 @@ namespace Yanmonet.NetSync
             try
             {
                 localClient = new NetworkClient(this);
-                localClient.Connect(address, port);
+                localClient.Connect(address, port, Version, ConnectionData);
             }
             catch
             {
@@ -275,7 +280,6 @@ namespace Yanmonet.NetSync
             if (type != null)
             {
                 SyncVarInfo.GetSyncVarInfos(type);
-                SyncListInfo.GetSyncListInfos(type);
                 RpcInfo.GetRpcInfos(type);
             }
 
@@ -314,12 +318,18 @@ namespace Yanmonet.NetSync
 
             handler(netMsg);
         }
-        bool delayConn;
+        bool delayHostConn;
         public void Update()
         {
-            if (delayConn)
+            if (delayHostConn)
             {
-                delayConn = false;
+                delayHostConn = false;
+
+                byte[] resData = null;
+                if (ValidateConnect != null)
+                {
+                    resData = ValidateConnect(Version, ConnectionData ?? new byte[0]);
+                }
 
                 Server.OnClientConnected(localClient);
 
@@ -328,7 +338,7 @@ namespace Yanmonet.NetSync
                 localClient.Connection.ConnectionId = ServerClientId;
                 localClient.Connection.IsConnecting = false;
                 localClient.Connection.IsConnected = true;
-                LocalClient.Connection.OnConnected(netMsg);
+                LocalClient.Connection.OnConnected(resData ?? new byte[0]);
             }
 
             if (IsServer)
@@ -446,67 +456,87 @@ namespace Yanmonet.NetSync
         #region Receive Message
 
 
-        private void OnMessage_Connect(NetworkMessage netMsg)
+        private void OnMessage_ConnectRequest(NetworkMessage netMsg)
         {
-            var msg = netMsg.ReadMessage<ConnectMessage>();
+            var msg = netMsg.ReadMessage<ConnectRequestMessage>();
             var conn = netMsg.Connection;
 
             if (conn.isConnecting)
             {
+                if (!IsServer) throw new NotServerException("Connect To Server Msg only server");
 
-                if (msg.toServer)
+                try
                 {
-                    if (!IsServer) throw new NotServerException("Connect To Server Msg only server");
+
+                    NetworkClient client;
+                    if (!clients.TryGetValue(conn.ConnectionId, out client))
+                    {
+                        conn.isConnecting = false;
+                        conn.isConnected = false;
+                        Log("Not found client id: " + conn.ConnectionId);
+                        return;
+                    }
+                    byte[] responseData = null;
+                    if (ValidateConnect != null)
+                    {
+                        try
+                        {
+                            responseData = ValidateConnect(msg.Version, msg.data);
+                        }
+                        catch (Exception ex)
+                        {
+                            conn.isConnecting = false;
+                            conn.isConnected = false;
+                            conn.Disconnect();
+                            LogException(ex);
+                            return;
+                        }
+                    }
+                    if (responseData == null)
+                        responseData = new byte[0];
 
                     conn.isConnecting = false;
                     conn.isConnected = true;
-
                     Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
-                    conn.SendMessage((ushort)NetworkMsgId.Connect, new ConnectMessage()
+                    conn.SendMessage((ushort)NetworkMsgId.ConnectResponse, new ConnectResponseMessage()
                     {
-                        clientId = conn.ConnectionId,
-                        toServer = false,
+                        ownerClientId = conn.ConnectionId,
+                        data = responseData
                     });
-
-                    NetworkClient client;
-
-                    try
-                    {
-                        if (!clients.TryGetValue(conn.ConnectionId, out client))
-                        {
-                            throw new Exception("Not found client id: " + conn.ConnectionId);
-                        }
-                        Server.OnClientConnected(client);
-                        conn.OnConnected(netMsg);
-                    }
-                    catch (Exception ex)
-                    {
-                        conn.isConnected = false;
-                        conn.Disconnect();
-                        throw ex;
-                    }
+                    Server.OnClientConnected(client);
+                    conn.OnConnected(responseData);
                 }
-                else
+                catch (Exception ex)
                 {
-                    try
-                    {
-                        Log($"Client Receive Connect Msg, ClientId: {msg.clientId}");
-                        conn.isConnecting = false;
-                        conn.isConnected = true;
-                        conn.ConnectionId = msg.clientId;
-                        if (LocalClient != null && LocalClient.Connection == conn)
-                        {
-                            LocalClientId = conn.ConnectionId;
-                        }
-                        conn.OnConnected(null);
-                    }
-                    catch (Exception ex)
-                    {
-                        conn.isConnected = false;
-                        conn.Disconnect();
-                        throw ex;
-                    }
+                    conn.isConnected = false;
+                    conn.Disconnect();
+                    throw ex;
                 }
+            }
+        }
+
+        private void OnMessage_ConnectResponse(NetworkMessage netMsg)
+        {
+
+            var msg = netMsg.ReadMessage<ConnectResponseMessage>();
+            var conn = netMsg.Connection;
+            try
+            {
+                Log($"Client Receive Connect Msg, ClientId: {msg.ownerClientId}");
+                conn.isConnecting = false;
+                conn.isConnected = true;
+                conn.ConnectionId = msg.ownerClientId;
+                if (IsClient && LocalClient != null && LocalClient.Connection == conn)
+                {
+                    LocalClientId = conn.ConnectionId;
+                }
+                conn.OnConnected(msg.data ?? new byte[0]);
+            }
+            catch (Exception ex)
+            {
+                conn.isConnected = false;
+                conn.Disconnect();
+                throw ex;
             }
         }
 
@@ -613,13 +643,7 @@ namespace Yanmonet.NetSync
             }
 
         }
-        private static void OnMessage_SyncList(NetworkMessage netMsg)
-        {
-            var msg = new SyncListMessage();
-            msg.conn = netMsg.Connection;
 
-            netMsg.ReadMessage(msg);
-        }
         private static void OnMessage_Rpc(NetworkMessage netMsg)
         {
             var msg = new RpcMessage();

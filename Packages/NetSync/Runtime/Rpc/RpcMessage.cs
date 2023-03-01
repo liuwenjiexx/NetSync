@@ -151,6 +151,11 @@ namespace Yanmonet.NetSync
                     {
                         rpcInfo.method.Invoke(netObj, args);
                     }
+                    catch (TargetInvocationException ex)
+                    {
+                        netObj.NetworkManager.Log($"Rpc invoke error, target: {netObj}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
+                        netObj.NetworkManager.LogException(ex.InnerException);
+                    }
                     catch (Exception ex)
                     {
                         netObj.NetworkManager.Log($"Rpc invoke error, target: {netObj}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");

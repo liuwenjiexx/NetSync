@@ -17,37 +17,23 @@ namespace Yanmonet.NetSync
         internal bool isRunning;
 
         private bool isClient;
-        private NetworkServer server;
         private Status status;
         private string address;
         private int port;
         private bool isReady;
+        private NetworkServer server;
 
         public NetworkClient(NetworkManager manager)
             : this(manager, null, null, false, false)
         {
-
-        }
-        public NetworkClient(NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
-            : this(null, server, socket, ownerSocket, isListen)
-        {
-
         }
 
-        private NetworkClient(NetworkManager manager, NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
+        internal NetworkClient(NetworkManager manager, NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
         {
             this.server = server;
             isClient = !isListen;
-            if (manager != null)
-            {
-                networkManager = manager;
-            }
-            else if (server != null)
-            {
-                networkManager = server.NetworkManager;
-            }
+            networkManager = manager;
             conn = new NetworkConnection(networkManager, server, socket, ownerSocket, isListen);
-
 
             if (IsClient)
             {
@@ -99,9 +85,6 @@ namespace Yanmonet.NetSync
             get { return isClient; }
         }
 
-
-
-        protected NetworkServer Server { get => server; }
 
         public IEnumerable<NetworkObject> Objects
         {
@@ -157,12 +140,12 @@ namespace Yanmonet.NetSync
         }
 
 
-        public virtual void Connect(string address, int port, MessageBase extra = null)
+        public virtual void Connect(string address, int port, int version, byte[] data)
         {
             if (isRunning)
                 return;
             isRunning = true;
-            conn.Connect(address, port, extra);
+            conn.Connect(address, port, version, data);
         }
 
         public void Disconnect()
@@ -229,17 +212,17 @@ namespace Yanmonet.NetSync
         {
             Connection.SendMessage(msgId, msg);
         }
-        protected virtual void OnServerConnect(NetworkMessage netMsg)
+        protected virtual void OnServerConnect(byte[] data)
         {
             Ready();
         }
 
-        protected virtual void OnClientConnect(NetworkMessage netMsg)
+        protected virtual void OnClientConnect(byte[] data)
         {
             Ready();
         }
 
-        private void Conn_Connected(NetworkConnection obj, NetworkMessage netMsg)
+        private void Conn_Connected(NetworkConnection obj, byte[] data)
         {
             if (isRunning)
             {
@@ -248,11 +231,11 @@ namespace Yanmonet.NetSync
                 {
                     if (isClient)
                     {
-                        OnClientConnect(netMsg);
+                        OnClientConnect(data);
                     }
                     else
                     {
-                        OnServerConnect(netMsg);
+                        OnServerConnect(data);
                     }
                 }
                 catch (Exception ex)

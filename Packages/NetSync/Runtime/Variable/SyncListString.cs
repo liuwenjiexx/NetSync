@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace Yanmonet.NetSync
-{
+{/*
     public class SyncListString : SyncList<string>
     {
         protected override void SerializeItem(IReaderWriter writer, string item)
@@ -15,5 +15,5 @@ namespace Yanmonet.NetSync
             return str;
         }
 
-    }
+    }*/
 }

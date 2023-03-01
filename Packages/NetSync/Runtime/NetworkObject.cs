@@ -77,10 +77,10 @@ namespace Yanmonet.NetSync
 
         public void Spawn()
         {
-            Spawn(NetworkManager.ServerClientId);
+            SpawnWithOwnership(NetworkManager.ServerClientId);
         }
 
-        public void Spawn(ulong ownerClientId)
+        public void SpawnWithOwnership(ulong ownerClientId)
         {
             if (!NetworkManager.IsServer) throw new NotServerException("Spawn only on server");
             if (IsSpawned) throw new Exception("is Spawned");
@@ -311,28 +311,11 @@ namespace Yanmonet.NetSync
 
             if (syncVarStates == null)
                 syncVarStates = new SyncVarState[0];
-
-            var syncListInfos = SyncListInfo.GetSyncListInfos(type);
-            if (syncListInfos != null && syncListInfos.Length > 0)
-            {
-
-                for (int i = 0; i < syncListInfos.Length; i++)
-                {
-                    var info = syncListInfos[i];
-                    if (info == null)
-                        continue;
-                    object syncList = info.field.GetValue(this);
-                    if (syncList != null)
-                    {
-                        info.InitMethod.Invoke(syncList, new object[] { this, info });
-                    }
-                }
-
-            }
+             
 
         }
 
-        public static readonly MethodInfo SyncListInitMethod = typeof(SyncList<>).GetMethod("init", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
 
         public void ResetValues()
         {
@@ -351,24 +334,7 @@ namespace Yanmonet.NetSync
                 // conn.SendMessage((ushort)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
             }
 
-            var syncListInfos = SyncListInfo.GetSyncListInfos(GetType());
-            if (syncListInfos != null)
-            {
-                for (int i = 0, len = syncListInfos.Length; i < len; i++)
-                {
-                    var info = syncListInfos[i];
-                    var list = info.field.GetValue(this);
-                    int j = 0;
-                    foreach (var item in (IEnumerable)list)
-                    {
-                        conn.SendMessage((ushort)NetworkMsgId.SyncList, SyncListMessage.Add(this, info.memberIndex, (byte)j));
-                        j++;
-                    }
-                }
-            }
-
-
-
+            
             conn.SendMessage((ushort)NetworkMsgId.SyncVar, new SyncVarMessage(this, false, true));
 
         }

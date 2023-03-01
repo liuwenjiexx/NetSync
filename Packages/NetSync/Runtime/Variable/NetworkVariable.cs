@@ -19,10 +19,17 @@ namespace Yanmonet.NetSync
         public delegate bool EqualsDelegate(ref T a, ref T b);
 
         public OnValueChangedDelegate OnValueChanged;
-        public static INetworkVariableSerializer<T> Serializer = new NotImplementedNetworkVariableSerializer<T>();
+        public static INetworkVariableSerializer<T> Serializer = new DefaultNetworkVariableSerializer<T>();
 
         public static EqualsDelegate AreEqual;
 
+        public delegate void WriteValueDelegate(IReaderWriter writer, in T value);
+
+        public delegate void ReadValueDelegate(IReaderWriter reader, out T value);
+
+        public static WriteValueDelegate WriteValue;
+
+        public static ReadValueDelegate ReadValue;
 
         public NetworkVariable(T value = default,
          NetworkVariableReadPermission readPermission = DefaultReadPermission,
@@ -30,6 +37,15 @@ namespace Yanmonet.NetSync
          : base(readPermission, writePermission)
         {
             this.value = value;
+        }
+
+        static NetworkVariable()
+        {
+            Type type= typeof(T);
+            if (type.IsPrimitive)
+            {
+                //AreEqual = ValueEquals;
+            }
         }
 
         public virtual T Value
@@ -89,7 +105,19 @@ namespace Yanmonet.NetSync
 
 
 
-        internal static unsafe bool ValueEquals<TValueType>(ref TValueType a, ref TValueType b) where TValueType : unmanaged
+        internal static void Write(IReaderWriter writer, ref T value)
+        {
+            Serializer.Write(writer, ref value);
+        }
+
+        internal static void Read(IReaderWriter reader, ref T value)
+        {
+            Serializer.Read(reader, ref value);
+        }
+
+
+
+        public static unsafe bool ValueEquals<TValueType>(ref TValueType a, ref TValueType b) where TValueType : unmanaged
         {
             var aptr = UnsafeUtility.AddressOf(ref a);
             var bptr = UnsafeUtility.AddressOf(ref b);
@@ -97,7 +125,7 @@ namespace Yanmonet.NetSync
             return UnsafeUtility.MemCmp(aptr, bptr, sizeof(TValueType)) == 0;
         }
 
-        internal static bool EqualityEqualsObject<TValueType>(ref TValueType a, ref TValueType b) where TValueType : class, IEquatable<TValueType>
+        public static bool EqualityEqualsObject<TValueType>(ref TValueType a, ref TValueType b) where TValueType : class, IEquatable<TValueType>
         {
             if (a == null)
             {
@@ -112,20 +140,11 @@ namespace Yanmonet.NetSync
             return a.Equals(b);
         }
 
-        internal static bool EqualityEquals<TValueType>(ref TValueType a, ref TValueType b) where TValueType : unmanaged, IEquatable<TValueType>
+        public static bool EqualityEquals<TValueType>(ref TValueType a, ref TValueType b) where TValueType : unmanaged, IEquatable<TValueType>
         {
             return a.Equals(b);
         }
 
-        internal static void Write(IReaderWriter writer, ref T value)
-        {
-            Serializer.Write(writer, ref value);
-        }
-
-        internal static void Read(IReaderWriter reader, ref T value)
-        {
-            Serializer.Read(reader, ref value);
-        }
 
         public override string ToString()
         {
@@ -136,17 +155,39 @@ namespace Yanmonet.NetSync
 
 
 
-    class NotImplementedNetworkVariableSerializer<T> : INetworkVariableSerializer<T>
+    class DefaultNetworkVariableSerializer<T> : INetworkVariableSerializer<T>
     {
+
+
+
+
         public void Read(IReaderWriter reader, ref T value)
         {
+            if (typeof(INetworkSerializable).IsAssignableFrom(typeof(T)))
+            {
+                INetworkSerializable s = (INetworkSerializable)value;
+                if (s == null)
+                    throw new Exception($"NetworkVariableSerializer Type '{typeof(T)}' value not null");
+                s.NetworkSerialize(reader);
+                return;
+            }
             throw new NotImplementedException($"{typeof(T)} Not Implement INetworkVariableSerializer");
         }
 
         public void Write(IReaderWriter writer, ref T value)
         {
+            if (typeof(INetworkSerializable).IsAssignableFrom(typeof(T)))
+            {
+                INetworkSerializable s = (INetworkSerializable)value;
+                if (s == null)
+                    throw new Exception($"NetworkVariableSerializer Type '{typeof(T)}' value not null");
+                s.NetworkSerialize(writer);
+                return;
+            }
+
             throw new NotImplementedException($"{typeof(T)} Not Implement INetworkVariableSerializer");
         }
+
     }
 
 }
