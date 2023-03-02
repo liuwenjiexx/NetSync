@@ -105,6 +105,7 @@ namespace Yanmonet.NetSync
             msgHandlers[(ushort)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
             msgHandlers[(ushort)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
             msgHandlers[(ushort)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
+            msgHandlers[(ushort)NetworkMsgId.Spawn] = OnMessage_SpawnObject;
             msgHandlers[(ushort)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
             msgHandlers[(ushort)NetworkMsgId.Rpc] = OnMessage_Rpc;
             msgHandlers[(ushort)NetworkMsgId.Ping] = OnMessage_Ping;
@@ -587,18 +588,15 @@ namespace Yanmonet.NetSync
                         throw new Exception("create instance null, Type id:" + typeId);
                     instance.typeId = typeId;
                     instance.InstanceId = instanceId;
-                    instance.networkManager = conn.NetworkManager;
-                    instance.IsSpawned = true;
-
-                    instance.ConnectionToOwner = conn;
+                    instance.networkManager = conn.NetworkManager;              
                     instance.OwnerClientId = msg.ownerClientId;
+                    instance.ConnectionToOwner = conn;
                     instance.ConnectionToServer = conn;
                     if (instance.IsOwner)
                     {
                         instance.ConnectionToOwner = conn;
                     }
                     conn.AddObject(instance);
-                    instance.OnSpawned();
                 }
 
             }
@@ -621,6 +619,31 @@ namespace Yanmonet.NetSync
                     instance.Destrory();
                 }
             }
+        }
+
+        private static void OnMessage_SpawnObject(NetworkMessage netMsg)
+        {
+            var msg = new SpawnMessage();
+            netMsg.ReadMessage(msg);
+            var conn = netMsg.Connection;
+
+            NetworkObject netObj = null;
+
+            if (conn.NetworkManager.IsServer)
+            {
+                netObj = conn.NetworkManager.Server.GetObject(msg.instanceId);
+            }
+            else
+            {
+                netObj = conn.GetObject(msg.instanceId);
+            }
+
+            if (netObj == null)
+                return;
+
+            netObj.OwnerClientId = msg.ownerClientId;
+            netObj.IsSpawned = true;
+            netObj.OnSpawned();
         }
 
         private void OnMessage_SyncVar(NetworkMessage netMsg)

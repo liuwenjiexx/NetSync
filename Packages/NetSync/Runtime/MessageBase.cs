@@ -16,16 +16,16 @@ namespace Yanmonet.NetSync
 
         static MessageBase()
         {
-            SerializeToString = (msg) =>
-            {
-                string jsonStr;
-                jsonStr = Newtonsoft.Json.JsonConvert.SerializeObject(msg);
-                return jsonStr;
-            };
-            DeserializeFromString = (str, msg) =>
-            {
-                Newtonsoft.Json.JsonConvert.PopulateObject(str, msg);
-            };
+            //SerializeToString = (msg) =>
+            //{
+            //    string jsonStr;
+            //    jsonStr = Newtonsoft.Json.JsonConvert.SerializeObject(msg);
+            //    return jsonStr;
+            //};
+            //DeserializeFromString = (str, msg) =>
+            //{
+            //    Newtonsoft.Json.JsonConvert.PopulateObject(str, msg);
+            //};
 
         }
 
@@ -91,7 +91,7 @@ namespace Yanmonet.NetSync
                 INetworkSerializable s = value as INetworkSerializable;
                 if (s == null)
                 {
-                    throw new Exception("Write object null, value type: " + valueType);
+                    throw new Exception("INetworkSerializable type object null, value type: " + valueType);
                 }
                 s.NetworkSerialize(writer);
                 return;

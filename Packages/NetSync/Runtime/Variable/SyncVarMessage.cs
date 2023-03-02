@@ -11,6 +11,7 @@ namespace Yanmonet.NetSync
         public bool isDelta;
         public bool isAll;
         public bool keepDirty;
+        public byte type;        
         public const byte Action_ResponseSyncVar = 1;
         public const byte Action_RequestSyncVar = 2;
 

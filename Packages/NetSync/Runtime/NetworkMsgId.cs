@@ -22,6 +22,7 @@ namespace Yanmonet.NetSync
         /// </summary>
         CreateObject,
         DestroyObject,
+        Spawn,
         /// <summary>
         /// 同步变量
         /// </summary>

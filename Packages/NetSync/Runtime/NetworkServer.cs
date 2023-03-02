@@ -435,6 +435,7 @@ namespace Yanmonet.NetSync
 
         public void RemoveObserver(NetworkObject obj, ulong clientId)
         {
+            if (obj == null) return;
             if (!NetworkManager.IsServer)
                 throw new Exception("not server object");
             NetworkConnection conn;

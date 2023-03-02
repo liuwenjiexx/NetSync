@@ -183,6 +183,8 @@ namespace Yanmonet.NetSync
         public void SendMessage(ushort msgId, MessageBase msg = null)
         {
             var s = PackMessage(msgId, msg);
+            if (s == null)
+                return;
             SendPacket(msgId, s);
         }
 
@@ -201,24 +203,33 @@ namespace Yanmonet.NetSync
 
         public byte[] PackMessage(ushort msgId, MessageBase msg = null)
         {
-            NetworkWriter s;
-            //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
-            s = writePool.Get();
-
-            s.BaseStream.Position = 0;
-            s.BaseStream.SetLength(0);
-            s.BeginWritePackage();
-            s.SerializeValue(ref msgId);
-            if (msg != null)
+            byte[] bytes = null;
+            try
             {
-                msg.Serialize(s);
-            }
+                NetworkWriter s;
+                //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                s = writePool.Get();
 
-            s.EndWritePackage();
-            byte[] bytes = new byte[s.BaseStream.Length];
-            s.BaseStream.Position = 0;
-            s.BaseStream.Read(bytes, 0, bytes.Length);
-            writePool.Unused(s);
+                s.BaseStream.Position = 0;
+                s.BaseStream.SetLength(0);
+                s.BeginWritePackage();
+                s.SerializeValue(ref msgId);
+                if (msg != null)
+                {
+                    msg.Serialize(s);
+                }
+
+                s.EndWritePackage();
+                bytes = new byte[s.BaseStream.Length];
+                s.BaseStream.Position = 0;
+                s.BaseStream.Read(bytes, 0, bytes.Length);
+                writePool.Unused(s);
+            }
+            catch (Exception ex)
+            {
+                NetworkManager.Log($"Write Message error, msgId: {msgId}, type: {msg.GetType().Name}");
+                NetworkManager.LogException(ex);
+            }
             return bytes;
         }
 
@@ -453,7 +464,7 @@ namespace Yanmonet.NetSync
 
             if (!(isConnecting || isConnected))
                 return;
-             
+
             try
             {
                 if (!socket.Connected)

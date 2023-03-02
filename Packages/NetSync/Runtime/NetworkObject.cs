@@ -150,10 +150,13 @@ namespace Yanmonet.NetSync
                     ownerClientId = OwnerClientId,
                 });
 
-                if (IsOwnedByServer)
+                SyncAll(conn);
+
+                conn.SendMessage((ushort)NetworkMsgId.Spawn, new SpawnMessage()
                 {
-                    SyncAll(conn);
-                }
+                    instanceId = InstanceId,
+                    ownerClientId = OwnerClientId,
+                });
 
             }
         }
@@ -311,7 +314,7 @@ namespace Yanmonet.NetSync
 
             if (syncVarStates == null)
                 syncVarStates = new SyncVarState[0];
-             
+
 
         }
 
@@ -334,7 +337,7 @@ namespace Yanmonet.NetSync
                 // conn.SendMessage((ushort)NetworkMsgId.SyncVar, SyncVarMessage.ResponseSyncVar(this, uint.MaxValue));
             }
 
-            
+
             conn.SendMessage((ushort)NetworkMsgId.SyncVar, new SyncVarMessage(this, false, true));
 
         }
