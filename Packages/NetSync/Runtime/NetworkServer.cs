@@ -276,6 +276,13 @@ namespace Yanmonet.NetSync
         }
 
 
+        public NetworkClient FindClient(ulong netId)
+        {
+            if (netId == NetworkManager.LocalClientId)
+                return NetworkManager.LocalClient;
+
+            return Clients.FirstOrDefault(o => o.ClientId == netId);
+        }
 
         protected virtual void OnClientConnect(NetworkClient client, NetworkMessage netMsg)
         {
@@ -300,7 +307,7 @@ namespace Yanmonet.NetSync
             client = new NetworkClient(NetworkManager, this, netClient.Client, true, true);
 
             ulong connId = ++nextConnectionId;
-            client.Connection.ConnectionId = connId;    
+            client.Connection.ConnectionId = connId;
             client.Connection.isConnecting = true;
             NetworkManager.Log($"Accept Client {connId}");
 
