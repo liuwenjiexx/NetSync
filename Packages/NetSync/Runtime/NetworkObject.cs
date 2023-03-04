@@ -295,7 +295,15 @@ namespace Yanmonet.NetSync
                         var variable = field.GetValue(this) as NetworkVariableBase;
                         if (variable == null)
                         {
-                            variable = Activator.CreateInstance(field.FieldType) as NetworkVariableBase;
+                            try
+                            {
+                                variable = Activator.CreateInstance(field.FieldType) as NetworkVariableBase;
+                            }
+                            catch
+                            {
+                                Debug.LogError($"Create Instance error, field: {field.DeclaringType.Name}.{field.Name}, type: {field.FieldType}");
+                                throw;
+                            }
                             field.SetValue(this, variable);
                         }
                         variable.Name = varInfo.field.Name;
