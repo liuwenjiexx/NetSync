@@ -298,6 +298,7 @@ namespace Yanmonet.NetSync
                 {
                     s = null;
                     isConnecting = false;
+                    //NetworkManager.Log($"Connect failed, address: {address}, port: {port}");
                     NetworkManager.LogException(ex);
                 }
 
