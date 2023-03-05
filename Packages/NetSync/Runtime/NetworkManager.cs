@@ -24,6 +24,7 @@ namespace Yanmonet.NetSync
         public NetworkManager()
         {
             InitializeIntegerSerialization();
+            InitalizeMessageHandler();
 
             if (Singleton == null)
             {
@@ -84,6 +85,7 @@ namespace Yanmonet.NetSync
 
         public static NetworkManager Singleton { get; private set; }
 
+ 
         private void Initalize()
         {
             IsServer = false;
@@ -92,7 +94,6 @@ namespace Yanmonet.NetSync
             clientIds = new();
             clientList = new();
             clientNodes = new();
-            InitalizeMessageHandler();
         }
 
         void InitalizeMessageHandler()
@@ -644,6 +645,9 @@ namespace Yanmonet.NetSync
             netObj.OwnerClientId = msg.ownerClientId;
             netObj.IsSpawned = true;
             netObj.OnSpawned();
+
+            conn.OnObjectAdded(netObj);
+
         }
 
         private void OnMessage_SyncVar(NetworkMessage netMsg)

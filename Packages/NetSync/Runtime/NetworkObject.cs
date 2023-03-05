@@ -6,7 +6,9 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using static Yanmonet.NetSync.NetworkObject;
 using System.Linq;
+#if UNITY_ENGINE
 using UnityEngine;
+#endif
 
 namespace Yanmonet.NetSync
 {
@@ -83,7 +85,7 @@ namespace Yanmonet.NetSync
         public void SpawnWithOwnership(ulong ownerClientId)
         {
             if (!NetworkManager.IsServer) throw new NotServerException("Spawn only on server");
-            if (IsSpawned) throw new Exception("is Spawned");
+            if (IsSpawned) throw new Exception($"{GetType().Name} is Spawned");
             IsSpawned = true;
             sendSpawned = new();
             typeId = NetworkManager.GetTypeId(GetType());
@@ -141,7 +143,7 @@ namespace Yanmonet.NetSync
                 if (sendSpawned.Contains(conn.ConnectionId))
                     continue;
                 sendSpawned.Add(conn.ConnectionId);
-                NetworkManager.Log($"Send Create Object Msg, Type: {GetType()}");
+                NetworkManager.Log($"Send client {conn.ConnectionId}, Create Object Msg, Type: {GetType()}");
 
                 conn.SendMessage((ushort)NetworkMsgId.CreateObject, new CreateObjectMessage()
                 {
@@ -295,7 +297,15 @@ namespace Yanmonet.NetSync
                         var variable = field.GetValue(this) as NetworkVariableBase;
                         if (variable == null)
                         {
-                            variable = Activator.CreateInstance(field.FieldType) as NetworkVariableBase;
+                            try
+                            {
+                                variable = Activator.CreateInstance(field.FieldType) as NetworkVariableBase;
+                            }
+                            catch
+                            {
+                                NetworkManager.Log($"Create Instance error, field: {field.DeclaringType.Name}.{field.Name}, type: {field.FieldType}");
+                                throw;
+                            }
                             field.SetValue(this, variable);
                         }
                         variable.Name = varInfo.field.Name;
@@ -420,10 +430,12 @@ namespace Yanmonet.NetSync
 
         void UpdateSyncVar()
         {
+#if UNITY_ENGINE
             if (Time.time > time)
             {
                 time = Time.time + 3;
             }
+#endif
             if (IsOwner && syncVarDirtyBits != 0)
             {/*
                 NetworkManager.Log($"{GetType().Name}, instance: {InstanceId}, isOwner: {IsOwner}, diryBits: {syncVarDirtyBits}");

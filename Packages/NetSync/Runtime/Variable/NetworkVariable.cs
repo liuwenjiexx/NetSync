@@ -1,17 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections.LowLevel.Unsafe;
-using UnityEditor;
+#if UNITY_ENGINE
 using UnityEngine;
+using Unity.Collections.LowLevel.Unsafe;
+#endif
 
 namespace Yanmonet.NetSync
 {
+#if UNITY_ENGINE
     [Serializable]
+#endif
     public class NetworkVariable<T> : NetworkVariableBase
     {
 
+#if UNITY_ENGINE
         [SerializeField]
+#endif
         private T value;
 
         public delegate void OnValueChangedDelegate(T previousValue, T newValue);
@@ -40,7 +45,7 @@ namespace Yanmonet.NetSync
 
         static NetworkVariable()
         {
-            Type type= typeof(T);
+            Type type = typeof(T);
             if (type.IsPrimitive)
             {
                 //AreEqual = ValueEquals;
@@ -118,10 +123,14 @@ namespace Yanmonet.NetSync
 
         public static unsafe bool ValueEquals<TValueType>(ref TValueType a, ref TValueType b) where TValueType : unmanaged
         {
+#if UNITY_ENGINE
             var aptr = UnsafeUtility.AddressOf(ref a);
             var bptr = UnsafeUtility.AddressOf(ref b);
 
             return UnsafeUtility.MemCmp(aptr, bptr, sizeof(TValueType)) == 0;
+#else 
+            return object.Equals(a, b);
+#endif
         }
 
         public static bool EqualityEqualsObject<TValueType>(ref TValueType a, ref TValueType b) where TValueType : class, IEquatable<TValueType>

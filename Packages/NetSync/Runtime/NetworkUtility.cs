@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Reflection;
 using System.IO;
+using System.Net.NetworkInformation;
 
 namespace Yanmonet.NetSync
 {
@@ -81,6 +82,51 @@ namespace Yanmonet.NetSync
             s.BaseStream.Read(bytes, 0, bytes.Length);
             writePool.Unused(s);
             return bytes;
+        }
+
+        public static bool IsTcpPortUsed(int port)
+        {
+            foreach (var endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
+            {
+                if (endPoint.Port == port)
+                    return true;
+            }
+            return false;
+        }
+
+        public static bool IsUdpPortUsed(int port)
+        {
+            foreach (var endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners())
+            {
+                if (endPoint.Port == port)
+                    return true;
+            }
+            return false;
+        }
+
+        public static HashSet<int> GetAllUsedPorts()
+        {
+            HashSet<int> ports = new();
+            foreach (var endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
+            {
+                ports.Add(endPoint.Port);
+            }
+            foreach (var endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners())
+            {
+                ports.Add(endPoint.Port);
+            }
+            return ports;
+        }
+
+        public static int FindAvaliableTcpPort(int startPort)
+        {
+            var usedPorts = NetworkUtility.GetAllUsedPorts();
+            int port = startPort;
+            while (usedPorts.Contains(port))
+            {
+                port++;
+            }
+            return port;
         }
 
     }
