@@ -21,11 +21,11 @@ namespace Yanmonet.NetSync.Test.Connection
             using (clientConn)
             {
 
-                clientConn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+                clientConn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) =>
                 {
                     success = true;
                 });
-                serverConn.SendMessage((short)NetworkMsgId.Max, null);
+                serverConn.SendMessage((ushort)NetworkMsgId.Max, null);
                 Update(serverConn, clientConn);
 
                 Assert.IsTrue(success);
@@ -42,13 +42,13 @@ namespace Yanmonet.NetSync.Test.Connection
             using (serverConn)
             using (clientConn)
             {
-                clientConn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) =>
+                clientConn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) =>
                 {
                     var msg = netMsg.ReadMessage<StringMessage>();
                     Assert.AreEqual(msg.Value, "abc");
                     success = true;
                 });
-                serverConn.SendMessage((short)NetworkMsgId.Max, new StringMessage("abc"));
+                serverConn.SendMessage((ushort)NetworkMsgId.Max, new StringMessage("abc"));
            
                 Update(serverConn, clientConn);
 

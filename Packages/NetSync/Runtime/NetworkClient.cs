@@ -51,6 +51,7 @@ namespace Yanmonet.NetSync
             {
                 isRunning = true;
             }
+             
         }
 
         public ulong ClientId
@@ -139,13 +140,18 @@ namespace Yanmonet.NetSync
             return Activator.CreateInstance(objInfo.type) as NetworkObject;
         }
 
+        public void Connect(string address, int port)
+        {
+            Connect(address, port, 0, null);
+        }
+
 
         public virtual void Connect(string address, int port, int version, byte[] data)
         {
             if (isRunning)
                 return;
-            isRunning = true;
             conn.Connect(address, port, version, data);
+            isRunning = true;
         }
 
         public void Disconnect()

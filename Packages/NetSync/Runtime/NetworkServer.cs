@@ -178,10 +178,10 @@ namespace Yanmonet.NetSync
             while (node != null)
             {
                 client = node.Value;
-                if (client == null || !client.IsRunning || !client.Connection.Socket.Connected)
+                if (client == null || !(client.Connection.IsConnecting || client.Connection.IsConnected))
                 {
                     node = node.RemoveAndNext();
-                    NetworkManager.Log("Client Disconnected");
+                    NetworkManager.Log($"Client {client.ClientId} Disconnected, IsConnecting: {client.Connection.IsConnecting}, IsConnected: {client.Connection.IsConnected}");
                     OnClientDisconnect(client);
                     ClientDisconnected?.Invoke(this, client);
                     continue;
@@ -308,7 +308,6 @@ namespace Yanmonet.NetSync
 
             ulong connId = ++nextConnectionId;
             client.Connection.ConnectionId = connId;
-            client.Connection.isConnecting = true;
             NetworkManager.Log($"Accept Client {connId}");
 
             return client;
@@ -325,11 +324,11 @@ namespace Yanmonet.NetSync
             if (NetworkManager.clientNodes.TryGetValue(connection.ConnectionId, out node))
             {
                 NetworkClient client = node.Value;
-                if (!client.IsRunning)
-                {
-                    RemoveConnection(connection);
-                    return null;
-                }
+                //if (!client.IsRunning)
+                //{
+                //    RemoveConnection(connection);
+                //    return null;
+                //}
                 return client;
             }
             return null;
@@ -349,10 +348,10 @@ namespace Yanmonet.NetSync
                     if (connection.IsConnected)
                         connection.Disconnect();
                     var client = node.Value;
-                    if (client.IsRunning)
-                    {
-                        //client.Stop();
-                    }
+                    //if (client.IsRunning)
+                    //{
+                    //client.Stop();
+                    //}
 
                     ClientDisconnected?.Invoke(this, client);
                 }
@@ -453,7 +452,7 @@ namespace Yanmonet.NetSync
             if (obj.observers.Remove(clientId))
             {
                 conn.RemoveObject(obj);
-
+                NetworkManager.Log("Remvoe Observer: " + obj + ", client: " + clientId);
                 conn.SendMessage((ushort)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
                 {
                     instanceId = obj.InstanceId,
@@ -480,8 +479,9 @@ namespace Yanmonet.NetSync
                         if (!netObj.IsOwnedByServer)
                         {
                             var owner = netObj.ConnectionToOwner;
-                            if (owner != null && !owner.IsConnected)
+                            if (owner != null && owner.Socket != null && !(owner.IsConnecting || owner.IsConnected))
                             {
+                                NetworkManager.Log("Owner not connected , socket: " + (owner.Socket != null));
                                 destoryObjIds.Add(netObj.InstanceId);
                             }
                         }

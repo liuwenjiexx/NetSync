@@ -176,8 +176,11 @@ namespace Yanmonet.NetSync.Test
             //    server.Update();
             //if (client != null)
             //    client.Update();
-            serverManager?.Update();
-            clientManager?.Update();
+            for (int i = 0; i < 3; i++)
+            {
+                serverManager?.Update();
+                clientManager?.Update();
+            }
         }
         protected void Update(NetworkConnection server, NetworkConnection client)
         {
@@ -205,9 +208,10 @@ namespace Yanmonet.NetSync.Test
 
         protected Socket NewConnect(out NetworkConnection serverConn, out NetworkConnection clientConn)
         {
+            NetworkManager manager = new NetworkManager();
             var serverSocket = NewSocketListener();
 
-            clientConn = new NetworkConnection();
+            clientConn = new NetworkConnection(manager);
             clientConn.Connect(localAddress, localPort);
 
             serverConn = new NetworkConnection(null, serverSocket.Accept(), true, true);
@@ -232,12 +236,7 @@ namespace Yanmonet.NetSync.Test
             socket.Connect(localAddress, localPort);
             return socket;
         }
-        protected NetworkClient NewClient(NetworkManager manager, MessageBase extra = null)
-        {
-            NetworkClient client = new NetworkClient(manager);
-            client.Connect(localAddress, localPort, extra);
-            return client;
-        }
+ 
 
         protected void NewClient(NetworkManager manager, out NetworkServer server, out NetworkClient client)
         {

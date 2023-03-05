@@ -161,7 +161,7 @@ namespace Yanmonet.NetSync.Test
                 var serverClient = serverManager.ConnnectedClientList.First();
                  
                 var serverData = serverManager.CreateObject<MyData>();
-                serverData.Spawn(serverClient.ClientId);             
+                serverData.SpawnWithOwnership(serverClient.ClientId);             
                 Update(serverManager, clientManager);
 
                 var clientData = (MyData)client.Objects.FirstOrDefault();

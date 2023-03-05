@@ -1,7 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+
+
 namespace Yanmonet.NetSync
 {
     public class NetworkListSerializable<T> : NetworkVariableBase, IList<T>, IReadOnlyList<T>
@@ -207,7 +208,6 @@ namespace Yanmonet.NetSync
         }
         private void HandleAddListEvent(NetworkListEvent<T> listEvent)
         {
-            Debug.Log($"Set Player: {listEvent.Type}, Index: " + listEvent.Index);
             listEvents.Add(listEvent);
 
             MarkNetworkObjectDirty();
@@ -260,7 +260,6 @@ namespace Yanmonet.NetSync
             {
                 reader.SerializeValue(ref eventType);
 
-                Debug.Log("ReadDelta Player: " + eventType);
                 switch (eventType)
                 {
                     case NetworkListEvent<T>.EventType.Add:

@@ -35,17 +35,17 @@ namespace Yanmonet.NetSync
         private bool ownerSoket;
 
         internal NetworkConnection(NetworkManager networkManager)
+            : this(networkManager, null, null, false, false)
         {
 
 
         }
         internal NetworkConnection(NetworkServer server, Socket socket, bool ownerSoket, bool isListening)
-            : this(null, server, socket, ownerSoket, isListening)
+            : this(server?.NetworkManager, server, socket, ownerSoket, isListening)
         {
 
         }
         internal NetworkConnection(NetworkManager networkManager, NetworkServer server, Socket socket, bool ownerSoket, bool isListening)
-            : this(networkManager)
         {
             objects = new Dictionary<ulong, NetworkObject>();
             //if (socket == null) throw new ArgumentNullException("socket");
@@ -64,9 +64,8 @@ namespace Yanmonet.NetSync
             {
                 if (socket.Connected)
                 {
-
-                    InitialSocket(socket);
                     isConnecting = true;
+                    InitialSocket(socket);
                     if (!isListening)
                     {
                         //NetworkManager.Log($"Send Connect Msg, Client To Server ClientId: {connectionId}");
@@ -246,7 +245,7 @@ namespace Yanmonet.NetSync
                     }
                     catch (Exception ex)
                     {
-
+                        NetworkManager.Log(ex.Message);
                     }
 
                     try
@@ -260,11 +259,11 @@ namespace Yanmonet.NetSync
                 }
             }
 
+            isConnecting = false;
+
             if (isConnected)
             {
-                isConnected = false;
-                NetworkManager.Log("Client Disconnect");
-                Disconnected?.Invoke(this);
+                OnDisconnected();
             }
         }
 
@@ -275,6 +274,10 @@ namespace Yanmonet.NetSync
             isInital = true;
         }
 
+        public void Connect(string address, int port)
+        {
+            Connect(address, port, 0, null);
+        }
 
         public void Connect(string address, int port, int version, byte[] data)
         {
@@ -283,7 +286,6 @@ namespace Yanmonet.NetSync
 
             if (!(isConnected || isConnecting))
             {
-                isConnecting = true;
                 //lastTryReconnectTime = DateTime.UtcNow;
                 Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 ownerSoket = true;
@@ -301,7 +303,6 @@ namespace Yanmonet.NetSync
 
                 if (s != null)
                 {
-
                     Connect(s, version, data);
                 }
             }
@@ -611,7 +612,7 @@ namespace Yanmonet.NetSync
             if (!objects.ContainsKey(obj.InstanceId))
             {
                 objects[obj.InstanceId] = obj;
-                ObjectAdded?.Invoke(obj);
+
             }
         }
         internal void RemoveObject(NetworkObject obj)
@@ -619,7 +620,10 @@ namespace Yanmonet.NetSync
             if (objects.ContainsKey(obj.InstanceId))
             {
                 objects.Remove(obj.InstanceId);
-                ObjectRemoved?.Invoke(obj);
+                if (obj.IsSpawned)
+                {
+                    ObjectRemoved?.Invoke(obj);
+                }
             }
         }
 
@@ -634,6 +638,7 @@ namespace Yanmonet.NetSync
                 return objects[instanceId];
             return null;
         }
+
 
         void CheckServer()
         {
@@ -662,14 +667,25 @@ namespace Yanmonet.NetSync
         }
         public void OnDisconnected()
         {
-            Disconnected?.Invoke(this);
+            isConnecting = false;
+            if (isConnected)
+            {
+                isConnected = false;
+                NetworkManager.Log("Client Disconnect");
+                Disconnected?.Invoke(this);
+            }
         }
         public void OnObjectAdded(NetworkObject obj)
         {
+            if (!obj.IsSpawned) return;
+            NetworkManager.Log("Spawn Object: " + obj);
             ObjectAdded?.Invoke(obj);
         }
         public void OnObjectRemoved(NetworkObject obj)
         {
+            if (!obj.IsSpawned) return;
+            NetworkManager.Log("Despan Object: " + obj);
+            obj.IsSpawned = false;
             ObjectRemoved?.Invoke(obj);
         }
 
