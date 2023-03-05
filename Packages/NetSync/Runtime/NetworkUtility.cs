@@ -118,7 +118,7 @@ namespace Yanmonet.NetSync
             return ports;
         }
 
-        public static int FindAvaliableTcpPort(int startPort)
+        public static int FindAvaliablePort(int startPort)
         {
             var usedPorts = NetworkUtility.GetAllUsedPorts();
             int port = startPort;

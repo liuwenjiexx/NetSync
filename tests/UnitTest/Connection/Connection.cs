@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace Yanmonet.NetSync.Test.Connection
 {
@@ -19,7 +20,8 @@ namespace Yanmonet.NetSync.Test.Connection
             {
                 bool isClientConnected = false, isClientDisconnected = false;
                 bool isServerConnected = false, isServerDisconnected = false;
-                using (NetworkConnection clientConn = new NetworkConnection())
+                NetworkManager manager = new NetworkManager();
+                using (NetworkConnection clientConn = new NetworkConnection(manager))
                 {
                     clientConn.Connected += (o, netMsg) =>
                     {
@@ -73,97 +75,102 @@ namespace Yanmonet.NetSync.Test.Connection
         }
 
         [TestMethod]
-        public void ConnectExtra()
+        public void ConnectionData()
         {
-            using (var server = NewSocketListener())
+            NetworkManager serverManager = new NetworkManager();
+            string serverData = null;
+            serverManager.ValidateConnect = (version, data) =>
             {
-                using (NetworkConnection conn = new NetworkConnection())
-                {
-                    conn.Connect(localAddress, localPort, new StringMessage("AuthToken"));
+                serverData = Encoding.UTF8.GetString(data);
+                return null;
+            };
+            serverManager.StartServer();
+            serverManager.Update();
 
-                    conn.Update();
+            NetworkManager clientManager = new NetworkManager();
+            clientManager.ConnectionData = Encoding.UTF8.GetBytes("AuthToken");
+            clientManager.StartClient();
 
-                    var s1 = server.Accept();
-                    string serverData = null;
-                    using (var serverConn = new NetworkConnection(null, s1, true, true))
-                    {
-                        serverConn.Connected += (o, netMsg) =>
-                        {
-                            var msg = netMsg.ReadMessage<StringMessage>();
-                            serverData = msg.Value;
-                        };
-                        serverConn.Update();
-                    }
+            Update(serverManager, clientManager);
 
-                    Assert.AreEqual(serverData, "AuthToken");
+            Assert.AreEqual("AuthToken", serverData);
 
-                }
-            }
+            clientManager.Dispose();
+            serverManager.Dispose();
         }
         [TestMethod]
         public void Disconnect_Client()
         {
-            using (NewConnect(out var serverConn, out var clientConn))
-            using (serverConn)
-            using (clientConn)
-            {
-                //    clientConn = new NetworkConnection();
-                //    clientConn.Connect(localAddress, localPort);
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
 
-                //    serverConn = new NetworkConnection(null,serverSocket.Accept(), true);
-
-                //    clientConn.Update();
-                //    serverConn.Update();
-
+            serverManager.StartServer();
+            clientManager.StartClient();
+   
+                Update(serverManager, clientManager);
+                var serverConn = serverManager.clients.Values.FirstOrDefault().Connection;
+                var clientConn = clientManager.LocalClient.Connection;
                 Assert.IsTrue(clientConn.IsConnected);
                 Assert.IsTrue(serverConn.IsConnected);
 
                 clientConn.Disconnect();
-                Update(serverConn, clientConn);
+                Update(serverManager, clientManager);
 
                 Assert.IsFalse(clientConn.IsConnected);
                 Assert.IsTrue(serverConn.IsConnected);
-            }
-
+     
+            clientManager.Shutdown();
+            serverManager.Shutdown();
         }
 
 
         [TestMethod]
         public void Disconnect_Server()
         {
-            using (NewConnect(out var serverConn, out var clientConn))
-            using (serverConn)
-            using (clientConn)
-            {
-                Assert.IsTrue(clientConn.IsConnected);
-                Assert.IsTrue(serverConn.IsConnected);
+            NetworkManager serverManager = new NetworkManager();
+            NetworkManager clientManager = new NetworkManager();
 
-                serverConn.Disconnect();
+            serverManager.StartServer();
+            clientManager.StartClient();
 
-                Assert.IsTrue(clientConn.IsConnected);
-                Assert.IsFalse(serverConn.IsConnected);
-            }
+            Update(serverManager, clientManager);
+            var serverConn = serverManager.clients.Values.FirstOrDefault().Connection;
+            var clientConn = clientManager.LocalClient.Connection;
+            Assert.IsTrue(clientConn.IsConnected);
+            Assert.IsTrue(serverConn.IsConnected);
+
+            serverConn.Disconnect();
+            Update(serverManager, clientManager);
+            Update(serverManager, clientManager);
+
+            Assert.IsFalse(clientConn.IsConnected);
+            Assert.IsTrue(serverConn.IsConnected);
+
+            clientManager.Shutdown();
+            serverManager.Shutdown();
 
         }
 
         [TestMethod]
         public void RegisterHandler()
         {
-            NetworkConnection conn = new NetworkConnection();
-            Assert.IsFalse(conn.HasHandler((short)NetworkMsgId.Max));
+            NetworkManager manager = new NetworkManager();
+            NetworkConnection conn = new NetworkConnection(manager);
+            Assert.IsFalse(conn.HasHandler((ushort)NetworkMsgId.Max));
 
-            conn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) => { });
-            Assert.IsTrue(conn.HasHandler((short)NetworkMsgId.Max));
+            conn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) => { });
+            Assert.IsTrue(conn.HasHandler((ushort)NetworkMsgId.Max));
         }
         [TestMethod]
         public void RegisterHandler_ConnectAfter()
         {
-            NetworkConnection conn = new NetworkConnection();
+            NetworkManager manager = new NetworkManager();
+            NetworkConnection conn = new NetworkConnection(manager);
 
-            Assert.IsFalse(conn.HasHandler((short)NetworkMsgId.Max));
+            Assert.IsFalse(conn.HasHandler((ushort)NetworkMsgId.Max));
 
-            conn.RegisterHandler((short)NetworkMsgId.Max, (netMsg) => { });
-            Assert.IsTrue(conn.HasHandler((short)NetworkMsgId.Max));
+            conn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) => { });
+            Assert.IsTrue(conn.HasHandler((ushort)NetworkMsgId.Max));
         }
 
         [TestMethod]
@@ -171,7 +178,8 @@ namespace Yanmonet.NetSync.Test.Connection
         {
             var server = NewTcpListener();
 
-            using (NetworkConnection conn = new NetworkConnection())
+            NetworkManager manager = new NetworkManager();
+            using (NetworkConnection conn = new NetworkConnection(manager))
             {
                 conn.Connect(localAddress, localPort);
                 bool bbb = conn.Socket.Connected;

@@ -45,7 +45,7 @@ namespace Yanmonet.NetSync.Test
 
                 Assert.AreEqual(0, client.Objects.Count());
 
-                serverData.Spawn(serverManager.clientIds.First());
+                serverData.SpawnWithOwnership(serverManager.clientIds.First());
                 Assert.IsTrue(serverData.IsSpawned);
                 Update(serverManager, clientManager);
 
@@ -94,7 +94,7 @@ namespace Yanmonet.NetSync.Test
                 var client = clientManager.LocalClient;
                  
                 var serverData = serverManager.CreateObject<MySyncVarData>();
-                serverData.Spawn(serverManager.clientIds.First());
+                serverData.SpawnWithOwnership(serverManager.clientIds.First());
                 Update(serverManager, clientManager);
 
                 serverData.Despawn();
@@ -151,7 +151,7 @@ namespace Yanmonet.NetSync.Test
                 var clientData = client.Objects.FirstOrDefault();
                 Assert.IsNull(clientData);
                  
-                clientData.Spawn(serverManager.clientIds.First());
+                clientData.SpawnWithOwnership(serverManager.clientIds.First());
                 Update(serverManager, clientManager);
                 clientData = client.Objects.FirstOrDefault();
 

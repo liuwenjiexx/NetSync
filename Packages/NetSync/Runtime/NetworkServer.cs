@@ -308,7 +308,7 @@ namespace Yanmonet.NetSync
 
             ulong connId = ++nextConnectionId;
             client.Connection.ConnectionId = connId;
-            NetworkManager.Log($"Accept Client {connId}");
+            NetworkManager.Log($"Accept Client {connId}, IsConnecting: {client.Connection.IsConnecting}, IsRunning: {client.IsRunning}");
 
             return client;
         }

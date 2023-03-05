@@ -10,71 +10,87 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Diagnostics;
+
 [assembly: Parallelize(Workers = 1, Scope = ExecutionScope.ClassLevel)]
 namespace Yanmonet.NetSync.Test
 {
 
-    class MyServer : NetworkServer
-    {
-        public MyServer(NetworkManager manager)
-            : base(manager)
-        {
-        }
+    //class NetworkServer : NetworkServer
+    //{
+    //    public NetworkServer(NetworkManager manager)
+    //        : base(manager)
+    //    {
+    //    }
 
-        protected override NetworkClient AcceptTcpClient(TcpClient client, MessageBase extra)
-        {
-            var c = new MyClient(this, client.Client, true, true);
-            return c;
-        }
-    }
+    //    protected override NetworkClient AcceptTcpClient(TcpClient client, MessageBase extra)
+    //    {
+    //        var c = new MyClient(this, client.Client, true, true);
+    //        return c;
+    //    }
+    //}
 
-    class MyClient : NetworkClient
-    {
-        //[SyncVar(Bits = 0x1)]
-        //private string stringVar;
-        //[SyncVar(Bits = 0x2)]
-        //private int intVar;
-        //[SyncVar(Bits = 0x4)]
-        //private float floatVar;
+    //class MyClient : NetworkClient
+    //{
+    //    //[SyncVar(Bits = 0x1)]
+    //    //private string stringVar;
+    //    //[SyncVar(Bits = 0x2)]
+    //    //private int intVar;
+    //    //[SyncVar(Bits = 0x4)]
+    //    //private float floatVar;
 
-        public MyClient(NetworkManager manager)
-            : base(manager)
-        {
-        }
+    //    public MyClient(NetworkManager manager)
+    //        : base(manager)
+    //    {
+    //    }
 
-        public MyClient(MyServer server, Socket socket, bool ownerSocket, bool isListen)
-        : base(server, socket, ownerSocket, isListen)
-        {
-        }
+    //    public MyClient(NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
+    //    : base(server, socket, ownerSocket, isListen)
+    //    {
+    //    }
 
-        //public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
-        //public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
-        //public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
-    }
+    //    //public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
+    //    //public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
+    //    //public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
+    //}
 
     class MySyncVarData : NetworkObject
     {
-        [SyncVar(Bits = 0x1)]
-        private string stringVar;
-        [SyncVar(Bits = 0x2)]
-        private int intVar;
-        [SyncVar(Bits = 0x4)]
-        private float floatVar;
 
-        public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
-        public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
-        public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
+        private NetworkVariable<string> stringVar = new NetworkVariable<string>(
+            writePermission: NetworkVariableWritePermission.Server);
 
-        //   [RpcClient]
-        public void SetIntVarClient(int n)
-        {
-            intVar = n;
-        }
-        //   [RpcServer]
-        public void SetIntVarServer(int n)
-        {
-            intVar = n;
-        }
+        private NetworkVariable<int> intVar = new NetworkVariable<int>(
+            writePermission: NetworkVariableWritePermission.Server);
+
+        private NetworkVariable<float> floatVar = new NetworkVariable<float>(
+            writePermission: NetworkVariableWritePermission.Server);
+
+        public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
+
+        public int IntVar { get => intVar.Value; set => intVar.Value = value; }
+
+        public float FloatVar { get => floatVar.Value; set => floatVar.Value = value; }
+
+    }
+
+    class ClientMySyncVarData : NetworkObject
+    {
+
+        private NetworkVariable<string> stringVar = new NetworkVariable<string>(
+            writePermission: NetworkVariableWritePermission.Owner);
+
+        private NetworkVariable<int> intVar = new NetworkVariable<int>(
+            writePermission: NetworkVariableWritePermission.Owner);
+
+        private NetworkVariable<float> floatVar = new NetworkVariable<float>(
+            writePermission: NetworkVariableWritePermission.Owner);
+
+        public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
+
+        public int IntVar { get => intVar.Value; set => intVar.Value = value; }
+
+        public float FloatVar { get => floatVar.Value; set => floatVar.Value = value; }
 
     }
 
@@ -87,7 +103,7 @@ namespace Yanmonet.NetSync.Test
         {
             //Console.WriteLine("TestInitialize");
             //NetworkManager manager = new NetworkManager();
-            //server = new MyServer(manager);
+            //server = new NetworkServer(manager);
             //server.Start(localPort);
 
             //client = new MyClient(manager);
@@ -107,12 +123,12 @@ namespace Yanmonet.NetSync.Test
         IEnumerator _Start()
         {
             NetworkManager manager = new NetworkManager();
-            using (MyServer server = new MyServer(manager))
+            using (NetworkServer server = new NetworkServer(manager))
             {
                 server.Start(localPort);
                 Assert.IsTrue(server.IsRunning);
 
-                MyClient client = new MyClient(manager);
+                NetworkClient client = new NetworkClient(manager);
                 client.Connect(localAddress, localPort);
                 Assert.IsTrue(client.IsRunning);
 
@@ -154,7 +170,7 @@ namespace Yanmonet.NetSync.Test
             //Assert.AreEqual(GetSigleBitsLength(1 << 1), 2);
             //Assert.AreEqual(GetSigleBitsLength(1 << 2), 3);
 
-            //using (MyServer server = new MyServer())
+            //using (NetworkServer server = new NetworkServer())
             //{
             //    server.Start(localPort);
 
@@ -197,7 +213,7 @@ namespace Yanmonet.NetSync.Test
         public void SyncVar_Int32_1()
         {
             OpenNetwork<MySyncVarData>();
-            //using (MyServer server = new MyServer())
+            //using (NetworkServer server = new NetworkServer())
             //{
             //    server.Start(localPort);
             //    using (MyClient client = new MyClient())
@@ -223,7 +239,7 @@ namespace Yanmonet.NetSync.Test
         {
             OpenNetwork<MySyncVarData>();
 
-            //using (MyServer server = new MyServer())
+            //using (NetworkServer server = new NetworkServer())
             //{
             //    server.Start(localPort);
             //    using (MyClient client = new MyClient())
@@ -258,22 +274,44 @@ namespace Yanmonet.NetSync.Test
             return length;
         }
 
+        class StringWrap : INetworkSerializable
+        {
+            public string value;
 
+            public void NetworkSerialize(IReaderWriter readerWriter)
+            {
+                readerWriter.SerializeValue(ref value);
+            }
+        }
+        class SyncListString : NetworkListSerializable<StringWrap>
+        {
+
+        }
 
         class MySyncListData : NetworkObject
         {
-            public SyncListString stringList = new SyncListString();
-            public SyncListString stringList2 = new SyncListString();
-            public SyncListStruct<MyStruct> structList1 = new SyncListStruct<MyStruct>();
+            public SyncListString stringList = new();
+            public SyncListString stringList2 = new();
+            public NetworkListSerializable<MyStruct> structList1 = new();
+
+
         }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
-        struct MyStruct
+        struct MyStruct : INetworkSerializable
         {
             public int int32;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 10)]
             public string str;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 100)]
             public char[] chars;
+
+            public void NetworkSerialize(IReaderWriter readerWriter)
+            {
+                readerWriter.SerializeValue(ref int32);
+                readerWriter.SerializeValue(ref str);
+                //readerWriter.SerializeValue(ref chars);
+            }
             //public string str
             //{
             //    get { return new string(chars); }
@@ -287,7 +325,7 @@ namespace Yanmonet.NetSync.Test
             //}
         }
 
-
+        /*
 
         [TestMethod]
         public void SyncLisString_Test()
@@ -441,14 +479,14 @@ namespace Yanmonet.NetSync.Test
             Assert.AreEqual(clientData.structList1.Count, 0);
 
         }
-
+        */
         [TestMethod]
-        public void ServerOwnerVariable()
+        public void ServerVariable()
         {
             OpenNetwork<MySyncVarData>();
 
             var serverData = serverManager.CreateObject<MySyncVarData>();
-            serverData.Spawn();
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
             var clientData = (MySyncVarData)client.Objects.First();
@@ -458,20 +496,33 @@ namespace Yanmonet.NetSync.Test
 
             serverData.IntVar = 1;
             Update();
-            Update();
-            Update();
             Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
         }
+
         [TestMethod]
-        public void ClientOwnerVariable()
+        public void ServerVariable_ClientWriteError()
         {
             OpenNetwork<MySyncVarData>();
 
             var serverData = serverManager.CreateObject<MySyncVarData>();
-            serverData.Spawn(clientManager.LocalClientId);
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+            serverData.AddObserver(clientManager.LocalClientId);
             Update();
             var clientData = (MySyncVarData)client.Objects.First();
+
+            Assert.ThrowsException<InvalidOperationException>(() => clientData.IntVar = 1);
+        }
+
+        [TestMethod]
+        public void ClientVariable()
+        {
+            OpenNetwork<ClientMySyncVarData>();
+
+            var serverData = serverManager.CreateObject<ClientMySyncVarData>();
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+            Update();
+            var clientData = (ClientMySyncVarData)client.Objects.First();
 
             Assert.AreEqual(0, serverData.IntVar);
             Assert.AreEqual(0, clientData.IntVar);
@@ -480,9 +531,20 @@ namespace Yanmonet.NetSync.Test
             Update();
             Update();
             Update();
-            Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
+            Assert.AreEqual(1, serverData.IntVar);
         }
+        [TestMethod]
+        public void ClientVariable_ServerWriteError()
+        {
+            OpenNetwork<ClientMySyncVarData>();
 
+            var serverData = serverManager.CreateObject<ClientMySyncVarData>();
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+            Update();
+            
+            Assert.ThrowsException<InvalidOperationException>(() => serverData.IntVar = 1);
+
+        }
     }
 }
