@@ -177,7 +177,7 @@ namespace Yanmonet.NetSync
                         NetworkManager.Server.RemoveObserver(this, clientId);
                     }
 
-                    NetworkManager.Server.objects.Remove(InstanceId);
+                    NetworkManager.Server.RemoveObject(InstanceId);
                 }
 
                 InstanceId = default;

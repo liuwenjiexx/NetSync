@@ -65,6 +65,7 @@ namespace Yanmonet.NetSync
 
                 if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
                 {
+                    Debug.LogError("XXX");
                     throw new InvalidOperationException($"Client is not allowed to write to this NetworkVariable '{NetworkObject.GetType().Name}.{Name}'");
                 }
 

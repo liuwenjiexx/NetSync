@@ -460,6 +460,12 @@ namespace Yanmonet.NetSync
             }
         }
 
+        public void RemoveObject(ulong instanceId)
+        {
+            destoryObjIds.Add(instanceId);
+        }
+
+
         public void UpdateObjects()
         {
             if (objects != null)
