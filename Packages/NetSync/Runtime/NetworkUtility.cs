@@ -47,7 +47,7 @@ namespace Yanmonet.NetSync
             }
 
             var s = writePool.Get();
-            
+
             return s;
         }
 
@@ -63,26 +63,66 @@ namespace Yanmonet.NetSync
 
         public static byte[] PackMessage(ushort msgId, MessageBase msg = null)
         {
-            NetworkWriter s;
-            //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
-            s = GetWriter();
-
-            s.BaseStream.Position = 0;
-            s.BaseStream.SetLength(0);
-            s.BeginWritePackage();
-            s.SerializeValue(ref msgId);
-            if (msg != null)
+            NetworkWriter s = null;
+            byte[] bytes = null;
+            try
             {
-                msg.Serialize(s);
-            }
+                //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                s = GetWriter();
 
-            s.EndWritePackage();
-            byte[] bytes = new byte[s.BaseStream.Length];
-            s.BaseStream.Position = 0;
-            s.BaseStream.Read(bytes, 0, bytes.Length);
-            writePool.Unused(s);
+                s.BaseStream.Position = 0;
+                s.BaseStream.SetLength(0);
+                s.BeginWritePackage();
+                s.SerializeValue(ref msgId);
+                if (msg != null)
+                {
+                    msg.Serialize(s);
+                }
+
+                s.EndWritePackage();
+                bytes = new byte[s.BaseStream.Length];
+                s.BaseStream.Position = 0;
+                s.BaseStream.Read(bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                if (s != null)
+                    writePool.Unused(s);
+            }
             return bytes;
         }
+
+        public static byte[] Pack(INetworkSerializable msg)
+        {
+
+            NetworkWriter s = null;
+            byte[] bytes = null;
+            try
+            {
+                s = GetWriter();
+                s.BaseStream.Position = 0;
+                s.BaseStream.SetLength(0);
+                s.BeginWritePackage();
+                if (msg != null)
+                {
+                    msg.NetworkSerialize(s);
+                }
+
+                s.EndWritePackage();
+                bytes = new byte[s.BaseStream.Length];
+                s.BaseStream.Position = 0;
+                s.BaseStream.Read(bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                if (s != null)
+                    writePool.Unused(s);
+            }
+            return bytes;
+        }
+
+
+
 
         public static bool IsTcpPortUsed(int port)
         {

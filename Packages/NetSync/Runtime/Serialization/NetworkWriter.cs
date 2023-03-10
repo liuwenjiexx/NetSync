@@ -11,10 +11,11 @@ namespace Yanmonet.NetSync
         private Stream baseStream;
         public int refCount;
 
-        internal NetworkWriter(Stream baseStream)
+        public NetworkWriter(Stream baseStream)
         {
             this.baseStream = baseStream;
         }
+
         public Stream BaseStream
         {
             get { return baseStream; }

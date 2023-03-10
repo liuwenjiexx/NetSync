@@ -503,6 +503,39 @@ namespace Yanmonet.NetSync
             }
         }
 
+        private bool returnClientRpc;
+
+        protected void BeginClientRpc(string methodName, params object[] args)
+        {
+            returnClientRpc = !IsClient;
+
+            if (IsServer)
+            {
+                RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
+                RpcMessage msg = RpcMessage.RpcClient(this, rpcInfo, args);
+                
+                foreach (var _conn in NetworkManager.GetAvaliableConnections(observers))
+                {
+                    if (_conn.ConnectionId == NetworkManager.ServerClientId)
+                    {
+                        returnClientRpc = false;
+                        continue;
+                    }
+                    _conn.SendMessage((ushort)NetworkMsgId.Rpc, msg);
+                }
+            }
+
+        }
+
+        protected void EndClientRpc()
+        {
+
+        }
+
+        protected bool ReturnClientRpc()
+        {
+            return returnClientRpc;
+        }
 
         #endregion
 

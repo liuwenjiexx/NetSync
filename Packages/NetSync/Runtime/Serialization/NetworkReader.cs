@@ -9,15 +9,23 @@ namespace Yanmonet.NetSync
     public class NetworkReader : IReaderWriter
     {
         private MemoryStream msReader;
-        private Socket baseStream;
+        private Socket baseSocket;
+        private Stream baseStream;
 
         internal NetworkReader(Socket socket)
         {
-            this.baseStream = socket;
-            msReader = new MemoryStream(1024);
+            this.baseSocket = socket;
+            msReader = new MemoryStream(1024 * 4);
         }
-
-        internal NetworkReader(MemoryStream  ms)
+        public NetworkReader(Stream stream, MemoryStream buffer)
+        {
+            this.baseStream = stream;
+            if (buffer == null)
+                msReader = new MemoryStream(1024 * 4);
+            else
+                msReader = buffer;
+        }
+        internal NetworkReader(MemoryStream ms)
         {
             msReader = ms;
         }
@@ -36,18 +44,34 @@ namespace Yanmonet.NetSync
                 return ReadPackageContent();
             }
 
-            if (baseStream.Available > 2)
+            if (baseSocket != null)
             {
+                if (baseSocket.Available > 2)
+                {
+                    byte[] buff = msReader.GetBuffer();
+                    baseSocket.Receive(buff, 2, SocketFlags.None);
+                    packageSize = (ushort)(buff[0] << 8);
+                    packageSize |= (ushort)(buff[1]);
 
-                byte[] buff = msReader.GetBuffer();
-                baseStream.Receive(buff, 2, SocketFlags.None);
-                packageSize = (ushort)(buff[0] << 8);
-                packageSize |= (ushort)(buff[1]);
+                    msReader.Position = 0;
+                    msReader.SetLength(packageSize);
 
-                msReader.Position = 0;
-                msReader.SetLength(packageSize);
+                    return ReadPackageContent();
+                }
+            }
+            else
+            {
+                if (baseStream.Length - baseStream.Position > 2)
+                {
+                    packageSize = (ushort)(baseStream.ReadByte() << 8);
+                    packageSize |= (ushort)(baseStream.ReadByte());
 
-                return ReadPackageContent();
+                    msReader.Position = 0;
+                    msReader.SetLength(packageSize);
+
+                    return ReadPackageContent();
+                }
+
             }
             return 0;
         }
@@ -60,7 +84,14 @@ namespace Yanmonet.NetSync
                 if (count > 0)
                 {
                     int readCount;
-                    readCount = baseStream.Receive(msReader.GetBuffer(), (int)msReader.Position, count, SocketFlags.None);
+                    if (baseSocket != null)
+                    {
+                        readCount = baseSocket.Receive(msReader.GetBuffer(), (int)msReader.Position, count, SocketFlags.None);
+                    }
+                    else
+                    {
+                        readCount = baseStream.Read(msReader.GetBuffer(), (int)msReader.Position, count);
+                    }
                     if (readCount > 0)
                     {
                         msReader.Position += readCount;
@@ -79,6 +110,20 @@ namespace Yanmonet.NetSync
             return 0;
         }
 
+        public bool ReadPackage(out ushort msgId, out int length)
+        {
+            ushort size = ReadPackage();
+            if (size > 0)
+            {
+                msgId = ReadUInt16();
+                length = size - 2;
+                return true;
+            }
+            msgId = 0;
+            length = 0;
+            return false;
+        }
+
         private byte[] buff8 = new byte[8];
         private int position
         {
@@ -93,6 +138,11 @@ namespace Yanmonet.NetSync
         public bool IsReader => true;
 
         public bool IsWriter => false;
+
+        public void Reset()
+        {
+            packageSize = 0;
+        }
 
         internal byte ReadByte()
         {

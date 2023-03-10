@@ -85,7 +85,7 @@ namespace Yanmonet.NetSync
 
         public static NetworkManager Singleton { get; private set; }
 
- 
+
         private void Initalize()
         {
             IsServer = false;
@@ -589,7 +589,7 @@ namespace Yanmonet.NetSync
                         throw new Exception("create instance null, Type id:" + typeId);
                     instance.typeId = typeId;
                     instance.InstanceId = instanceId;
-                    instance.networkManager = conn.NetworkManager;              
+                    instance.networkManager = conn.NetworkManager;
                     instance.OwnerClientId = msg.ownerClientId;
                     instance.ConnectionToOwner = conn;
                     instance.ConnectionToServer = conn;
@@ -710,6 +710,11 @@ namespace Yanmonet.NetSync
             {
                 Singleton = null;
             }
+        }
+
+        public override string ToString()
+        {
+            return $"{address}:{port}";
         }
 
     }
