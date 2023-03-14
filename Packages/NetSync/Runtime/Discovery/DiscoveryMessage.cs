@@ -48,10 +48,15 @@ namespace Yanmonet.NetSync
     {
         public string identifier;
         public byte[] userData;
+        public string name;
+        public int version;
 
         public override void Serialize(IReaderWriter writer)
         {
             writer.SerializeValue(ref identifier);
+            writer.SerializeValue(ref version);
+            writer.SerializeValue(ref name);
+            
             if (userData == null)
                 userData = new byte[0];
             int length = userData.Length;
@@ -62,6 +67,9 @@ namespace Yanmonet.NetSync
         public override void Deserialize(IReaderWriter reader)
         {
             reader.SerializeValue(ref identifier);
+            reader.SerializeValue(ref version);
+            reader.SerializeValue(ref name);
+
             int length = 0;
             userData = null;
             reader.SerializeValue(ref userData, 0, ref length);

@@ -16,6 +16,7 @@ namespace Yanmonet.NetSync
         private UdpClient receiveClient;
         private Dictionary<ushort, Action<IReaderWriter, IPEndPoint>> msgHandlers;
         private byte[] sendDiscoveryBytes;
+        private byte[] sendLookupBytes;
         private string identifier;
         private int version;
         private string name;
@@ -23,7 +24,7 @@ namespace Yanmonet.NetSync
         private int serverPort;
         private byte[] discoveryData;
         private byte[] lookupData;
-        private DateTime nextBroadcastTime;
+        private DateTime? nextBroadcastTime;
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
         private int port;
@@ -38,8 +39,10 @@ namespace Yanmonet.NetSync
             {
                 var data = new LookupMessage();
                 data.Deserialize(reader);
+                Debug.Log("Lookup ");
                 if (LookupCallback != null)
                 {
+                    nextBroadcastTime = DateTime.MinValue;
                     LookupCallback(data.userData);
                 }
             };
@@ -49,7 +52,7 @@ namespace Yanmonet.NetSync
             {
                 var data = new DiscoveryMessage();
                 data.Deserialize(reader);
-
+                Debug.Log("Discovery ");
                 if (data.identifier == Identifier)
                 {
                     if (DiscoveryCallback != null)
@@ -205,6 +208,23 @@ namespace Yanmonet.NetSync
             return sendDiscoveryBytes;
         }
 
+        private byte[] GetSendLookupData()
+        {
+            if (sendLookupBytes == null)
+            {
+                var lookupMsg = new LookupMessage();
+                lookupMsg.identifier = Identifier;
+                lookupMsg.version = version;
+                lookupMsg.name = name;
+                lookupMsg.userData = lookupData;
+
+
+                sendLookupBytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.Lookup, lookupMsg);
+            }
+
+            return sendLookupBytes;
+        }
+
         public void Start()
         {
             if (cancellationTokenSource != null)
@@ -225,7 +245,7 @@ namespace Yanmonet.NetSync
             //局部多播地址: 224.0.0.0～224.0.0.255
             //局部广播地址: 255.255.255.255
             sendAddress = new IPEndPoint(IPAddress.Parse("255.255.255.255"), Port);
-
+            nextBroadcastTime = DateTime.Now;
             NetworkManager.Singleton?.Log($"Start Discovery Server, Identifier: '{Identifier}', Target Address: {sendAddress},Server Address: {ServerAddress}, Server Port: {ServerPort}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
             if (cancellationTokenSource == null)
@@ -233,6 +253,7 @@ namespace Yanmonet.NetSync
                 cancellationTokenSource = new CancellationTokenSource();
                 cancellationToken = cancellationTokenSource.Token;
             }
+
         }
 
         public async Task StartClient()
@@ -252,6 +273,11 @@ namespace Yanmonet.NetSync
                 cancellationToken = cancellationTokenSource.Token;
             }
 
+            if (sendClient != null)
+            {
+                SendLookupMsg();
+            }
+
             UdpReceiveResult result;
             while (true)
             {
@@ -260,7 +286,7 @@ namespace Yanmonet.NetSync
                     if (cancellationToken.IsCancellationRequested)
                         break;
 
-
+                    //多网卡会重复收数据
                     result = await receiveClient.ReceiveAsync();
 
                     if (cancellationToken.IsCancellationRequested)
@@ -289,8 +315,8 @@ namespace Yanmonet.NetSync
                             {
                                 handler(reader, result.RemoteEndPoint);
                             }
-                            if (packCount > 1)
-                                NetworkManager.Singleton?.Log("Read Package count: " + packCount);
+                            //if (packCount > 1)
+                            NetworkManager.Singleton?.Log("Read Package count: " + packCount + ", farme:" + result.RemoteEndPoint);
                         }
                     }
                 }
@@ -303,10 +329,10 @@ namespace Yanmonet.NetSync
             }
             try
             {
-                sendClient.Dispose();
+                receiveClient.Dispose();
             }
             catch { }
-            sendClient = null;
+            receiveClient = null;
             //NetworkManager.Singleton?.Log($"Stop Discovery Client");
         }
 
@@ -314,7 +340,7 @@ namespace Yanmonet.NetSync
         {
             if (sendClient != null)
             {
-                if (DateTime.Now > nextBroadcastTime)
+                if (nextBroadcastTime.HasValue && DateTime.Now > nextBroadcastTime)
                 {
                     SendDiscoveryMsg();
                 }
@@ -331,6 +357,8 @@ namespace Yanmonet.NetSync
         {
             nextBroadcastTime = DateTime.Now.AddSeconds(BroadcastInterval);
 
+            if (sendClient == null)
+                return;
             try
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -338,9 +366,41 @@ namespace Yanmonet.NetSync
 
 
                 byte[] serverBroadcastBytes = GetSendDiscoveryData();
-
+                Debug.Log("Send");
+                sendClient.SendAsync(serverBroadcastBytes, serverBroadcastBytes.Length, sendAddress);
+                Debug.Log("Send2");
                 await sendClient.SendAsync(serverBroadcastBytes, serverBroadcastBytes.Length, sendAddress);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
                 //NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+
+        private async Task SendLookupMsg()
+        {
+            if (sendClient == null)
+                return;
+
+            try
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+
+                byte[] bytes = GetSendLookupData();
+
+                await sendClient.SendAsync(bytes, bytes.Length, sendAddress);
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                //NetworkManager.Singleton?.Log($"SendLookupMsg");
             }
             catch (Exception ex)
             {
