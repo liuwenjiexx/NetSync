@@ -189,7 +189,7 @@ namespace Yanmonet.NetSync
 
         public void SendPacket(ushort msgId, byte[] packet)
         {
-            //NetworkManager.Log($"{ConnectionId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
+            NetworkManager.Log($"{ConnectionId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
             if (NetworkManager.IsServer && connectionId == NetworkManager.ServerClientId)
             {
                 HostHandleMessage(msgId, packet);
@@ -492,7 +492,7 @@ namespace Yanmonet.NetSync
                     netMsg.Reader = reader;
                     netMsg.rawPacket = reader.rawPacket;
 
-                    //NetworkManager.Log($"{ConnectionId} Receive Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                    NetworkManager.Log($"Client[{ConnectionId}] Receive Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
                     NetworkManager.InvokeHandler(netMsg);
 
                     readCount = reader.ReadPackage();
@@ -679,13 +679,13 @@ namespace Yanmonet.NetSync
         public void OnObjectAdded(NetworkObject obj)
         {
             if (!obj.IsSpawned) return;
-            NetworkManager.Log("Spawn Object: " + obj);
+            NetworkManager.Log("Client Spawn Object: " + obj);
             ObjectAdded?.Invoke(obj);
         }
         public void OnObjectRemoved(NetworkObject obj)
         {
             if (!obj.IsSpawned) return;
-            NetworkManager.Log("Despan Object: " + obj);
+            NetworkManager.Log("Client Despawn Object: " + obj);
             obj.IsSpawned = false;
             ObjectRemoved?.Invoke(obj);
         }
@@ -700,6 +700,11 @@ namespace Yanmonet.NetSync
         public override int GetHashCode()
         {
             return connectionId.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"Connection: {ConnectionId}";
         }
 
     }

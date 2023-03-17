@@ -36,6 +36,6 @@ namespace Yanmonet.NetSync
         /// </summary>
         SyncEvent,
         Rpc,
-        Max = 10,
+        Max,
     }
 }

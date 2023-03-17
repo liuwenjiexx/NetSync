@@ -39,7 +39,6 @@ namespace Yanmonet.NetSync
             {
                 var data = new LookupMessage();
                 data.Deserialize(reader);
-                Debug.Log("Lookup ");
                 if (LookupCallback != null)
                 {
                     nextBroadcastTime = DateTime.MinValue;
@@ -52,7 +51,7 @@ namespace Yanmonet.NetSync
             {
                 var data = new DiscoveryMessage();
                 data.Deserialize(reader);
-                Debug.Log("Discovery ");
+
                 if (data.identifier == Identifier)
                 {
                     if (DiscoveryCallback != null)
@@ -240,11 +239,20 @@ namespace Yanmonet.NetSync
         public void StartServer()
         {
             DateTime startTime = DateTime.Now;
+
+            
             sendClient = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
-            //¶à²¥µØÖ·: 224.0.0.0-239.255.255.255
-            //¾Ö²¿¶à²¥µØÖ·: 224.0.0.0¡«224.0.0.255
-            //¾Ö²¿¹ã²¥µØÖ·: 255.255.255.255
-            sendAddress = new IPEndPoint(IPAddress.Parse("255.255.255.255"), Port);
+            
+            //sendClient = new UdpClient(Port)
+            //{
+            //    EnableBroadcast = true,
+            //    MulticastLoopback = false
+            //};
+
+            //å¤šæ’­åœ°å€: 224.0.0.0-239.255.255.255
+            //å±€éƒ¨å¤šæ’­åœ°å€: 224.0.0.0ï½ž224.0.0.255
+            //å±€éƒ¨å¹¿æ’­åœ°å€: 255.255.255.255
+            sendAddress = new IPEndPoint(IPAddress.Broadcast, Port);
             nextBroadcastTime = DateTime.Now;
             NetworkManager.Singleton?.Log($"Start Discovery Server, Identifier: '{Identifier}', Target Address: {sendAddress},Server Address: {ServerAddress}, Server Port: {ServerPort}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
@@ -260,8 +268,12 @@ namespace Yanmonet.NetSync
         {
             DateTime startTime = DateTime.Now;
 
-            receiveClient = new UdpClient(new IPEndPoint(IPAddress.Any, Port));
-
+            //receiveClient = new UdpClient(new IPEndPoint(IPAddress.Any, Port));
+            receiveClient = new UdpClient(Port)
+            {
+                EnableBroadcast = true,
+                MulticastLoopback = false
+            };
             NetworkManager.Singleton?.Log($"Start Discovery Client, Liststen: {receiveClient.Client.LocalEndPoint}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
             MemoryStream stream = new MemoryStream(1024 * 4);
@@ -286,7 +298,7 @@ namespace Yanmonet.NetSync
                     if (cancellationToken.IsCancellationRequested)
                         break;
 
-                    //¶àÍø¿¨»áÖØ¸´ÊÕÊý¾Ý
+                    //å¤šç½‘å¡ä¼šé‡å¤æ”¶æ•°æ®
                     result = await receiveClient.ReceiveAsync();
 
                     if (cancellationToken.IsCancellationRequested)
@@ -316,7 +328,7 @@ namespace Yanmonet.NetSync
                                 handler(reader, result.RemoteEndPoint);
                             }
                             //if (packCount > 1)
-                            NetworkManager.Singleton?.Log("Read Package count: " + packCount + ", farme:" + result.RemoteEndPoint);
+                            //NetworkManager.Singleton?.Log("Read Package count: " + packCount + ", farme:" + result.RemoteEndPoint);
                         }
                     }
                 }
@@ -366,9 +378,7 @@ namespace Yanmonet.NetSync
 
 
                 byte[] serverBroadcastBytes = GetSendDiscoveryData();
-                Debug.Log("Send");
-                sendClient.SendAsync(serverBroadcastBytes, serverBroadcastBytes.Length, sendAddress);
-                Debug.Log("Send2");
+
                 await sendClient.SendAsync(serverBroadcastBytes, serverBroadcastBytes.Length, sendAddress);
 
                 if (cancellationToken.IsCancellationRequested)

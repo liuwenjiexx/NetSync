@@ -115,7 +115,7 @@ namespace Yanmonet.NetSync
 
             if (netObj == null)
             {
-                NetworkManager.Singleton.Log($"Rpc '{rpcInfo.methodSignature}', Get Object null, instance: {instanceId}");
+                conn.NetworkManager.Log($"Rpc '{rpcInfo.methodSignature}', Get Object null, instance: {instanceId}");
                 return;
             }
 

@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using static Yanmonet.NetSync.NetworkObject;
 using System.Linq;
+using System.Data;
 #if UNITY_ENGINE
 using UnityEngine;
 #endif
@@ -143,7 +144,7 @@ namespace Yanmonet.NetSync
                 if (sendSpawned.Contains(conn.ConnectionId))
                     continue;
                 sendSpawned.Add(conn.ConnectionId);
-                NetworkManager.Log($"Send client {conn.ConnectionId}, Create Object Msg, Type: {GetType()}");
+                NetworkManager.Log($"Msg Spawn Object Type: {GetType()}, Client: {conn.ConnectionId}");
 
                 conn.SendMessage((ushort)NetworkMsgId.CreateObject, new CreateObjectMessage()
                 {
@@ -392,18 +393,8 @@ namespace Yanmonet.NetSync
 
         internal void InternalUpdate()
         {
-            if (IsSpawned)
-            {
-                if (IsServer)
-                {
-                    SendSpawnMsg();
-                }
 
-                UpdateSyncVar();
-                UpdateVariable();
-                isDirty = false;
-            }
-
+            UpdateObjectState();
 
             Update();
         }
@@ -427,6 +418,23 @@ namespace Yanmonet.NetSync
         }
 
         protected float time = 0;
+
+
+        //更新对象状态
+        public void UpdateObjectState()
+        {
+            if (IsSpawned)
+            {
+                if (IsServer)
+                {
+                    SendSpawnMsg();
+                }
+
+                UpdateSyncVar();
+                UpdateVariable();
+                isDirty = false;
+            }
+        }
 
         void UpdateSyncVar()
         {
@@ -480,7 +488,7 @@ namespace Yanmonet.NetSync
         {
 
             RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
-
+            UpdateObjectState();
             if (IsClient)
             {
                 var msg = RpcMessage.RpcServer(this, rpcInfo, args);
@@ -513,14 +521,16 @@ namespace Yanmonet.NetSync
             {
                 RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
                 RpcMessage msg = RpcMessage.RpcClient(this, rpcInfo, args);
-                
+
+                UpdateObjectState();
+
                 foreach (var _conn in NetworkManager.GetAvaliableConnections(observers))
                 {
                     if (_conn.ConnectionId == NetworkManager.ServerClientId)
                     {
-                        returnClientRpc = false;
                         continue;
                     }
+                    NetworkManager.Log($"Rpc {GetType().Name}:{rpcInfo.method.Name} Client [{_conn.ConnectionId}]");
                     _conn.SendMessage((ushort)NetworkMsgId.Rpc, msg);
                 }
             }
