@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Yanmonet.NetSync
@@ -64,6 +65,8 @@ namespace Yanmonet.NetSync
                                 pInfo = rpcInfo.parameters[i];
 
                                 if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
+                                    continue;
+                                if (pInfo.ParameterType == typeof(RpcServerParams) || pInfo.ParameterType == typeof(RpcClientParams))
                                     continue;
                                 object arg = args[j++];
 
@@ -146,6 +149,14 @@ namespace Yanmonet.NetSync
                             {
                                 args[i] = conn;
                             }
+                            else if (pInfo.ParameterType == typeof(RpcServerParams))
+                            {
+                                args[i] = new RpcServerParams();
+                            }
+                            else if (pInfo.ParameterType == typeof(RpcClientParams))
+                            {
+                                args[i] = new RpcClientParams();
+                            }
                             else
                             {
                                 args[i] = SyncVarMessage.Read(reader, pInfo.ParameterType);
@@ -172,5 +183,13 @@ namespace Yanmonet.NetSync
 
 
 
+    }
+
+    public struct RpcServerParams
+    {
+    }
+    public struct RpcClientParams
+    {
+        public List<ulong> clients;
     }
 }

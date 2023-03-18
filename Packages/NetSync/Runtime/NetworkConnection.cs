@@ -95,6 +95,8 @@ namespace Yanmonet.NetSync
             get { return socket; }
         }
 
+        public bool IsListening => isListening;
+
         public bool IsConnecting
         {
             get { return isConnecting; }
@@ -232,6 +234,48 @@ namespace Yanmonet.NetSync
             return bytes;
         }
 
+        public void Listen(string listenAddress, int port)
+        {
+            ownerSoket = true;
+            isListening = true;
+            Socket tcpListener = null;
+            try
+            {
+                tcpListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                tcpListener.Bind(new IPEndPoint(IPAddress.Parse(listenAddress), port));
+                tcpListener.Listen(port);
+                this.address = listenAddress;
+                this.port = port;
+                InitialSocket(tcpListener);
+            }
+            catch
+            {
+                ownerSoket = false;
+                isListening = false;
+                if (tcpListener != null)
+                {
+                    try
+                    {
+                        tcpListener.Close();
+                    }
+                    catch { }
+                }
+                throw;
+            }
+        }
+
+        List<NetworkConnection> connections = new List<NetworkConnection>();
+
+        public NetworkConnection Accept()
+        {
+            var client = socket.Accept();
+            if (client == null)
+                return null;
+            var conn = new NetworkConnection(NetworkManager, null, client, true, false);
+            connections.Add(conn);
+            return conn;
+        }
+
 
         public void Disconnect()
         {
@@ -260,6 +304,17 @@ namespace Yanmonet.NetSync
             }
 
             isConnecting = false;
+            isListening = false;
+
+            foreach (var conn in connections)
+            {
+                try
+                {
+                    conn.Disconnect();
+                }
+                catch { }
+            }
+            connections.Clear();
 
             if (isConnected)
             {
@@ -367,23 +422,27 @@ namespace Yanmonet.NetSync
             if (socket == null)
                 return;
 
-            try
+            if (!isListening)
             {
-                if (!socket.Connected)
+
+                try
+                {
+                    if (!socket.Connected)
+                    {
+                        Disconnect();
+                        return;
+                    }
+                }
+                catch (Exception ex)
                 {
                     Disconnect();
-                    return;
+                    NetworkManager.LogException(ex);
                 }
-            }
-            catch (Exception ex)
-            {
-                Disconnect();
-                NetworkManager.LogException(ex);
-            }
 
 
-            if (!(isConnecting || isConnected))
-                return;
+                if (!(isConnecting || isConnected))
+                    return;
+            }
 
             UpdateObjects();
 
@@ -391,6 +450,11 @@ namespace Yanmonet.NetSync
 
             ProcessReceiveMessage();
 
+
+            foreach (var conn in connections)
+            {
+                conn.Update();
+            }
 
 
         }
@@ -492,7 +556,14 @@ namespace Yanmonet.NetSync
                     netMsg.Reader = reader;
                     netMsg.rawPacket = reader.rawPacket;
 
-                    NetworkManager.Log($"Client[{ConnectionId}] Receive Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                    if (NetworkManager.IsServer)
+                    {
+                        NetworkManager.Log($"Server Receive Client[{ConnectionId}] Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                    }
+                    else
+                    {
+                        NetworkManager.Log($"Client[{NetworkManager.LocalClientId}] Receive Server Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                    }
                     NetworkManager.InvokeHandler(netMsg);
 
                     readCount = reader.ReadPackage();

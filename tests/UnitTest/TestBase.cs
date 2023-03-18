@@ -22,7 +22,7 @@ namespace Yanmonet.NetSync.Test
 
         protected NetworkManager serverManager;
         protected NetworkManager clientManager;
-        static int nextPort = 7777;
+          int nextPort = 7777;
 
         protected void OpenNetwork()
         {

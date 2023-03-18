@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
-    public class IPAddressTest
+    public class IPAddressTests
     {
 
         [Test]

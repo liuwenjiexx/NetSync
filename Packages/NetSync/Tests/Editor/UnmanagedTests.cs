@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
-    public class UnmanagedTest
+    public class UnmanagedTests
     {
 
         [Test]
@@ -125,5 +125,22 @@ namespace Yanmonet.NetSync.Editor.Tests
         }
 
 
+        //Assert.AreEqual(GetSigleBitsLength(0), 0);
+        //Assert.AreEqual(GetSigleBitsLength(1<<0), 1);
+        //Assert.AreEqual(GetSigleBitsLength(1 << 1), 2);
+        //Assert.AreEqual(GetSigleBitsLength(1 << 2), 3);
+
+        byte GetSigleBitsLength(uint bits)
+        {
+            if (bits == 0)
+                return 0;
+            byte length = 0;
+            while (bits != 0)
+            {
+                bits >>= 1;
+                length++;
+            }
+            return length;
+        }
     }
 }

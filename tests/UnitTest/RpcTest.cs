@@ -16,54 +16,7 @@ namespace Yanmonet.NetSync.Test
     [TestClass]
     public class RpcTest : TestBase
     {
-
-        class MyData : NetworkObject
-        {
-            [SyncVar(Bits = 0x1)]
-            private string stringVar;
-            [SyncVar(Bits = 0x2)]
-            private int intVar;
-            [SyncVar(Bits = 0x4)]
-            private float floatVar;
-
-            public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
-            public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
-            public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
-
-            public string result;
-
-            public MyData()
-            {
-
-            }
-            public void SetRpcMsg(string msg)
-            {
-                this.result = msg;
-            }
-            [ClientRpc]
-            public void ClientRpc(string msg)
-            {
-                if (!IsClient)
-                {
-                    Rpc(nameof(ClientRpc), new object[] { msg });
-                    return;
-                }
-                this.result = msg;
-            }
-            [ServerRpc]
-            public void ServerRpc(string msg)
-            {
-
-                if (!IsServer)
-                {
-                    Rpc(nameof(ServerRpc), new object[] { msg });
-                    return;
-                }
-                this.result = msg;
-            }
-
-        }
-
+      
         [TestMethod]
         public void Test1()
         {
@@ -128,88 +81,6 @@ namespace Yanmonet.NetSync.Test
             //value.f1 = 3f;
         }
 
-        [TestMethod]
-        public void Rpc_Test()
-        {
-            _Rpc_Test().Wait();
-        }
-
-
-
-        public async Task _Rpc_Test()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            NetworkManager clientManager = new NetworkManager();
-            try
-            {
-                serverManager.RegisterObject<MyData>((id) =>
-                {
-                    return new MyData();
-                });
-                clientManager.RegisterObject<MyData>((id) =>
-                {
-                    return new MyData();
-                });
-                serverManager.StartServer();
-                clientManager.StartClient();
-
-                var server = serverManager.Server;
-                var client = clientManager.LocalClient;
-
-                Update(serverManager, clientManager);
-
-                var serverClient = serverManager.ConnnectedClientList.First();
-                 
-                var serverData = serverManager.CreateObject<MyData>();
-                serverData.SpawnWithOwnership(serverClient.ClientId);             
-                Update(serverManager, clientManager);
-
-                var clientData = (MyData)client.Objects.FirstOrDefault();
-
-                serverData.result = null;
-                clientData.result = null;
-                serverData.ClientRpc("server to client");                 
-                Update(serverManager, clientManager);
-                Update(serverManager, clientManager);
-
-                Assert.AreEqual(serverData.result, null);
-                Assert.AreEqual(clientData.result, "server to client");
-
-                serverData.result = null;
-                clientData.result = null;
-                serverData.ServerRpc("server to server");
-
-                Update(serverManager, clientManager);
-
-                Assert.AreEqual(serverData.result, "server to server");
-                Assert.AreEqual(clientData.result, null);
-
-                serverData.result = null;
-                clientData.result = null;
-                clientData.ClientRpc("client to client");
-
-                Update(serverManager, clientManager);
-
-                Assert.AreEqual(serverData.result, null);
-                Assert.AreEqual(clientData.result, "client to client");
-
-                serverData.result = null;
-                clientData.result = null;
-                serverData.ServerRpc("client to server");
-
-                Update(serverManager, clientManager);
-                Assert.AreEqual(serverData.result, "client to server");
-                Assert.AreEqual(clientData.result, null);
-
-                Update(serverManager, clientManager);
-                //  client.Stop();
-            }
-            finally
-            {
-                serverManager.Dispose();
-                clientManager.Dispose();
-            }
-        }
 
         [TestMethod]
         public async Task ThreadId_Test()

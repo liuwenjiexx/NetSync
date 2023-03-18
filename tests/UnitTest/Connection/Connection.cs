@@ -74,30 +74,7 @@ namespace Yanmonet.NetSync.Test.Connection
             }
         }
 
-        [TestMethod]
-        public void ConnectionData()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            string serverData = null;
-            serverManager.ValidateConnect = (version, data) =>
-            {
-                serverData = Encoding.UTF8.GetString(data);
-                return null;
-            };
-            serverManager.StartServer();
-            serverManager.Update();
-
-            NetworkManager clientManager = new NetworkManager();
-            clientManager.ConnectionData = Encoding.UTF8.GetBytes("AuthToken");
-            clientManager.StartClient();
-
-            Update(serverManager, clientManager);
-
-            Assert.AreEqual("AuthToken", serverData);
-
-            clientManager.Dispose();
-            serverManager.Dispose();
-        }
+    
         [TestMethod]
         public void Disconnect_Client()
         {

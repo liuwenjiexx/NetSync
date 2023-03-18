@@ -42,14 +42,14 @@ namespace Yanmonet.NetSync
 
         public uint SyncVarDirtyBits { get => syncVarDirtyBits; }
 
-        public NetworkConnection ConnectionToServer
+        public NetworkConnection Connection
         {
-            get => connectionToServer;
+            get => remote;
             set
             {
-                if (connectionToServer != value)
+                if (remote != value)
                 {
-                    connectionToServer = value;
+                    remote = value;
                 }
             }
         }
@@ -61,7 +61,7 @@ namespace Yanmonet.NetSync
         /// </summary>
         public NetworkConnection ConnectionToOwner { get; set; }
 
-        private NetworkConnection connectionToServer;
+        private NetworkConnection remote;
 
         internal NetworkManager networkManager;
         public NetworkManager NetworkManager => networkManager ?? NetworkManager.Singleton;
@@ -178,12 +178,14 @@ namespace Yanmonet.NetSync
                         NetworkManager.Server.RemoveObserver(this, clientId);
                     }
 
-                    NetworkManager.Server.RemoveObject(InstanceId);
+                    //NetworkManager.Server.RemoveObject(InstanceId);
+                    NetworkManager.Server.objects.Remove(InstanceId);
                 }
 
                 InstanceId = default;
                 IsSpawned = false;
                 sendSpawned.Clear();
+                OnDespawned();
             }
 
             if (destrory)
@@ -394,7 +396,7 @@ namespace Yanmonet.NetSync
         internal void InternalUpdate()
         {
 
-            UpdateObjectState();
+            SyncState();
 
             Update();
         }
@@ -421,7 +423,7 @@ namespace Yanmonet.NetSync
 
 
         //更新对象状态
-        public void UpdateObjectState()
+        public void SyncState()
         {
             if (IsSpawned)
             {
@@ -479,20 +481,20 @@ namespace Yanmonet.NetSync
         #region Rpc
 
 
-        protected void Rpc(string methodName, params object[] args)
+        private void Rpc(string methodName, params object[] args)
         {
             Rpc(null, methodName, args);
         }
 
-        protected void Rpc(NetworkConnection conn, string methodName, params object[] args)
+        private void Rpc(NetworkConnection conn, string methodName, params object[] args)
         {
 
             RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
-            UpdateObjectState();
+            SyncState();
             if (IsClient)
             {
                 var msg = RpcMessage.RpcServer(this, rpcInfo, args);
-                connectionToServer.SendMessage((ushort)NetworkMsgId.Rpc, msg);
+                remote.SendMessage((ushort)NetworkMsgId.Rpc, msg);
             }
             else if (IsServer)
             {
@@ -511,18 +513,72 @@ namespace Yanmonet.NetSync
             }
         }
 
-        private bool returnClientRpc;
+        private ServerRpcInfo serverRpc;
+        struct ServerRpcInfo
+        {
+            public RpcServerParams serverParams;
+            public RpcInfo rpcInfo;
+            public object[] args;
+            public bool returnServerRpc;
+        }
+        protected void BeginServerRpc(string methodName, params object[] args)
+        {
+            BeginServerRpc(methodName, default, args);
+        }
+
+        protected void BeginServerRpc(string methodName, RpcServerParams serverParams, params object[] args)
+        {
+            serverRpc = new ServerRpcInfo();
+            serverRpc.serverParams = serverParams;
+            serverRpc.returnServerRpc = !IsServer;
+            serverRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
+            serverRpc.args = args;
+        }
+
+        protected void EndServerRpc()
+        {
+            if (!IsServer)
+            {
+                var msg = RpcMessage.RpcServer(this, serverRpc.rpcInfo, serverRpc.args);
+                remote.SendMessage((ushort)NetworkMsgId.Rpc, msg);
+            }
+        }
+        protected bool ReturnServerRpc()
+        {
+            return serverRpc.returnServerRpc;
+        }
+
+        private ClientRpcInfo clientRpc;
+
+        struct ClientRpcInfo
+        {
+            public RpcInfo rpcInfo;
+            public object[] args;
+            public bool returnClientRpc;
+            public RpcClientParams clientParams;
+        }
 
         protected void BeginClientRpc(string methodName, params object[] args)
         {
-            returnClientRpc = !IsClient;
+            BeginClientRpc(methodName, default, args);
+        }
+        protected void BeginClientRpc(string methodName, RpcClientParams clientParams, params object[] args)
+        {
+            clientRpc = new ClientRpcInfo();
+            clientRpc.clientParams = clientParams;
+            clientRpc.returnClientRpc = !IsClient;
+            clientRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
+            clientRpc.args = args;
+        }
 
+        protected void EndClientRpc()
+        {
             if (IsServer)
             {
-                RpcInfo rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
-                RpcMessage msg = RpcMessage.RpcClient(this, rpcInfo, args);
+                var rpcInfo = clientRpc.rpcInfo;
+                RpcMessage msg = RpcMessage.RpcClient(this, rpcInfo, clientRpc.args);
 
-                UpdateObjectState();
+                SyncState();
 
                 foreach (var _conn in NetworkManager.GetAvaliableConnections(observers))
                 {
@@ -530,21 +586,20 @@ namespace Yanmonet.NetSync
                     {
                         continue;
                     }
+
+                    if (clientRpc.clientParams.clients != null && !clientRpc.clientParams.clients.Contains(_conn.ConnectionId))
+                        continue;
+
                     NetworkManager.Log($"Rpc {GetType().Name}:{rpcInfo.method.Name} Client [{_conn.ConnectionId}]");
                     _conn.SendMessage((ushort)NetworkMsgId.Rpc, msg);
                 }
+
             }
-
-        }
-
-        protected void EndClientRpc()
-        {
-
         }
 
         protected bool ReturnClientRpc()
         {
-            return returnClientRpc;
+            return clientRpc.returnClientRpc;
         }
 
         #endregion

@@ -169,5 +169,35 @@ namespace Yanmonet.NetSync
             return port;
         }
 
+
+        public static IEnumerable<Assembly> ReferencedAssemblies(Assembly referenced)
+        {
+            return ReferencedAssemblies(referenced, AppDomain.CurrentDomain.GetAssemblies());
+        }
+
+        public static IEnumerable<Assembly> ReferencedAssemblies(Assembly referenced, IEnumerable<Assembly> assemblies)
+        {
+            string fullName = referenced.FullName;
+
+            foreach (var ass in assemblies)
+            {
+                if (referenced == ass)
+                {
+                    yield return ass;
+                }
+                else
+                {
+                    foreach (var refAss in ass.GetReferencedAssemblies())
+                    {
+                        if (fullName == refAss.FullName)
+                        {
+                            yield return ass;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
     }
 }

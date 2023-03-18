@@ -194,7 +194,7 @@ namespace Yanmonet.NetSync.Test
             Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
 
-            serverData.StringVar = "hello";
+            serverData.StringVar = "abc";
 
             Update(serverManager, clientManager);
             Assert.AreEqual(clientData.StringVar, serverData.StringVar);

@@ -592,7 +592,7 @@ namespace Yanmonet.NetSync
                     instance.networkManager = conn.NetworkManager;
                     instance.OwnerClientId = msg.ownerClientId;
                     instance.ConnectionToOwner = conn;
-                    instance.ConnectionToServer = conn;
+                    instance.Connection = conn;
                     if (instance.IsOwner)
                     {
                         instance.ConnectionToOwner = conn;
