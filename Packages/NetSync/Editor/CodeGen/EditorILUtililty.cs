@@ -352,6 +352,27 @@ namespace Yanmonet.NetSync.Editor.CodeGen
             //assembly.MainModule.Types 不包含嵌套类型
             foreach (var type in assembly.MainModule.GetAllTypes())
             {
+                if (!type.IsClass)
+                    continue;
+                bool isNetObjType = false;
+                var bt = type.BaseType;
+
+                if (type.BaseType?.FullName != typeof(NetworkObject).FullName)
+                    continue;
+
+                foreach (var method in type.GetMethods())
+                {
+                    switch (method.Name)
+                    {
+                        case "BeginServerRpc":
+                            if (method.Parameters.Count == 3)
+                            {
+                                BeginServerRpcMethodRef = method;
+                            }
+                            break;
+                    }
+                }
+
                 foreach (var method in type.GetMethods())
                 {
                     var il = method.Body.GetILProcessor();
@@ -386,7 +407,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                         }
 
                         builder.InsertPoint = builder.FirstOrCreate();
-
+                        builder.Nop();
 
                         int argCount = 0;
                         var ps = method.Parameters;
@@ -424,18 +445,25 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                             j++;
                         }
 
+                        var AddRef = typeof(NetworkObject).GetMethod("Add", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        //  BeginServerRpcMethodRef= typeof(NetworkObject).GetMethod("Add", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        //builder.LoadThis()
+                        //    .Call(AddRef);
 
                         if (serverRpcParamsIndex == -1)
                         {
                             var rpcParamsVar = builder.NewVariable(ServerRpcParamsRef);
-                            builder.Load(rpcParamsVar);
-                            builder.Emit(OpCodes.Initobj, ServerRpcParamsRef); 
+                            //builder.Load(rpcParamsVar);
+                            builder.Emit(OpCodes.Ldloca_S, rpcParamsVar.Index);
+                            builder.Emit(OpCodes.Initobj, ServerRpcParamsRef);
 
                             builder.LoadThis()
                                 .Load(method.Name)
+                                //.Emit(OpCodes.Ldloca_S, ServerRpcParamsRef)
                                 .Load(rpcParamsVar)
                                 .Load(argsVar)
-                                .Call(BeginServerRpcMethodRef);
+                                .Emit(OpCodes.Call, BeginServerRpcMethodRef);
+                            //.Call(BeginServerRpcMethod);
                         }
                         else
                         {
@@ -443,24 +471,28 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                                 .Load(method.Name)
                                 .Emit(OpCodes.Ldarg, serverRpcParamsIndex + 1)
                                 .Load(argsVar)
-                                .Call(BeginServerRpcMethodRef);
+                              .Emit(OpCodes.Call, BeginServerRpcMethodRef);
+                            //.Call(BeginServerRpcMethod);
                         }
+                        builder.Nop();
 
-                        builder.LoadThis()
-                            .Call(EndServerRpcMethodRef);
+                        /*
+                       builder.LoadThis()
+                           .Call(EndServerRpcMethodRef);
+                       builder.Nop();
 
-                        var isReturnVar = builder.NewVariable(mainModule.TypeSystem.Boolean);
-                        builder.LoadThis()
-                            .Call(ReturnServerRpcMethodRef);
-                        builder.Set(isReturnVar);
+                       var isReturnVar = builder.NewVariable(mainModule.TypeSystem.Boolean);
+                       builder.LoadThis()
+                           .Call(ReturnServerRpcMethodRef);
+                       builder.Set(isReturnVar);
 
-                        builder.BeginBlock();
-                        builder.Load(isReturnVar);
-                        builder.IfTrueBreakBlock();
-                        var returnPoint = builder.Body.Instructions.First(o => o.OpCode == OpCodes.Ret);
-                        builder.Emit(OpCodes.Br_S, returnPoint);
-                        builder.EndBlock();
-
+                       builder.BeginBlock();
+                       builder.Load(isReturnVar);
+                       builder.IfTrueBreakBlock();
+                       var returnPoint = builder.Body.Instructions.First(o => o.OpCode == OpCodes.Ret);
+                       builder.Emit(OpCodes.Br_S, returnPoint);
+                       builder.EndBlock();
+                       */
                         changed = true;
                     }
                 }

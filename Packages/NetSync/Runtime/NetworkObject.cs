@@ -517,14 +517,19 @@ namespace Yanmonet.NetSync
 
         private ServerRpcInfo serverRpc;
 
+        protected void Add()
+        {
+            Debug.Log("AA");
+        }
+         
         protected void BeginServerRpc(string methodName, object[] args)
         {
-            BeginServerRpc(methodName, default, args);
+            BeginServerRpc( methodName, default, args);
         }
 
-        protected void BeginServerRpc(string methodName, ServerRpcParams serverParams, object[] args)
+        public void BeginServerRpc(string methodName, ServerRpcParams serverParams, object[] args)
         {
-            serverRpc = new ServerRpcInfo();
+            serverRpc = new ServerRpcInfo(); 
             serverRpc.serverParams = serverParams;
             serverRpc.returnServerRpc = !IsServer;
             serverRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
