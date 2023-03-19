@@ -21,8 +21,8 @@ namespace Yanmonet.NetSync
         /// 创建实例
         /// </summary>
         CreateObject,
-        DestroyObject,
         Spawn,
+        Despawn,
         /// <summary>
         /// 同步变量
         /// </summary>

@@ -39,7 +39,7 @@ namespace Yanmonet.NetSync
                 List<SyncVarInfo> list = null;
                 foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
                 {
-                    if (typeof(NetworkVariableBase).IsAssignableFrom(field.FieldType))
+                    if (typeof(SyncBase).IsAssignableFrom(field.FieldType))
                     {
                         if (field.FieldType.IsAbstract)
                             continue;

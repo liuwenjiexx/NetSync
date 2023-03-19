@@ -4,21 +4,21 @@ using System;
 
 namespace Yanmonet.NetSync
 {
-    public abstract class NetworkVariableBase : IDisposable
+    public abstract class SyncBase : IDisposable
     {
         private NetworkObject networkObject;
         private bool isDirty;
-        public readonly NetworkVariableReadPermission ReadPermission = NetworkVariableReadPermission.Everyone;
+        public readonly SyncReadPermission ReadPermission ;
 
-        public readonly NetworkVariableWritePermission WritePermission = NetworkVariableWritePermission.Server;
+        public readonly SyncWritePermission WritePermission;
 
-        public const NetworkVariableReadPermission DefaultReadPermission = NetworkVariableReadPermission.Everyone;
+        public const SyncReadPermission DefaultReadPermission = SyncReadPermission.Everyone;
 
-        public const NetworkVariableWritePermission DefaultWritePermission = NetworkVariableWritePermission.Server;
+        public const SyncWritePermission DefaultWritePermission = SyncWritePermission.Server;
 
-        protected NetworkVariableBase(
-           NetworkVariableReadPermission readPermission = DefaultReadPermission,
-           NetworkVariableWritePermission writePermission = DefaultWritePermission)
+        protected SyncBase(
+           SyncReadPermission readPermission = DefaultReadPermission,
+           SyncWritePermission writePermission = DefaultWritePermission)
         {
             ReadPermission = readPermission;
             WritePermission = writePermission;
@@ -63,9 +63,9 @@ namespace Yanmonet.NetSync
             switch (ReadPermission)
             {
                 default:
-                case NetworkVariableReadPermission.Everyone:
+                case SyncReadPermission.Everyone:
                     return true;
-                case NetworkVariableReadPermission.Owner:
+                case SyncReadPermission.Owner:
                     return NetworkObject.OwnerClientId == clientId || NetworkManager.ServerClientId == clientId;
             }
         }
@@ -75,9 +75,9 @@ namespace Yanmonet.NetSync
             switch (WritePermission)
             {
                 default:
-                case NetworkVariableWritePermission.Server:
+                case SyncWritePermission.Server:
                     return NetworkManager.ServerClientId == clientId;
-                case NetworkVariableWritePermission.Owner:
+                case SyncWritePermission.Owner:
                     return NetworkObject.OwnerClientId == clientId;
             }
         }

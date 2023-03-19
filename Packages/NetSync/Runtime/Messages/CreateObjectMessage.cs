@@ -49,15 +49,16 @@ namespace Yanmonet.NetSync.Messages
     internal class DespawnMessage : MessageBase
     {
         public ulong instanceId;
-
-        public override void Serialize(IReaderWriter writer)
-        {
-            writer.SerializeValue(ref instanceId);
-        }
-
+        public bool isDestroy;
         public override void Deserialize(IReaderWriter reader)
         {
             reader.SerializeValue(ref instanceId);
+            reader.SerializeValue(ref isDestroy);
+        }
+        public override void Serialize(IReaderWriter writer)
+        {
+            writer.SerializeValue(ref instanceId);
+            writer.SerializeValue(ref isDestroy);
         }
     }
 }

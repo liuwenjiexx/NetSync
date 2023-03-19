@@ -404,61 +404,8 @@ namespace Yanmonet.NetSync
 
 
         #endregion
-        public void AddObserver(NetworkObject obj, NetworkConnection conn)
-        {
-        }
-        public void AddObserver(NetworkObject obj, ulong clientId)
-        {
-            if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(AddObserver)} only on server");
-
-            if (obj == null) throw new ArgumentNullException(nameof(obj));
-
-            NetworkConnection conn;
-
-            if (!NetworkManager.clients.TryGetValue(clientId, out var client))
-                return;
-            conn = client.Connection;
-
-            if (!obj.observers.Contains(clientId))
-            {
-                obj.observers.Add(clientId);
-                conn.AddObject(obj);
-
-                //if (obj.IsSpawned)
-                //{
-                //    conn.SendMessage((ushort)NetworkMsgId.CreateObject,
-                //        new CreateObjectMessage()
-                //        {
-                //            typeId = obj.typeId,
-                //            objectId = obj.InstanceId,
-                //            ownerClientId = obj.OwnerClientId,
-                //        });
-
-                //    obj.SyncAll(conn);
-                //}
-            }
-        }
-
-        public void RemoveObserver(NetworkObject obj, ulong clientId)
-        {
-            if (obj == null) return;
-            if (!NetworkManager.IsServer)
-                throw new Exception("not server object");
-            NetworkConnection conn;
-            if (!NetworkManager.clients.TryGetValue(clientId, out var client))
-                return;
-            conn = client.Connection;
-
-            if (obj.observers.Remove(clientId))
-            {
-                conn.RemoveObject(obj);
-                NetworkManager.Log("Remvoe Observer: " + obj + ", client: " + clientId);
-                conn.SendMessage((ushort)NetworkMsgId.DestroyObject, new DestroyObjectMessage()
-                {
-                    instanceId = obj.InstanceId,
-                });
-            }
-        }
+ 
+       
 
         public void RemoveObject(ulong instanceId)
         {

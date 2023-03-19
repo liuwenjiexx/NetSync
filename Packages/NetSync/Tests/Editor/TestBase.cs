@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition.Primitives;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 
 namespace Yanmonet.NetSync.Editor.Tests
@@ -13,14 +14,14 @@ namespace Yanmonet.NetSync.Editor.Tests
     {
 
         protected string localAddress = "127.0.0.1";
-        int port = 7777;
+        static int port = 7777;
         protected NetworkServer server;
         protected NetworkClient serverClient;
         protected NetworkClient client;
 
         protected NetworkManager serverManager;
         protected NetworkManager clientManager;
-
+        private static string lastMethod;
         [NUnit.Framework.SetUp]
         public virtual void SetUp()
         {
@@ -29,20 +30,24 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool isHost = false;
             OpenNetworkAttribute attr = methodInfo.GetCustomAttribute<OpenNetworkAttribute>(true);
             if (attr != null)
+            {
                 isHost = attr.IsHost;
-            OpenNetwork(isHost);
+                OpenNetwork(isHost);
+            } 
+            Thread.Sleep(10);
         }
 
         [TearDown]
         public virtual void TearDown()
         {
             CloseNetwork();
+            lastMethod = TestContext.CurrentContext.Test.MethodName;
         }
 
 
         protected int NextPort()
         {
-            return port++;
+            return Interlocked.Increment(ref port);
         }
 
         static HashSet<Type> networkObjectTypes;
@@ -80,8 +85,8 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             Debug.Log("===== Open Network =====");
             int port = NextPort();
-            Assert.IsNull(serverManager);
-            Assert.IsNull(clientManager);
+            Assert.IsNull(serverManager, "serverManager not null, Last Method: " + lastMethod);
+            Assert.IsNull(clientManager, "clientManager not null, Last Method: " + lastMethod);
 
             serverManager = new NetworkManager();
             clientManager = new NetworkManager();
@@ -101,6 +106,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             client = clientManager.LocalClient;
             Update(serverManager, clientManager);
 
+            CollectionAssert.IsNotEmpty(serverManager.ConnnectedClientList, "ConnnectedClientList empty");
             serverClient = serverManager.ConnnectedClientList.First();
 
         }

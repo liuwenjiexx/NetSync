@@ -66,7 +66,7 @@ namespace Yanmonet.NetSync
 
                                 if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
                                     continue;
-                                if (pInfo.ParameterType == typeof(RpcServerParams) || pInfo.ParameterType == typeof(RpcClientParams))
+                                if (pInfo.ParameterType == typeof(ServerRpcParams) || pInfo.ParameterType == typeof(ClientRpcParams))
                                     continue;
                                 object arg = args[j++];
 
@@ -149,13 +149,13 @@ namespace Yanmonet.NetSync
                             {
                                 args[i] = conn;
                             }
-                            else if (pInfo.ParameterType == typeof(RpcServerParams))
+                            else if (pInfo.ParameterType == typeof(ServerRpcParams))
                             {
-                                args[i] = new RpcServerParams();
+                                args[i] = new ServerRpcParams();
                             }
-                            else if (pInfo.ParameterType == typeof(RpcClientParams))
+                            else if (pInfo.ParameterType == typeof(ClientRpcParams))
                             {
-                                args[i] = new RpcClientParams();
+                                args[i] = new ClientRpcParams();
                             }
                             else
                             {
@@ -185,10 +185,10 @@ namespace Yanmonet.NetSync
 
     }
 
-    public struct RpcServerParams
+    public struct ServerRpcParams
     {
     }
-    public struct RpcClientParams
+    public struct ClientRpcParams
     {
         public List<ulong> clients;
     }

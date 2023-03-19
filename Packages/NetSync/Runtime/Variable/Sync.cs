@@ -11,7 +11,7 @@ namespace Yanmonet.NetSync
 #if UNITY_ENGINE
     [Serializable]
 #endif
-    public class NetworkVariable<T> : NetworkVariableBase
+    public class Sync<T> : SyncBase
     {
 
 #if UNITY_ENGINE
@@ -23,7 +23,7 @@ namespace Yanmonet.NetSync
         public delegate bool EqualsDelegate(ref T a, ref T b);
 
         public OnValueChangedDelegate OnValueChanged;
-        public static INetworkVariableSerializer<T> Serializer = new DefaultNetworkVariableSerializer<T>();
+        public static ISyncVariableSerializer<T> Serializer = new DefaultSyncVariableSerializer<T>();
 
         public static EqualsDelegate AreEqual;
 
@@ -35,15 +35,15 @@ namespace Yanmonet.NetSync
 
         public static ReadValueDelegate ReadValue;
 
-        public NetworkVariable(T value = default,
-         NetworkVariableReadPermission readPermission = DefaultReadPermission,
-         NetworkVariableWritePermission writePermission = DefaultWritePermission)
+        public Sync(T value = default,
+         SyncReadPermission readPermission = DefaultReadPermission,
+         SyncWritePermission writePermission = DefaultWritePermission)
          : base(readPermission, writePermission)
         {
             this.value = value;
         }
 
-        static NetworkVariable()
+        static Sync()
         {
             Type type = typeof(T);
             if (type.IsPrimitive)
@@ -163,7 +163,7 @@ namespace Yanmonet.NetSync
 
 
 
-    class DefaultNetworkVariableSerializer<T> : INetworkVariableSerializer<T>
+    class DefaultSyncVariableSerializer<T> : ISyncVariableSerializer<T>
     {
 
 

@@ -10,34 +10,34 @@ namespace Yanmonet.NetSync.Editor.Tests
 {
     public class RpcTests : TestBase
     {
-        class RpcTest : NetworkObject
+        public class RpcTest : NetworkObject
         {
-            /*  [SyncVar(Bits = 0x1)]
-              private string stringVar;
-              [SyncVar(Bits = 0x2)]
-              private int intVar;
-              [SyncVar(Bits = 0x4)]
-              private float floatVar;
-
-              public string StringVar { get => stringVar; set => SetSyncVar(value, ref stringVar, 0x1); }
-              public int IntVar { get => intVar; set => SetSyncVar(value, ref intVar, 0x2); }
-              public float FloatVar { get => floatVar; set => SetSyncVar(value, ref floatVar, 0x4); }
-              */
             public int result;
 
             [ServerRpc]
             public void ServerRpc(int a, int b)
             {
-                BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
-                EndServerRpc();
-                if (ReturnServerRpc())
-                {
-                    return;
-                }
-
+                //BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
+                //EndServerRpc();
+                //if (ReturnServerRpc())
+                //{
+                //    return;
+                //} 
+                   
+                this.result = a + b;
+            }  
+            [ServerRpc]
+            public void ServerRpc2(int a, int b, ServerRpcParams rpcParams)
+            {  
+                //BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
+                //EndServerRpc();   
+                //if (ReturnServerRpc())
+                //{  
+                //    return;
+                //}
+                 
                 this.result = a + b;
             }
-
             [ClientRpc]
             public void ClientRpc(int a, int b)
             {
@@ -50,10 +50,34 @@ namespace Yanmonet.NetSync.Editor.Tests
 
                 this.result = a + b;
             }
+            /*
+            public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
+            {
+                BeginServerRpc(nameof(ServerRpc3), rpcParams, , a, b);
+                EndServerRpc();
+                if (ReturnServerRpc())
+                {
+                    return;
+                }
 
-        }
+                this.result = a + b;
+            }
+            */
+            public void ServerRpc4(int a, int b)
+            { 
+                ServerRpcParams rpcParams = new ServerRpcParams();
+                //BeginServerRpc(nameof(ServerRpc4), rpcParams, , new object[] { a, b });
+                //EndServerRpc();
+                //if (ReturnServerRpc())
+                //{
+                //    return;
+                //}
 
-
+                //this.result = a + b;
+            }
+        } 
+           
+            
 
         [Test]
         [OpenNetwork]
@@ -91,7 +115,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Update();
 
             Assert.AreEqual(3, serverData.result);
-            Assert.AreEqual(0, clientData.result); 
+            Assert.AreEqual(0, clientData.result);
         }
 
         [Test]
@@ -231,11 +255,11 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         class RpcTestObject : NetworkObject
         {
-            private NetworkVariable<int> serverRpcResult = new NetworkVariable<int>(
-                writePermission: NetworkVariableWritePermission.Server);
+            private Sync<int> serverRpcResult = new Sync<int>(
+                writePermission: SyncWritePermission.Server);
 
-            private NetworkVariable<int> clientRpcResult = new NetworkVariable<int>(
-               writePermission: NetworkVariableWritePermission.Owner);
+            private Sync<int> clientRpcResult = new Sync<int>(
+               writePermission: SyncWritePermission.Owner);
 
             public int ServerRpcResult { get => serverRpcResult.Value; set => serverRpcResult.Value = value; }
 
@@ -269,6 +293,6 @@ namespace Yanmonet.NetSync.Editor.Tests
                 ClientRpcResult = a + b;
             }
         }
-    
+
     }
 }

@@ -694,7 +694,9 @@ namespace Yanmonet.NetSync
                 objects.Remove(obj.InstanceId);
                 if (obj.IsSpawned)
                 {
-                    ObjectRemoved?.Invoke(obj);
+                    obj.IsSpawned = false;
+                    obj.OnDespawned();
+                    ObjectRemoved?.Invoke(obj); 
                 }
             }
         }

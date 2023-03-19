@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync
 {
-    public interface INetworkVariableSerializer<T>
+    public interface ISyncVariableSerializer<T>
     {
         public void Write(IReaderWriter writer, ref T value);
 
@@ -18,7 +18,7 @@ namespace Yanmonet.NetSync
 
 
 
-    internal class BytesSerializer : INetworkVariableSerializer<byte[]>
+    internal class BytesSerializer : ISyncVariableSerializer<byte[]>
     {
         public void Write(IReaderWriter writer, ref byte[] value)
         {
@@ -33,7 +33,7 @@ namespace Yanmonet.NetSync
 
 
     }
-    internal class Int8Serializer : INetworkVariableSerializer<sbyte>
+    internal class Int8Serializer : ISyncVariableSerializer<sbyte>
     {
         public void Write(IReaderWriter writer, ref sbyte value)
         {
@@ -44,7 +44,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class UInt8Serializer : INetworkVariableSerializer<byte>
+    internal class UInt8Serializer : ISyncVariableSerializer<byte>
     {
         public void Write(IReaderWriter writer, ref byte value)
         {
@@ -55,7 +55,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class Int16Serializer : INetworkVariableSerializer<short>
+    internal class Int16Serializer : ISyncVariableSerializer<short>
     {
         public void Write(IReaderWriter writer, ref short value)
         {
@@ -66,7 +66,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class UInt16Serializer : INetworkVariableSerializer<ushort>
+    internal class UInt16Serializer : ISyncVariableSerializer<ushort>
     {
         public void Write(IReaderWriter writer, ref ushort value)
         {
@@ -77,7 +77,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class Int32Serializer : INetworkVariableSerializer<int>
+    internal class Int32Serializer : ISyncVariableSerializer<int>
     {
         public void Write(IReaderWriter writer, ref int value)
         {
@@ -88,7 +88,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class UInt32Serializer : INetworkVariableSerializer<uint>
+    internal class UInt32Serializer : ISyncVariableSerializer<uint>
     {
         public void Write(IReaderWriter writer, ref uint value)
         {
@@ -99,7 +99,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class Int64Serializer : INetworkVariableSerializer<long>
+    internal class Int64Serializer : ISyncVariableSerializer<long>
     {
         public void Write(IReaderWriter writer, ref long value)
         {
@@ -110,7 +110,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class UInt64Serializer : INetworkVariableSerializer<ulong>
+    internal class UInt64Serializer : ISyncVariableSerializer<ulong>
     {
         public void Write(IReaderWriter writer, ref ulong value)
         {
@@ -121,7 +121,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class Float32Serializer : INetworkVariableSerializer<float>
+    internal class Float32Serializer : ISyncVariableSerializer<float>
     {
         public void Write(IReaderWriter writer, ref float value)
         {
@@ -132,7 +132,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class Float64Serializer : INetworkVariableSerializer<double>
+    internal class Float64Serializer : ISyncVariableSerializer<double>
     {
         public void Write(IReaderWriter writer, ref double value)
         {
@@ -143,7 +143,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class BoolSerializer : INetworkVariableSerializer<bool>
+    internal class BoolSerializer : ISyncVariableSerializer<bool>
     {
         public void Write(IReaderWriter writer, ref bool value)
         {
@@ -154,7 +154,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class StringSerializer : INetworkVariableSerializer<string>
+    internal class StringSerializer : ISyncVariableSerializer<string>
     {
         public void Write(IReaderWriter writer, ref string value)
         {
@@ -165,7 +165,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref value);
         }
     }
-    internal class GuidSerializer : INetworkVariableSerializer<Guid>
+    internal class GuidSerializer : ISyncVariableSerializer<Guid>
     {
         public void Write(IReaderWriter writer, ref Guid value)
         {

@@ -11,17 +11,33 @@ namespace Yanmonet.NetSync.Editor.Tests
         class TestObject : NetworkObject
         {
 
-            private NetworkVariable<int> serverVar = new NetworkVariable<int>(
-                writePermission: NetworkVariableWritePermission.Server);
+            private Sync<int> serverVar = new Sync<int>(
+                writePermission: SyncWritePermission.Server);
 
             public int ServerVar { get => serverVar.Value; set => serverVar.Value = value; }
 
+            public bool isOnSpawned;
+            public bool isOnDespawned;
+            public bool isOnDestrory;
+            protected internal override void OnSpawned()
+            {
+                isOnSpawned = true;
+            }
+
+            protected internal override void OnDespawned()
+            {
+                isOnDespawned = true;
+            }
+            protected override void OnDestrory()
+            {
+                isOnDestrory = true;
+            }
         }
 
         [Test]
         [OpenNetwork]
         public void Spawn()
-        { 
+        {
             Assert.AreEqual(client.Objects.Count(), 0);
             Assert.AreEqual(server.Objects.Count(), 0);
 
@@ -39,10 +55,14 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkManager.ServerClientId, serverData.OwnerClientId);
             Assert.IsTrue(serverData.IsOwnedByServer);
             Assert.AreEqual(NetworkManager.ServerClientId, serverData.OwnerClientId);
+
+            Assert.IsTrue(serverData.isOnSpawned);
+            Assert.IsFalse(serverData.isOnDespawned);
+
             serverData.AddObserver(client.ClientId);
             Update(serverManager, clientManager);
 
-            var clientData = client.Objects.FirstOrDefault();
+            var clientData = client.Objects.FirstOrDefault() as TestObject;
             Assert.IsNotNull(clientData);
             Assert.IsTrue(clientData.IsSpawned);
             Assert.IsFalse(clientData.IsOwner);
@@ -52,6 +72,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(clientData.InstanceId, serverData.InstanceId);
             Assert.IsFalse(object.ReferenceEquals(clientData, serverData));
 
+            Assert.IsTrue(clientData.isOnSpawned);
+            Assert.IsFalse(clientData.isOnDespawned);
         }
 
         [Test]
@@ -93,19 +115,46 @@ namespace Yanmonet.NetSync.Editor.Tests
         [Test]
         [OpenNetwork]
         public void Despawn()
-        { 
+        {
             var serverData = serverManager.CreateObject<TestObject>();
-            serverData.SpawnWithOwnership(serverManager.clientIds.First());
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
             Update(serverManager, clientManager);
+            var clientData = client.Objects.FirstOrDefault() as TestObject;
+
 
             serverData.Despawn();
             Update(serverManager, clientManager);
 
-            Assert.AreEqual(server.Objects.Count(), 0);
-            Assert.AreEqual(client.Objects.Count(), 0);
+            Assert.AreEqual(0, server.Objects.Count());
+            Assert.AreEqual(0, client.Objects.Count());
 
+            Assert.IsTrue(serverData.isOnDespawned);
+            Assert.IsTrue(serverData.isOnDestrory);
+            Assert.IsTrue(clientData.isOnDespawned);
+            Assert.IsTrue(clientData.isOnDestrory);
         }
 
+        [Test]
+        [OpenNetwork]
+        public void DespawnNotDestrory()
+        {
+            var serverData = serverManager.CreateObject<TestObject>();
+            serverData.SpawnWithOwnership(serverManager.clientIds.First());
+            Update(serverManager, clientManager);
+            var clientData = client.Objects.FirstOrDefault() as TestObject;
+
+            serverData.Despawn(false);
+            Update(serverManager, clientManager);
+
+            Assert.AreEqual(0, server.Objects.Count());
+            Assert.AreEqual(0, client.Objects.Count());
+
+            Assert.IsTrue(serverData.isOnDespawned);
+            Assert.IsFalse(serverData.isOnDestrory);
+            Assert.IsTrue(clientData.isOnDespawned);
+            Assert.IsFalse(clientData.isOnDestrory);
+        }
 
         public void AddObserver()
         {

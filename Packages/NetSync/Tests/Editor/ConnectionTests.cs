@@ -100,6 +100,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             NetworkManager serverManager = new NetworkManager();
             NetworkManager clientManager = new NetworkManager();
+            clientManager.port = serverManager.port = NextPort();
 
             serverManager.StartServer();
             clientManager.StartClient();
@@ -126,6 +127,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             NetworkManager serverManager = new NetworkManager();
             NetworkManager clientManager = new NetworkManager();
+            clientManager.port = serverManager.port = NextPort();
 
             serverManager.StartServer();
             clientManager.StartClient();
@@ -158,12 +160,14 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             conn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) => { });
             Assert.IsTrue(conn.HasHandler((ushort)NetworkMsgId.Max));
+            manager.Shutdown();
         }
 
         [Test]
         public void ConnectionData()
         {
             NetworkManager serverManager = new NetworkManager();
+            serverManager.port = NextPort();
             string serverData = null;
             serverManager.ValidateConnect = (version, data) =>
             {
@@ -181,14 +185,15 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             Assert.AreEqual("AuthToken", serverData);
 
-            clientManager.Dispose();
-            serverManager.Dispose();
+            clientManager.Shutdown();
+            serverManager.Shutdown();
         }
 
         [Test]
         public void StartServer()
         {
             NetworkManager serverManager = new NetworkManager();
+            serverManager.port = NextPort();
             try
             {
                 Assert.IsFalse(serverManager.IsServer);
@@ -209,7 +214,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             }
             finally
             {
-                serverManager.Dispose();
+                serverManager.Shutdown();
             }
 
         }
@@ -251,8 +256,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             }
             finally
             {
-                clientManager.Dispose();
-                serverManager.Dispose();
+                clientManager.Shutdown();
+                serverManager.Shutdown();
             }
         }
 

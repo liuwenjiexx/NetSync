@@ -105,7 +105,7 @@ namespace Yanmonet.NetSync
             msgHandlers[(ushort)NetworkMsgId.ConnectResponse] = OnMessage_ConnectResponse;
             msgHandlers[(ushort)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
             msgHandlers[(ushort)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
-            msgHandlers[(ushort)NetworkMsgId.DestroyObject] = OnMessage_DestroryObject;
+            msgHandlers[(ushort)NetworkMsgId.Despawn] = OnMessage_DespawnObject;
             msgHandlers[(ushort)NetworkMsgId.Spawn] = OnMessage_SpawnObject;
             msgHandlers[(ushort)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
             msgHandlers[(ushort)NetworkMsgId.Rpc] = OnMessage_Rpc;
@@ -121,30 +121,30 @@ namespace Yanmonet.NetSync
                 return;
             serializationInitalized = true;
 
-            NetworkVariable<byte>.Serializer = new UInt8Serializer();
-            NetworkVariable<byte>.AreEqual = NetworkVariable<byte>.ValueEquals;
-            NetworkVariable<short>.Serializer = new Int16Serializer();
-            NetworkVariable<short>.AreEqual = NetworkVariable<short>.ValueEquals;
-            NetworkVariable<ushort>.Serializer = new UInt16Serializer();
-            NetworkVariable<ushort>.AreEqual = NetworkVariable<ushort>.ValueEquals;
-            NetworkVariable<int>.Serializer = new Int32Serializer();
-            NetworkVariable<int>.AreEqual = NetworkVariable<int>.ValueEquals;
-            NetworkVariable<uint>.Serializer = new UInt32Serializer();
-            NetworkVariable<uint>.AreEqual = NetworkVariable<uint>.ValueEquals;
-            NetworkVariable<long>.Serializer = new Int64Serializer();
-            NetworkVariable<long>.AreEqual = NetworkVariable<long>.ValueEquals;
-            NetworkVariable<ulong>.Serializer = new UInt64Serializer();
-            NetworkVariable<ulong>.AreEqual = NetworkVariable<ulong>.ValueEquals;
-            NetworkVariable<float>.Serializer = new Float32Serializer();
-            NetworkVariable<float>.AreEqual = NetworkVariable<float>.ValueEquals;
-            NetworkVariable<double>.Serializer = new Float64Serializer();
-            NetworkVariable<double>.AreEqual = NetworkVariable<double>.ValueEquals;
-            NetworkVariable<bool>.Serializer = new BoolSerializer();
-            NetworkVariable<bool>.AreEqual = NetworkVariable<bool>.ValueEquals;
-            NetworkVariable<string>.Serializer = new StringSerializer();
-            NetworkVariable<string>.AreEqual = NetworkVariable<bool>.EqualityEqualsObject;
-            NetworkVariable<Guid>.Serializer = new GuidSerializer();
-            NetworkVariable<Guid>.AreEqual = NetworkVariable<Guid>.ValueEquals;
+            Sync<byte>.Serializer = new UInt8Serializer();
+            Sync<byte>.AreEqual = Sync<byte>.ValueEquals;
+            Sync<short>.Serializer = new Int16Serializer();
+            Sync<short>.AreEqual = Sync<short>.ValueEquals;
+            Sync<ushort>.Serializer = new UInt16Serializer();
+            Sync<ushort>.AreEqual = Sync<ushort>.ValueEquals;
+            Sync<int>.Serializer = new Int32Serializer();
+            Sync<int>.AreEqual = Sync<int>.ValueEquals;
+            Sync<uint>.Serializer = new UInt32Serializer();
+            Sync<uint>.AreEqual = Sync<uint>.ValueEquals;
+            Sync<long>.Serializer = new Int64Serializer();
+            Sync<long>.AreEqual = Sync<long>.ValueEquals;
+            Sync<ulong>.Serializer = new UInt64Serializer();
+            Sync<ulong>.AreEqual = Sync<ulong>.ValueEquals;
+            Sync<float>.Serializer = new Float32Serializer();
+            Sync<float>.AreEqual = Sync<float>.ValueEquals;
+            Sync<double>.Serializer = new Float64Serializer();
+            Sync<double>.AreEqual = Sync<double>.ValueEquals;
+            Sync<bool>.Serializer = new BoolSerializer();
+            Sync<bool>.AreEqual = Sync<bool>.ValueEquals;
+            Sync<string>.Serializer = new StringSerializer();
+            Sync<string>.AreEqual = Sync<bool>.EqualityEqualsObject;
+            Sync<Guid>.Serializer = new GuidSerializer();
+            Sync<Guid>.AreEqual = Sync<Guid>.ValueEquals;
         }
 
         public void StartHost()
@@ -603,10 +603,10 @@ namespace Yanmonet.NetSync
             }
             //}
         }
-        private static void OnMessage_DestroryObject(NetworkMessage netMsg)
+        private static void OnMessage_DespawnObject(NetworkMessage netMsg)
         {
             var conn = netMsg.Connection;
-            var msg = netMsg.ReadMessage<DestroyObjectMessage>();
+            var msg = netMsg.ReadMessage<DespawnMessage>();
 
             ulong instanceId = msg.instanceId;
 
@@ -617,7 +617,10 @@ namespace Yanmonet.NetSync
                 if (!instance.NetworkManager.IsServer)
                 {
                     conn.RemoveObject(instance);
-                    instance.Destrory();
+                    if (msg.isDestroy)
+                    {
+                        instance.Destrory();
+                    }
                 }
             }
         }

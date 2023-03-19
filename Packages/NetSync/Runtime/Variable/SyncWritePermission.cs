@@ -3,11 +3,9 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync
 {
-
-    public enum NetworkVariableReadPermission
+    public enum SyncWritePermission
     {
-        Everyone,
-
-        Owner,
+        Server,
+        Owner
     }
 }

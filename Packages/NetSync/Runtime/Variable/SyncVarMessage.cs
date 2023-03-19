@@ -131,7 +131,7 @@ namespace Yanmonet.NetSync
                     break;
                 default:
                     uint hash = 0;
-                    NetworkVariableBase variable = null;
+                    SyncBase variable = null;
 
                     while (true)
                     {

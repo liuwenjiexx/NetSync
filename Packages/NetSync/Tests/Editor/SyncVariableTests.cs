@@ -1,43 +1,46 @@
 using NUnit.Framework;
 using System;
 using System.Linq;
-
+using UnityEngine;
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
     public class SyncVariableTests : TestBase
     {
-        class MySyncVarData : NetworkObject
+        class ServerVarData : NetworkObject
         {
-
-            private NetworkVariable<string> stringVar = new NetworkVariable<string>(
-                writePermission: NetworkVariableWritePermission.Server);
-
-            private NetworkVariable<int> intVar = new NetworkVariable<int>(
-                writePermission: NetworkVariableWritePermission.Server);
-
-            private NetworkVariable<float> floatVar = new NetworkVariable<float>(
-                writePermission: NetworkVariableWritePermission.Server);
-
-            public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
+            private Sync<int> intVar = new Sync<int>(writePermission: SyncWritePermission.Server);
+            private Sync<float> floatVar = new Sync<float>(writePermission: SyncWritePermission.Server);
+            private Sync<string> stringVar = new Sync<string>(writePermission: SyncWritePermission.Server);
 
             public int IntVar { get => intVar.Value; set => intVar.Value = value; }
-
             public float FloatVar { get => floatVar.Value; set => floatVar.Value = value; }
-
+            public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
         }
+
+        class OwnerVarData : NetworkObject
+        {
+            private Sync<int> intVar = new Sync<int>(writePermission: SyncWritePermission.Owner);
+            private Sync<float> floatVar = new Sync<float>(writePermission: SyncWritePermission.Owner);
+            private Sync<string> stringVar = new Sync<string>(writePermission: SyncWritePermission.Owner);
+
+            public int IntVar { get => intVar.Value; set => intVar.Value = value; }
+            public float FloatVar { get => floatVar.Value; set => floatVar.Value = value; }
+            public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
+        }
+
 
         class ClientMySyncVarData : NetworkObject
         {
 
-            private NetworkVariable<string> stringVar = new NetworkVariable<string>(
-                writePermission: NetworkVariableWritePermission.Owner);
+            private Sync<string> stringVar = new Sync<string>(
+                writePermission: SyncWritePermission.Owner);
 
-            private NetworkVariable<int> intVar = new NetworkVariable<int>(
-                writePermission: NetworkVariableWritePermission.Owner);
+            private Sync<int> intVar = new Sync<int>(
+                writePermission: SyncWritePermission.Owner);
 
-            private NetworkVariable<float> floatVar = new NetworkVariable<float>(
-                writePermission: NetworkVariableWritePermission.Owner);
+            private Sync<float> floatVar = new Sync<float>(
+                writePermission: SyncWritePermission.Owner);
 
             public string StringVar { get => stringVar.Value; set => stringVar.Value = value; }
 
@@ -50,15 +53,14 @@ namespace Yanmonet.NetSync.Editor.Tests
 
 
         [Test]
+        [OpenNetwork]
         public void ServerVariable()
         {
-            OpenNetwork<MySyncVarData>();
-
-            var serverData = serverManager.CreateObject<MySyncVarData>();
-            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+            var serverData = serverManager.CreateObject<OwnerVarData>();
+            serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (MySyncVarData)client.Objects.First();
+            var clientData = (OwnerVarData)client.Objects.First();
 
             Assert.AreEqual(0, serverData.IntVar);
             Assert.AreEqual(0, clientData.IntVar);
@@ -67,132 +69,134 @@ namespace Yanmonet.NetSync.Editor.Tests
             Update();
             Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
-            CloseNetwork();
         }
 
         [Test]
-        public void ServerVariable_ClientWriteError()
-        {
-            OpenNetwork<MySyncVarData>();
-
-            var serverData = serverManager.CreateObject<MySyncVarData>();
-            serverData.SpawnWithOwnership(clientManager.LocalClientId);
-            serverData.AddObserver(clientManager.LocalClientId);
-            Update();
-            var clientData = (MySyncVarData)client.Objects.First();
-
-            Assert.Throws<InvalidOperationException>(() =>
-            {
-                clientData.IntVar = 1;
-            });
-            CloseNetwork();
-        }
-
-        [Test]
+        [OpenNetwork]
         public void ClientVariable()
         {
-            OpenNetwork<ClientMySyncVarData>();
-
-            var serverData = serverManager.CreateObject<ClientMySyncVarData>();
+            var serverData = serverManager.CreateObject<OwnerVarData>();
             serverData.SpawnWithOwnership(clientManager.LocalClientId);
             Update();
-            var clientData = (ClientMySyncVarData)client.Objects.First();
+            var clientData = (OwnerVarData)client.Objects.First();
 
             Assert.AreEqual(0, serverData.IntVar);
             Assert.AreEqual(0, clientData.IntVar);
 
             clientData.IntVar = 1;
             Update();
-            Update();
-            Update();
             Assert.AreEqual(1, clientData.IntVar);
             Assert.AreEqual(1, serverData.IntVar);
-            CloseNetwork();
         }
-        [Test]
-        public void ClientVariable_ServerWriteError()
-        {
-            OpenNetwork<ClientMySyncVarData>();
 
-            var serverData = serverManager.CreateObject<ClientMySyncVarData>();
+        [Test]
+        [OpenNetwork]
+        public void ClientWriteError()
+        {
+            var serverData = serverManager.CreateObject<OwnerVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (OwnerVarData)client.Objects.First();
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                clientData.IntVar = 1;
+            });
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void ServerWriteError()
+        {
+            var serverData = serverManager.CreateObject<OwnerVarData>();
             serverData.SpawnWithOwnership(clientManager.LocalClientId);
             Update();
 
             Assert.Throws<InvalidOperationException>(() => serverData.IntVar = 1);
-
-            CloseNetwork();
         }
 
 
         [Test]
-        public void SyncVar()
+        [OpenNetwork]
+        public void PrimitiveTypes_Server()
         {
-            OpenNetwork<MySyncVarData>();
-
-            var serverData = server.CreateObject<MySyncVarData>();
+            var serverData = server.CreateObject<OwnerVarData>();
             serverData.Spawn();
-            serverManager.Server.AddObserver(serverData, clientManager.LocalClientId);
-            Update(serverManager, clientManager);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
-
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
 
             serverData.IntVar = 1;
-
-            Update(serverManager, clientManager);
+            Update();
 
             Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
 
+
+            serverData.FloatVar = 1.2f;
+            Update();
+
+            Assert.AreEqual(1.2f, serverData.FloatVar);
+            Assert.AreEqual(1.2f, clientData.FloatVar);
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void PrimitiveTypes_Client()
+        {
+            var serverData = server.CreateObject<OwnerVarData>();
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+
+            Update();
+            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+
+            clientData.IntVar = 1;
+            Update();
+            Assert.AreEqual(1, serverData.IntVar);
+            Assert.AreEqual(1, clientData.IntVar);
+
+            clientData.FloatVar = 1.2f;
+            Update();
+            Assert.AreEqual(1.2f, serverData.FloatVar);
+            Assert.AreEqual(1.2f, clientData.FloatVar);
+
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void String_Server()
+        {
+            var serverData = server.CreateObject<OwnerVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+
             serverData.StringVar = "abc";
 
-            Update(serverManager, clientManager);
+            Update();
+            Assert.AreEqual("abc", serverData.StringVar);
             Assert.AreEqual("abc", clientData.StringVar);
-
-            serverData.FloatVar = 0.1f;
-            Update(serverManager, clientManager);
-
-            Assert.AreEqual(clientData.FloatVar, serverData.FloatVar);
-
-            Update(serverManager, clientManager);
-
-            CloseNetwork();
         }
+
 
         [Test]
-        public void SyncVar_Int32_1()
+        [OpenNetwork]
+        public void String_Client()
         {
-            OpenNetwork<MySyncVarData>();
+            var serverData = server.CreateObject<OwnerVarData>();
+            serverData.SpawnWithOwnership(clientManager.LocalClientId);
 
-            var serverData = server.CreateObject<MySyncVarData>();
-            serverData.Spawn();
-            serverManager.Server.AddObserver(serverData, clientManager.LocalClientId);
+            Update();
+            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+            clientData.StringVar = "abc";
 
-            serverData.IntVar = 1;
-            Update(serverManager, clientManager);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
-
-            Update(serverManager, clientManager);
-            Assert.AreEqual(clientData.IntVar, serverData.IntVar);
-
-            CloseNetwork();
+            Update();
+            Assert.AreEqual("abc", serverData.StringVar);
+            Assert.AreEqual("abc", clientData.StringVar);
         }
-        [Test]
-        public void SyncVar_Int32_2()
-        {
-            OpenNetwork<MySyncVarData>();
 
-            var serverData = server.CreateObject<MySyncVarData>();
-            serverData.IntVar = 1;
-            serverManager.Server.AddObserver(serverData, clientManager.LocalClientId);
-            serverData.Spawn();
-            Update(serverManager, clientManager);
-            var clientData = (MySyncVarData)client.Objects.FirstOrDefault();
-
-            Update(serverManager, clientManager);
-            Assert.AreEqual(clientData.IntVar, serverData.IntVar);
-
-            CloseNetwork();
-        }
 
     }
 }

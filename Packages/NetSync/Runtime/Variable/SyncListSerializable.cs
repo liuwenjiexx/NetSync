@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync
 {
-    public class NetworkListSerializable<T> : NetworkVariableBase, IList<T>, IReadOnlyList<T>
+    public class SyncListSerializable<T> : SyncBase, IList<T>, IReadOnlyList<T>
         where T : INetworkSerializable, new()
     {
         private List<T> list = new();
@@ -16,19 +16,19 @@ namespace Yanmonet.NetSync
 
         public event OnListChangedDelegate OnListChanged;
 
-        public NetworkListSerializable()
+        public SyncListSerializable()
         {
         }
 
-        public NetworkListSerializable(NetworkVariableReadPermission readPermission = DefaultReadPermission,
-            NetworkVariableWritePermission writePermission = DefaultWritePermission)
+        public SyncListSerializable(SyncReadPermission readPermission = DefaultReadPermission,
+            SyncWritePermission writePermission = DefaultWritePermission)
             : base(readPermission, writePermission)
         {
         }
 
-        public NetworkListSerializable(IEnumerable<T> values = default,
-            NetworkVariableReadPermission readPermission = DefaultReadPermission,
-            NetworkVariableWritePermission writePermission = DefaultWritePermission)
+        public SyncListSerializable(IEnumerable<T> values = default,
+            SyncReadPermission readPermission = DefaultReadPermission,
+            SyncWritePermission writePermission = DefaultWritePermission)
             : base(readPermission, writePermission)
         {
             if (values != null)
