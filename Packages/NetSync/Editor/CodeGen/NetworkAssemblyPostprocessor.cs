@@ -78,26 +78,14 @@ namespace Yanmonet.NetSync.Editor.CodeGen
         {
             get => true;
         }
-
-        class C1
-        {
-
-        }
-        class C2 : C1
-        {
-
-        }
-        class C3 : C2
-        {
-
-        }
-
-
+         
+         
         [InitializeOnLoadMethod]
         static void InitializeOnLoadMethod()
         {
             if (!IsEnabled)
                 return;
+             
 
             //CompilationPipeline.compilationStarted += CompilationPipeline_compilationStarted;
             CompilationPipeline.assemblyCompilationFinished += CompilationPipeline_assemblyCompilationFinished;
@@ -351,7 +339,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
             using (new LockReloadAssemblies())
             {
                 DefaultAssemblyResolver assemblyResolver = new DefaultAssemblyResolver();
-                HashSet<string> searchPaths = new HashSet<string>();
+                List<string> searchPaths = new List<string>();
 
                 assemblyPaths = assemblyPaths.Select(o => Path.GetFullPath(o));
 
@@ -363,9 +351,24 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                         assemblyResolver.AddSearchDirectory(dir);
                         searchPaths.Add(dir);
                         //Debug.Log($"AddSearchDirectory: {dir}");
-                    }
-
+                    } 
                 }
+
+                foreach (var ass in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try
+                    {
+                        string dir = Path.GetDirectoryName(ass.Location);
+                        if (!searchPaths.Contains(dir))
+                        {
+                            assemblyResolver.AddSearchDirectory(dir);
+                            searchPaths.Add(dir);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                } 
 
                 var allAssembly = GetAllNetworkAssemblyNames();
                 List<string> processedAssemblies = new();
@@ -436,6 +439,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                             }
                             else
                             {
+                                Debug.Log($"Process assembly error '{assemblyPath}'");
                                 throw ex;
                             }
                         }
