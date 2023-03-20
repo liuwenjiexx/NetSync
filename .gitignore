@@ -12,3 +12,4 @@ Logs/
 .vsconfig
 boot.config
 src/packages
+Build/

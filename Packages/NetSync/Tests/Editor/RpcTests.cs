@@ -26,67 +26,53 @@ namespace Yanmonet.NetSync.Editor.Tests
             [ServerRpc]
             public void ServerRpc(int a, int b)
             {
-                //BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
-                //EndServerRpc();
-                //if (ReturnServerRpc())
-                //{
-                //    return;
-                //} 
-
-                //this.result = a + b;
+                this.result = a + b;
             }
+
+            [ServerRpc]
+            private void PrivateServerRpc( )
+            {
+            }
+
             [ServerRpc]
             public void ServerRpc2(int a, int b, ServerRpcParams rpcParams)
             {
-                //BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
-                //EndServerRpc();   
-                //if (ReturnServerRpc())
-                //{  
-                //    return;
-                //}
-
-                this.result = a + b;   
+                this.result = a + b;
             }
             [ClientRpc]
             public void ClientRpc(int a, int b)
             {
-                BeginClientRpc(nameof(ClientRpc), new object[] { a, b });
-                EndClientRpc();
-                if (ReturnClientRpc())
+
+                this.result = a + b;
+            }
+
+            public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
+            {
+                __BeginServerRpc__(nameof(ServerRpc3), rpcParams, a, b);
+                __EndServerRpc__();
+                if (__ReturnServerRpc__())
                 {
                     return;
                 }
 
                 this.result = a + b;
             }
-            /*
-            public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
+
+            public void ServerRpc4(int a, int b)
             {
-                BeginServerRpc(nameof(ServerRpc3), rpcParams, , a, b);
-                EndServerRpc();
-                if (ReturnServerRpc())
+                object[] array;
+                array = new object[2];
+                array[0] = a;
+                array[1] = b;    
+                ServerRpcParams rpcParams = new ServerRpcParams();
+                __BeginServerRpc__(nameof(ServerRpc4), rpcParams, array);
+                __EndServerRpc__();
+                if (__ReturnServerRpc__())
                 {
                     return;
                 }
 
                 this.result = a + b;
-            }    
-            */
-            public void ServerRpc4(int a, int b)
-            { 
-                object[] array;
-                array = new object[2]; 
-                array[0] = a;
-                array[1] = b;
-                ServerRpcParams rpcParams = new ServerRpcParams();
-                BeginServerRpc(nameof(ServerRpc4), rpcParams, array);
-                //EndServerRpc();
-                //if (ReturnServerRpc())
-                //{
-                //    return;
-                //}
-                 
-                //this.result = a + b;
             }
         }
 
@@ -268,11 +254,9 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         class RpcTestObject : NetworkObject
         {
-            private Sync<int> serverRpcResult = new Sync<int>(
-                writePermission: SyncWritePermission.Server);
+            private Sync<int> serverRpcResult = new Sync<int>(writePermission: SyncWritePermission.Server);
 
-            private Sync<int> clientRpcResult = new Sync<int>(
-               writePermission: SyncWritePermission.Owner);
+            private Sync<int> clientRpcResult = new Sync<int>(writePermission: SyncWritePermission.Owner);
 
             public int ServerRpcResult { get => serverRpcResult.Value; set => serverRpcResult.Value = value; }
 
@@ -282,13 +266,6 @@ namespace Yanmonet.NetSync.Editor.Tests
             [ServerRpc]
             public void ServerRpc(int a, int b)
             {
-                //BeginServerRpc(nameof(ServerRpc), new object[] { a, b });
-                //EndServerRpc();
-                //if (ReturnServerRpc())
-                //{
-                //    return;
-                //}
-
                 ServerRpcResult = a + b;
             }
 
@@ -296,13 +273,6 @@ namespace Yanmonet.NetSync.Editor.Tests
             [ClientRpc]
             public void ClientRpc(int a, int b)
             {
-                //BeginClientRpc(nameof(ClientRpc), new object[] { a, b });
-                //EndClientRpc();
-                //if (ReturnClientRpc())
-                //{
-                //    return;
-                //}
-
                 ClientRpcResult = a + b;
             }
         }

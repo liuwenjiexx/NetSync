@@ -167,7 +167,8 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void ConnectionData()
         {
             NetworkManager serverManager = new NetworkManager();
-            serverManager.port = NextPort();
+            NetworkManager clientManager = new NetworkManager();
+            clientManager.port = serverManager.port = NextPort();
             string serverData = null;
             serverManager.ValidateConnect = (version, data) =>
             {
@@ -177,7 +178,6 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverManager.StartServer();
             serverManager.Update();
 
-            NetworkManager clientManager = new NetworkManager();
             clientManager.ConnectionData = Encoding.UTF8.GetBytes("AuthToken");
             clientManager.StartClient();
 
