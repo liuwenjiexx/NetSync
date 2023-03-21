@@ -1,78 +1,81 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using UnityEngine;
 using Yanmonet.NetSync;
 
 namespace Yanmonet.NetSync
 {
 
-    internal class DiscoveryMessage : MessageBase
+    public class DiscoveryRequest<T> : INetworkSerializable
+        where T : INetworkSerializable, new()
     {
-        public string identifier;
-        public int version;
-        public string name;
-        public string serverAddress;
-        public int serverPort;
-        public byte[] userData;
+        private string identifier;
+        private string serverName;
+        private int version;
+        private T userData;
 
-        public override void Serialize(IReaderWriter writer)
+        public string Identifier { get => identifier; set => identifier = value; }
+        public string ServerName { get => serverName; set => serverName = value; }
+        public int Version { get => version; set => version = value; }
+        public T UserData { get => userData; set => userData = value; }
+
+        public IPEndPoint Remote { get; set; }
+
+
+        public void NetworkSerialize(IReaderWriter readerWriter)
         {
-            writer.SerializeValue(ref identifier);
-            writer.SerializeValue(ref version);
-            writer.SerializeValue(ref name);
-            writer.SerializeValue(ref serverAddress);
-            writer.SerializeValue(ref serverPort);
+            readerWriter.SerializeValue(ref identifier);
+            readerWriter.SerializeValue(ref serverName);
+            readerWriter.SerializeValue(ref version);
 
-            if (userData == null)
-                userData = new byte[0];
-            int length = userData.Length;
-            writer.SerializeValue(ref userData, 0, ref length);
-
+            if (readerWriter.IsReader)
+            {
+                UserData = new T();
+            }
+            else
+            {
+                if (UserData == null)
+                    UserData = new T();
+            }
+            UserData.NetworkSerialize(readerWriter);
         }
-
-        public override void Deserialize(IReaderWriter reader)
-        {
-            reader.SerializeValue(ref identifier);
-            reader.SerializeValue(ref version);
-            reader.SerializeValue(ref name);
-            reader.SerializeValue(ref serverAddress);
-            reader.SerializeValue(ref serverPort);
-
-            int length = 0;
-            userData = null;
-            reader.SerializeValue(ref userData, 0, ref length);
-        }
-
     }
-    internal class LookupMessage : MessageBase
+
+    public class DiscoveryResponse<T> : INetworkSerializable
+        where T : INetworkSerializable, new()
     {
-        public string identifier;
-        public byte[] userData;
-        public string name;
-        public int version;
+        private string identifier;
+        private string serverName;
+        private int version;
 
-        public override void Serialize(IReaderWriter writer)
+        private T userData;
+        private IPEndPoint remote;
+
+        public string Identifier { get => identifier; set => identifier = value; }
+        public string ServerName { get => serverName; set => serverName = value; }
+        public int Version { get => version; set => version = value; }
+
+        public T UserData { get => userData; set => userData = value; }
+        public IPEndPoint Remote { get => remote; set => remote = value; }
+
+        public void NetworkSerialize(IReaderWriter readerWriter)
         {
-            writer.SerializeValue(ref identifier);
-            writer.SerializeValue(ref version);
-            writer.SerializeValue(ref name);
-            
-            if (userData == null)
-                userData = new byte[0];
-            int length = userData.Length;
-            writer.SerializeValue(ref userData, 0, ref length);
+            readerWriter.SerializeValue(ref identifier);
+            readerWriter.SerializeValue(ref serverName);
+            readerWriter.SerializeValue(ref version);
 
+            if (readerWriter.IsReader)
+            {
+                userData = new();
+            }
+            else
+            {
+                if (userData == null)
+                    userData = new T();
+            }
+            userData.NetworkSerialize(readerWriter);
         }
 
-        public override void Deserialize(IReaderWriter reader)
-        {
-            reader.SerializeValue(ref identifier);
-            reader.SerializeValue(ref version);
-            reader.SerializeValue(ref name);
-
-            int length = 0;
-            userData = null;
-            reader.SerializeValue(ref userData, 0, ref length);
-        }
     }
 }

@@ -29,10 +29,12 @@ namespace Yanmonet.NetSync
         private DateTime lastSendTime;
         private DateTime lastReceiveTime;
         private string address;
+        private string listenAddress;
         private int port;
         private ulong connectionId;
         internal NetworkServer server;
         private bool ownerSoket;
+
 
         internal NetworkConnection(NetworkManager networkManager)
             : this(networkManager, null, null, false, false)
@@ -62,6 +64,12 @@ namespace Yanmonet.NetSync
 
             if (socket != null)
             {
+                var ipAddr = socket.RemoteEndPoint as IPEndPoint;
+                if (ipAddr != null)
+                {
+                    address = ipAddr.Address.ToString();
+                    port = ipAddr.Port;
+                }
                 if (socket.Connected)
                 {
                     isConnecting = true;
@@ -89,6 +97,12 @@ namespace Yanmonet.NetSync
             get { return connectionId; }
             internal set { connectionId = value; }
         }
+
+        public string Address => address;
+
+        public string ListenAddress => listenAddress;
+
+        public int Port => port;
 
         public Socket Socket
         {
@@ -191,7 +205,7 @@ namespace Yanmonet.NetSync
 
         public void SendPacket(ushort msgId, byte[] packet)
         {
-            NetworkManager.Log($"{ConnectionId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
+            //NetworkManager.Log($"{ConnectionId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
             if (NetworkManager.IsServer && connectionId == NetworkManager.ServerClientId)
             {
                 HostHandleMessage(msgId, packet);
@@ -547,24 +561,31 @@ namespace Yanmonet.NetSync
 
                 while (readCount > 0)
                 {
-
                     ushort msgId = reader.ReadUInt16();
-
-                    NetworkMessage netMsg = new NetworkMessage();
-                    netMsg.MsgId = msgId;
-                    netMsg.Connection = this;
-                    netMsg.Reader = reader;
-                    netMsg.rawPacket = reader.rawPacket;
-
-                    if (NetworkManager.IsServer)
+                    try
                     {
-                        NetworkManager.Log($"Server Receive Client[{ConnectionId}] Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+
+                        NetworkMessage netMsg = new NetworkMessage();
+                        netMsg.MsgId = msgId;
+                        netMsg.Connection = this;
+                        netMsg.Reader = reader;
+                        netMsg.rawPacket = reader.rawPacket;
+
+                        if (NetworkManager.IsServer)
+                        {
+                            //NetworkManager.Log($"Server Receive Client[{ConnectionId}] Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                        }
+                        else
+                        {
+                            //NetworkManager.Log($"Client[{NetworkManager.LocalClientId}] Receive Server Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                        }
+                        NetworkManager.InvokeHandler(netMsg);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        NetworkManager.Log($"Client[{NetworkManager.LocalClientId}] Receive Server Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                        NetworkManager.Log("Read package error, msgId: " + msgId);
+                        NetworkManager.LogException(ex);
                     }
-                    NetworkManager.InvokeHandler(netMsg);
 
                     readCount = reader.ReadPackage();
                     if (readCount > 0)
@@ -696,7 +717,7 @@ namespace Yanmonet.NetSync
                 {
                     obj.IsSpawned = false;
                     obj.OnDespawned();
-                    ObjectRemoved?.Invoke(obj); 
+                    ObjectRemoved?.Invoke(obj);
                 }
             }
         }
@@ -745,20 +766,20 @@ namespace Yanmonet.NetSync
             if (isConnected)
             {
                 isConnected = false;
-                NetworkManager.Log("Client Disconnect");
+                //NetworkManager.Log("Client Disconnect");
                 Disconnected?.Invoke(this);
             }
         }
         public void OnObjectAdded(NetworkObject obj)
         {
             if (!obj.IsSpawned) return;
-            NetworkManager.Log("Client Spawn Object: " + obj);
+            //NetworkManager.Log("Client Spawn Object: " + obj);
             ObjectAdded?.Invoke(obj);
         }
         public void OnObjectRemoved(NetworkObject obj)
         {
             if (!obj.IsSpawned) return;
-            NetworkManager.Log("Client Despawn Object: " + obj);
+            //NetworkManager.Log("Client Despawn Object: " + obj);
             obj.IsSpawned = false;
             ObjectRemoved?.Invoke(obj);
         }

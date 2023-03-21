@@ -139,28 +139,41 @@ namespace Yanmonet.NetSync
                     }
 
                     object[] args = null;
+
                     if (rpcInfo.paramCount > 0)
                     {
-                        args = new object[rpcInfo.paramCount];
-                        for (int i = 0; i < rpcInfo.paramCount; i++)
+                        ParameterInfo pInfo = null;
+                        try
                         {
-                            var pInfo = rpcInfo.parameters[i];
-                            if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
+                            args = new object[rpcInfo.paramCount];
+                            for (int i = 0; i < rpcInfo.paramCount; i++)
                             {
-                                args[i] = conn;
+                                pInfo = rpcInfo.parameters[i];
+                                if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
+                                {
+                                    args[i] = conn;
+                                }
+                                else if (pInfo.ParameterType == typeof(ServerRpcParams))
+                                {
+                                    args[i] = new ServerRpcParams();
+                                }
+                                else if (pInfo.ParameterType == typeof(ClientRpcParams))
+                                {
+                                    args[i] = new ClientRpcParams();
+                                }
+                                else
+                                {
+                                    args[i] = SyncVarMessage.Read(reader, pInfo.ParameterType);
+                                }
                             }
-                            else if (pInfo.ParameterType == typeof(ServerRpcParams))
+                        }
+                        catch (Exception ex)
+                        {
+                            if (pInfo != null)
                             {
-                                args[i] = new ServerRpcParams();
+                                netObj.NetworkManager.LogError($"Rpc read parameter error: {pInfo.Name}, method: {rpcInfo.method.Name}");
                             }
-                            else if (pInfo.ParameterType == typeof(ClientRpcParams))
-                            {
-                                args[i] = new ClientRpcParams();
-                            }
-                            else
-                            {
-                                args[i] = SyncVarMessage.Read(reader, pInfo.ParameterType);
-                            }
+                            netObj.NetworkManager.LogException(ex);
                         }
                     }
                     try

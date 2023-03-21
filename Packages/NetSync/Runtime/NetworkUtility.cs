@@ -91,7 +91,36 @@ namespace Yanmonet.NetSync
             }
             return bytes;
         }
+        public static byte[] PackMessage(ushort msgId, INetworkSerializable msg = null)
+        {
+            NetworkWriter s = null;
+            byte[] bytes = null;
+            try
+            {
+                //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+                s = GetWriter();
 
+                s.BaseStream.Position = 0;
+                s.BaseStream.SetLength(0);
+                s.BeginWritePackage();
+                s.SerializeValue(ref msgId);
+                if (msg != null)
+                {
+                    msg.NetworkSerialize(s);
+                }
+
+                s.EndWritePackage();
+                bytes = new byte[s.BaseStream.Length];
+                s.BaseStream.Position = 0;
+                s.BaseStream.Read(bytes, 0, bytes.Length);
+            }
+            finally
+            {
+                if (s != null)
+                    writePool.Unused(s);
+            }
+            return bytes;
+        }
         public static byte[] Pack(INetworkSerializable msg)
         {
 
@@ -142,6 +171,10 @@ namespace Yanmonet.NetSync
                     return true;
             }
             return false;
+        }
+        public static bool IsPortUsed(int port)
+        {
+            return IsUdpPortUsed(port) || IsTcpPortUsed(port);
         }
 
         public static HashSet<int> GetAllUsedPorts()

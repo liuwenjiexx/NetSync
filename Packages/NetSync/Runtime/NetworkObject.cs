@@ -144,7 +144,7 @@ namespace Yanmonet.NetSync
             if (conn == null)
                 return;
 
-            NetworkManager.Log($"Msg Spawn Object Type: {GetType()}, Client: {conn.ConnectionId}");
+            //NetworkManager.Log($"Msg Spawn Object Type: {GetType()}, Client: {conn.ConnectionId}");
 
             conn.SendMessage((ushort)NetworkMsgId.CreateObject, new CreateObjectMessage()
             {
@@ -233,7 +233,7 @@ namespace Yanmonet.NetSync
             conn = client.Connection;
 
             conn.RemoveObject(this);
-            NetworkManager.Log("Remvoe Observer: " + this + ", client: " + clientId);
+            //NetworkManager.Log("Remvoe Observer: " + this + ", client: " + clientId);
             conn.SendMessage((ushort)NetworkMsgId.Despawn, new DespawnMessage()
             {
                 instanceId = InstanceId,
@@ -558,7 +558,7 @@ namespace Yanmonet.NetSync
                     if (clientRpc.clientParams.clients != null && !clientRpc.clientParams.clients.Contains(_conn.ConnectionId))
                         continue;
 
-                    NetworkManager.Log($"Rpc {GetType().Name}:{rpcInfo.method.Name} Client [{_conn.ConnectionId}]");
+                    //NetworkManager.Log($"Rpc {GetType().Name}:{rpcInfo.method.Name} Client [{_conn.ConnectionId}]");
                     _conn.SendMessage((ushort)NetworkMsgId.Rpc, msg);
                 }
 

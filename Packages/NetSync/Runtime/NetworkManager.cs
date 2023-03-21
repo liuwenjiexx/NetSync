@@ -439,6 +439,21 @@ namespace Yanmonet.NetSync
 
         }
 
+        public void LogError(string error)
+        {
+            if (LogCallback != null)
+            {
+                LogCallback(error);
+                return;
+            }
+
+#if UNITY_ENGINE
+            Debug.LogError(error);
+#else
+            Console.WriteLine(error);
+#endif
+
+        }
         public void LogException(Exception ex)
         {
             if (LogCallback != null)
@@ -499,7 +514,7 @@ namespace Yanmonet.NetSync
 
                     conn.isConnecting = false;
                     conn.isConnected = true;
-                    Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
+                    //Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
                     conn.SendMessage((ushort)NetworkMsgId.ConnectResponse, new ConnectResponseMessage()
                     {
                         ownerClientId = conn.ConnectionId,

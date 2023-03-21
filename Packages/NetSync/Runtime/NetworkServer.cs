@@ -181,7 +181,7 @@ namespace Yanmonet.NetSync
                 if (client == null || !(client.Connection.IsConnecting || client.Connection.IsConnected))
                 {
                     node = node.RemoveAndNext();
-                    NetworkManager.Log($"Client {client.ClientId} Disconnected, IsConnecting: {client.Connection.IsConnecting}, IsConnected: {client.Connection.IsConnected}");
+                    //NetworkManager.Log($"Client {client.ClientId} Disconnected, IsConnecting: {client.Connection.IsConnecting}, IsConnected: {client.Connection.IsConnected}");
                     OnClientDisconnect(client);
                     ClientDisconnected?.Invoke(this, client);
                     continue;
@@ -308,7 +308,7 @@ namespace Yanmonet.NetSync
 
             ulong connId = ++nextConnectionId;
             client.Connection.ConnectionId = connId;
-            NetworkManager.Log($"Accept Client {connId}, IsConnecting: {client.Connection.IsConnecting}, IsRunning: {client.IsRunning}");
+            //NetworkManager.Log($"Accept Client {connId}, IsConnecting: {client.Connection.IsConnecting}, IsRunning: {client.IsRunning}");
 
             return client;
         }

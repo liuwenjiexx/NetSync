@@ -3,29 +3,26 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Yanmonet.NetSync
 {
-    public class NetworkDiscovery
+    public abstract class NetworkDiscovery<TRequest, TResponse>
+        where TRequest : INetworkSerializable, new()
+        where TResponse : INetworkSerializable, new()
     {
 
-        private UdpClient sendClient;
+        protected UdpClient sendClient;
         private UdpClient receiveClient;
         private Dictionary<ushort, Action<IReaderWriter, IPEndPoint>> msgHandlers;
-        private byte[] sendDiscoveryBytes;
-        private byte[] sendLookupBytes;
         private string identifier;
         private int version;
         private string serverName;
         private string serverAddress;
         private int serverPort;
-        private byte[] discoveryData;
-        private byte[] lookupData;
-        private DateTime? nextBroadcastTime;
+        protected DateTime? nextBroadcastTime;
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
         private int portMin;
@@ -38,41 +35,8 @@ namespace Yanmonet.NetSync
         {
             msgHandlers = new();
 
-            msgHandlers[(ushort)DiscoveryMsgIds.Lookup] = (reader, endPoint) =>
-            {
-                var data = new LookupMessage();
-                data.Deserialize(reader);
-                if (LookupCallback != null)
-                {
-                    nextBroadcastTime = DateTime.MinValue;
-                    LookupCallback(data.userData);
-                }
-            };
-
-
-            msgHandlers[(ushort)DiscoveryMsgIds.Discovery] = (reader, endPoint) =>
-            {
-                var data = new DiscoveryMessage();
-                data.Deserialize(reader);
-
-                if (data.identifier == Identifier)
-                {
-                    if (DiscoveryCallback != null)
-                    {
-                        DiscoveryData discoveryData = new DiscoveryData()
-                        {
-                            EndPoint = endPoint,
-                            Name = data.name,
-                            ServerPort = data.serverPort,
-                            UserData = data.userData,
-                        };
-                        DiscoveryCallback(discoveryData);
-                    }
-
-                    //Log($"Broadcast Client, Receive from {endPoint}, Server Address: {remoteAddress}, port: {remotePort}");
-
-                }
-            };
+            RegisterHandler((ushort)DiscoveryMsgIds.DiscoveryRequest, DiscoveryRequestHandler);
+            RegisterHandler((ushort)DiscoveryMsgIds.DiscoveryResponse, DiscoveryResponseHandler);
         }
 
 
@@ -84,7 +48,6 @@ namespace Yanmonet.NetSync
                 if (identifier != value)
                 {
                     identifier = value;
-                    sendDiscoveryBytes = null;
                 }
             }
         }
@@ -98,7 +61,6 @@ namespace Yanmonet.NetSync
                 if (version != value)
                 {
                     version = value;
-                    sendDiscoveryBytes = null;
                 }
             }
         }
@@ -112,7 +74,6 @@ namespace Yanmonet.NetSync
                 if (serverName != value)
                 {
                     serverName = value;
-                    sendDiscoveryBytes = null;
                 }
             }
         }
@@ -125,7 +86,6 @@ namespace Yanmonet.NetSync
                 if (serverAddress != value)
                 {
                     serverAddress = value;
-                    sendDiscoveryBytes = null;
                 }
             }
         }
@@ -138,7 +98,6 @@ namespace Yanmonet.NetSync
                 if (serverPort != value)
                 {
                     serverPort = value;
-                    sendDiscoveryBytes = null;
                 }
             }
         }
@@ -169,75 +128,41 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public byte[] DiscoveryData
-        {
-            get => discoveryData;
-            set
-            {
-                if (discoveryData != value)
-                {
-                    discoveryData = value;
-                    sendDiscoveryBytes = null;
-                }
-            }
-        }
-        public byte[] LookupData
-        {
-            get => lookupData;
-            set
-            {
-                if (lookupData != value)
-                {
-                    lookupData = value;
-                }
-            }
-        }
-
         public float BroadcastInterval { get; set; } = 3f;
 
-        public event Action<DiscoveryData> DiscoveryCallback;
-        public event Action<byte[]> LookupCallback;
-
-        public delegate void DiscoveryCallbackDelegate(EndPoint endPoint, int version, string name, byte[] userData);
+        public List<IPEndPoint> BroadcastAddressList => broadcastAddressList;
 
         public void RegisterHandler(ushort msgId, Action<IReaderWriter, IPEndPoint> handler)
         {
             msgHandlers[msgId] = handler;
         }
 
-        private byte[] GetSendDiscoveryData()
+        void DiscoveryRequestHandler(IReaderWriter reader, IPEndPoint remote)
         {
-            if (sendDiscoveryBytes == null)
-            {
-                var discoveryData = new DiscoveryMessage();
-                discoveryData.identifier = identifier;
-                discoveryData.version = version;
-                discoveryData.name = serverName;
-                discoveryData.serverAddress = serverAddress;
-                discoveryData.serverPort = serverPort;
-                discoveryData.userData = this.discoveryData;
+            var request = new DiscoveryRequest<TRequest>();
+            request.NetworkSerialize(reader);
 
-                sendDiscoveryBytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.Discovery, discoveryData);
-            }
+            if (request.Identifier != Identifier)
+                return;
 
-            return sendDiscoveryBytes;
+            request.Remote = remote;
+
+            OnDiscoveryRequest(request);
+
         }
 
-        private byte[] GetSendLookupData()
+        void DiscoveryResponseHandler(IReaderWriter reader, IPEndPoint remote)
         {
-            if (sendLookupBytes == null)
-            {
-                var lookupMsg = new LookupMessage();
-                lookupMsg.identifier = Identifier;
-                lookupMsg.version = version;
-                lookupMsg.name = serverName;
-                lookupMsg.userData = lookupData;
+            var response = new DiscoveryResponse<TResponse>();
+            response.NetworkSerialize(reader);
+
+            if (response.Identifier != Identifier)
+                return;
+            response.Remote = remote;
+
+            OnDiscoveryResponse(response);
 
 
-                sendLookupBytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.Lookup, lookupMsg);
-            }
-
-            return sendLookupBytes;
         }
 
         private void Initalize()
@@ -249,6 +174,8 @@ namespace Yanmonet.NetSync
             cancellationToken = cancellationTokenSource.Token;
 
             broadcastAddressList = new List<IPEndPoint>();
+
+            nextBroadcastTime = DateTime.MinValue;
             //多播地址: 224.0.0.0-239.255.255.255
             //局部多播地址: 224.0.0.0～224.0.0.255
             //局部广播地址: 255.255.255.255
@@ -258,7 +185,7 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public void Start()
+        public virtual void Start()
         {
             if (cancellationTokenSource != null)
             {
@@ -267,7 +194,6 @@ namespace Yanmonet.NetSync
 
             Initalize();
 
-            nextBroadcastTime = DateTime.Now;
             //    StartServer();
             //    StartClient();
             //}
@@ -297,7 +223,7 @@ namespace Yanmonet.NetSync
             int port = 0;
             for (int i = PortMin; i <= PortMax; i++)
             {
-                if (!NetworkUtility.IsUdpPortUsed(i))
+                if (!NetworkUtility.IsPortUsed(i))
                 {
                     port = i;
                     break;
@@ -316,13 +242,8 @@ namespace Yanmonet.NetSync
             };
             sendClient = receiveClient;
 
-            NetworkManager.Singleton?.Log($"Start Discovery Server [{ServerName}], Identifier: '{Identifier}', Liststen: {receiveClient.Client.LocalEndPoint}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
+            //NetworkManager.Singleton?.Log($"Start Discovery Server [{ServerName}], Identifier: '{Identifier}', Liststen: {receiveClient.Client.LocalEndPoint}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
-
-            if (sendClient != null)
-            {
-                SendLookupMsg();
-            }
 
             Task.Run(ReceiveWorker, cancellationTokenSource.Token);
 
@@ -330,15 +251,9 @@ namespace Yanmonet.NetSync
             //NetworkManager.Singleton?.Log($"Stop Discovery Client");
         }
 
-        public void Update()
+        public virtual void Update()
         {
-            if (sendClient != null)
-            {
-                if (nextBroadcastTime.HasValue && DateTime.Now > nextBroadcastTime)
-                {
-                    SendDiscoveryMsg();
-                }
-            }
+
 
             if (receiveClient != null)
             {
@@ -405,28 +320,47 @@ namespace Yanmonet.NetSync
             }
         }
 
-        private async Task SendDiscoveryMsg()
+        private async Task Broadcast(byte[] data)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            if (data.Length == 0) return;
+
+            foreach (var broadcastAddress in broadcastAddressList)
+            {
+                await sendClient.SendAsync(data, data.Length, broadcastAddress);
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+            }
+        }
+
+
+        protected abstract void OnDiscoveryRequest(DiscoveryRequest<TRequest> request);
+        protected abstract void OnDiscoveryResponse(DiscoveryResponse<TResponse> response);
+
+
+        public async Task SendDiscoveryRequest(TRequest requestData)
         {
             nextBroadcastTime = DateTime.Now.AddSeconds(BroadcastInterval);
 
             if (sendClient == null)
                 return;
+
             try
             {
                 if (cancellationToken.IsCancellationRequested)
                     return;
 
+                var data = new DiscoveryRequest<TRequest>();
+                data.Identifier = Identifier;
+                data.ServerName = serverName;
+                data.Version = version;
+                data.UserData = requestData;
 
-                byte[] serverBroadcastBytes = GetSendDiscoveryData();
+                byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryRequest, data);
 
-                foreach (var broadcastAddress in broadcastAddressList)
-                {
-                    await sendClient.SendAsync(serverBroadcastBytes, serverBroadcastBytes.Length, broadcastAddress);
-                    if (cancellationToken.IsCancellationRequested)
-                        return;
-                }
+                await Broadcast(bytes);
 
-                NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
+                //NetworkManager.Singleton?.Log($"SendLookupMsg");
             }
             catch (Exception ex)
             {
@@ -434,28 +368,29 @@ namespace Yanmonet.NetSync
             }
         }
 
-
-        private async Task SendLookupMsg()
+        public async Task SendDiscoveryResponse(TResponse responseData, IPEndPoint remote)
         {
+
             if (sendClient == null)
                 return;
-
             try
             {
                 if (cancellationToken.IsCancellationRequested)
                     return;
 
+                var data = new DiscoveryResponse<TResponse>();
+                data.Identifier = identifier;
+                data.ServerName = serverName;
+                data.Version = version;
+                data.UserData = responseData;
 
-                byte[] bytes = GetSendLookupData();
+                byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryResponse, data);
 
-                foreach (var broadcastAddress in broadcastAddressList)
-                {
-                    await sendClient.SendAsync(bytes, bytes.Length, broadcastAddress);
-                    if (cancellationToken.IsCancellationRequested)
-                        return;
-                }
+                await sendClient.SendAsync(bytes, bytes.Length, remote);
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
-                NetworkManager.Singleton?.Log($"SendLookupMsg");
+                //NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
             }
             catch (Exception ex)
             {
@@ -463,7 +398,8 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public void Stop()
+
+        public virtual void Stop()
         {
             initalized = false;
 
@@ -498,8 +434,8 @@ namespace Yanmonet.NetSync
 
         enum DiscoveryMsgIds
         {
-            Discovery = 1,
-            Lookup,
+            DiscoveryRequest = 1,
+            DiscoveryResponse,
             Max
         }
     }

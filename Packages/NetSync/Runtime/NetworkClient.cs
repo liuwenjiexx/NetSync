@@ -51,7 +51,7 @@ namespace Yanmonet.NetSync
             {
                 isRunning = true;
             }
-             
+
         }
 
         public ulong ClientId
@@ -204,7 +204,7 @@ namespace Yanmonet.NetSync
                     }
                     catch (Exception ex)
                     {
-                        NetworkManager.LogException(ex);
+                        //NetworkManager.LogError($"Connection Error: {conn.Address}:{conn.Port}\n{ex.Message}\n{ex.StackTrace}");
                     }
 
                 }
