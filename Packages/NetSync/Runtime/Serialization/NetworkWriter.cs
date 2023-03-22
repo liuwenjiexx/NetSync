@@ -276,11 +276,11 @@ namespace Yanmonet.NetSync
 
         }
 
-        public void SerializeValue<T>(ref T value)
-            where T : INetworkSerializable
-        {
-            value.NetworkSerialize(this);
-        }
+        //public void SerializeValue<T>(ref T value)
+        //    where T : INetworkSerializable
+        //{
+        //    value.NetworkSerialize(this);
+        //}
     }
 
 

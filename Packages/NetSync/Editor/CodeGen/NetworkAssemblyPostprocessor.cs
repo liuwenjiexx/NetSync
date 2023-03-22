@@ -395,7 +395,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                         readSymbols = true;
                         mdb = true;
                     }
-                    readSymbols = false;
+                    //readSymbols = false;
 
                     ReaderParameters readerParameters = new ReaderParameters();
                     readerParameters.ReadWrite = true;
@@ -499,7 +499,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                 sw.Stop();
                 if (processedAssemblies.Count > 0)
                 {
-                    Debug.Log($"Process Network assembly complete , total assembly: {processedAssemblies.Count}. ({sw.Elapsed.TotalSeconds:0.##}s)\n{string.Join("\n", processedAssemblies)}");
+                    //Debug.Log($"Process Network assembly complete , total assembly: {processedAssemblies.Count}. ({sw.Elapsed.TotalSeconds:0.##}s)\n{string.Join("\n", processedAssemblies)}");
                 }
 
             }

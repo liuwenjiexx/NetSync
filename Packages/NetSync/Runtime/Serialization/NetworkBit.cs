@@ -334,7 +334,15 @@ namespace Yanmonet.NetSync
             WriteBytes(writer, bytes, 0, bytes.Length);
         }
 
-
+        public static void WriteGuid(byte[] buffer, int offset, Guid value)
+        {
+            byte[] bytes = value.ToByteArray();
+            //little to big
+            Array.Reverse(bytes, 0, 4);
+            Array.Reverse(bytes, 4, 2);
+            Array.Reverse(bytes, 6, 2);
+            Array.Copy(bytes, 0, buffer, offset, bytes.Length);
+        }
 
         #endregion
     }

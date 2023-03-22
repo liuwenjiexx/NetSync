@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Yanmonet.NetSync
 {
-    static class Extensions
+    static partial class Extensions
     {
         public static Type GetGenericTypeDefinition(this Type type, Type genericType)
         {
@@ -65,7 +65,7 @@ namespace Yanmonet.NetSync
             }
         }
 
-      
-    
+
+
     }
 }

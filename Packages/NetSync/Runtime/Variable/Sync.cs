@@ -57,17 +57,13 @@ namespace Yanmonet.NetSync
             get => value;
             set
             {
-                // Compare bitwise
-                if (AreEqual(ref this.value, ref value))
+                CheckWrite();
+
+                if (AreEqual == null ? object.Equals(this.value, value) : AreEqual(ref this.value, ref value))
                 {
                     return;
                 }
-
-                if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-                {
-                    throw new InvalidOperationException($"Client is not allowed to write to this NetworkVariable '{NetworkObject.GetType().Name}.{Name}'");
-                }
-
+                
                 Set(value);
             }
         }

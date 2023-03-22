@@ -101,6 +101,7 @@ namespace Yanmonet.NetSync
             foreach (var variable in variables.Values)
             {
                 variable.ResetDirty();
+                variable.networkObject = this;
             }
             isDirty = false;
 
@@ -113,6 +114,7 @@ namespace Yanmonet.NetSync
                 }
                 AddObserver(ownerClientId);
             }
+
 
             OnSpawned();
 
@@ -181,6 +183,11 @@ namespace Yanmonet.NetSync
 
             InstanceId = default;
             IsSpawned = false;
+            
+            foreach (var variable in variables.Values)
+            {
+                //variable.networkObject = null;
+            }
 
             OnDespawned();
 
@@ -345,8 +352,8 @@ namespace Yanmonet.NetSync
                             field.SetValue(this, variable);
                         }
                         variable.Name = varInfo.field.Name;
+                        variable.networkObject= this;
                         variables[varInfo.hash] = variable;
-                        variable.Initialize(this);
                     }
                     else
                     {
@@ -481,19 +488,19 @@ namespace Yanmonet.NetSync
 
 
         #region Rpc
-         
+
 
         private ServerRpcInfo serverRpc;
-         
-        protected void BeginServerRpc(string methodName,params object[] args)
-        {
-            __BeginServerRpc__( methodName, default, args);
-        }
-         
 
-        public void __BeginServerRpc__(string methodName, ServerRpcParams rpcParams,params object[] args)
+        protected void BeginServerRpc(string methodName, params object[] args)
         {
-            serverRpc = new ServerRpcInfo(); 
+            __BeginServerRpc__(methodName, default, args);
+        }
+
+
+        public void __BeginServerRpc__(string methodName, ServerRpcParams rpcParams, params object[] args)
+        {
+            serverRpc = new ServerRpcInfo();
             serverRpc.serverParams = rpcParams;
             serverRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
             serverRpc.args = args;
@@ -522,7 +529,7 @@ namespace Yanmonet.NetSync
         struct ClientRpcInfo
         {
             public RpcInfo rpcInfo;
-            public object[] args; 
+            public object[] args;
             public ClientRpcParams clientParams;
         }
 
@@ -530,7 +537,7 @@ namespace Yanmonet.NetSync
         {
             __BeginClientRpc__(methodName, default, args);
         }
- 
+
         protected void __BeginClientRpc__(string methodName, ClientRpcParams rpcParams, params object[] args)
         {
             clientRpc = new ClientRpcInfo();

@@ -6,9 +6,9 @@ namespace Yanmonet.NetSync
 {
     public abstract class SyncBase : IDisposable
     {
-        private NetworkObject networkObject;
+        internal NetworkObject networkObject;
         private bool isDirty;
-        public readonly SyncReadPermission ReadPermission ;
+        public readonly SyncReadPermission ReadPermission;
 
         public readonly SyncWritePermission WritePermission;
 
@@ -28,11 +28,6 @@ namespace Yanmonet.NetSync
 
         public string Name { get; internal set; }
 
-
-        public virtual void Initialize(NetworkObject networkObject)
-        {
-            this.networkObject = networkObject;
-        }
 
         public virtual bool IsDirty()
         {
@@ -79,6 +74,14 @@ namespace Yanmonet.NetSync
                     return NetworkManager.ServerClientId == clientId;
                 case SyncWritePermission.Owner:
                     return NetworkObject.OwnerClientId == clientId;
+            }
+        }
+
+        protected void CheckWrite()
+        {
+            if (NetworkObject != null && NetworkObject.IsSpawned && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
+            {
+                throw new InvalidOperationException("Client is not allowed to write to this Sync Variable");
             }
         }
 

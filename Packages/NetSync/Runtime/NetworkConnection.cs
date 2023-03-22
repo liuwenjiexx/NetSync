@@ -716,6 +716,10 @@ namespace Yanmonet.NetSync
                 if (obj.IsSpawned)
                 {
                     obj.IsSpawned = false;
+                    foreach(var variable in obj.variables.Values)
+                    {
+                        //variable.networkObject = null;
+                    }
                     obj.OnDespawned();
                     ObjectRemoved?.Invoke(obj);
                 }

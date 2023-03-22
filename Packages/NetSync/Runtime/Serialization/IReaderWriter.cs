@@ -28,7 +28,7 @@ namespace Yanmonet.NetSync
         void SerializeValue<T>(ref T value, Unused unused = default) where T : unmanaged, Enum;
 
 
-        void SerializeValue<T>(ref T value) where T : INetworkSerializable;
+        //void SerializeValue<T>(ref T value) where T : INetworkSerializable;
     }
 
     public enum Unused

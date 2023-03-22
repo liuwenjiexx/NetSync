@@ -12,6 +12,13 @@ namespace Yanmonet.NetSync
 {
     public static class NetworkUtility
     {
+        internal static T CreateInstance<T>()
+        {
+            if (typeof(T).IsValueType)
+                return default;
+            return (T)Activator.CreateInstance(typeof(T));
+        }
+         
 
         public static string GetMethodSignature(MethodInfo method)
         {

@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -85,8 +86,9 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             clientData.IntVar = 1;
             Update();
-            Assert.AreEqual(1, clientData.IntVar);
-            Assert.AreEqual(1, serverData.IntVar);
+
+            Assert.AreEqual(1, clientData.IntVar, "Client");
+            Assert.AreEqual(1, serverData.IntVar, "Server");
         }
 
         [Test]
@@ -197,6 +199,165 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual("abc", clientData.StringVar);
         }
 
+        #region List
 
+        class ListVarData : NetworkObject
+        {
+            private SyncList<string> stringList = new();
+            private SyncList<int> intList = new();
+
+            public IList<string> StringList => stringList;
+
+            public IList<int> IntList => intList;
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void List_Int()
+        {
+            var serverData = serverManager.CreateObject<ListVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (ListVarData)client.Objects.First();
+
+            Assert.AreEqual(0, serverData.IntList.Count);
+            Assert.AreEqual(0, clientData.IntList.Count);
+
+            serverData.IntList.Add(1);
+            Update();
+
+            string value;
+            Assert.AreEqual(1, serverData.IntList.Count);
+            Assert.AreEqual(1, serverData.IntList[0]);
+            Assert.AreEqual(1, clientData.IntList.Count);
+            Assert.AreEqual(1, clientData.IntList[0]);
+
+            serverData.IntList[0] = 2;
+            Update();
+            Assert.AreEqual(1, serverData.IntList.Count);
+            Assert.AreEqual(2, serverData.IntList[0]);
+            Assert.AreEqual(1, clientData.IntList.Count);
+            Assert.AreEqual(2, clientData.IntList[0]);
+
+            serverData.IntList.Add(3);
+            Update();
+            Assert.AreEqual(2, serverData.IntList.Count);
+            Assert.AreEqual(3, serverData.IntList[1]);
+            Assert.AreEqual(2, clientData.IntList.Count);
+            Assert.AreEqual(3, clientData.IntList[1]);
+
+
+            serverData.IntList.RemoveAt(0);
+            Update();
+            Assert.AreEqual(1, serverData.IntList.Count);
+            Assert.AreEqual(3, serverData.IntList[0]);
+            Assert.AreEqual(1, clientData.IntList.Count);
+            Assert.AreEqual(3, clientData.IntList[0]);
+
+            serverData.IntList.Clear();
+            Update();
+            Assert.AreEqual(0, serverData.IntList.Count);
+            Assert.AreEqual(0, clientData.IntList.Count);
+
+        }
+
+        #endregion
+
+        #region Dictionary
+
+
+        class DictionaryVarData : NetworkObject
+        {
+            private SyncDictionary<string, string> stringDic = new();
+            private SyncDictionary<int, int> intDic = new();
+
+            public IDictionary<string, string> StringDic => stringDic;
+
+            public IDictionary<int, int> IntDic => intDic;
+        }
+
+
+
+        [Test]
+        [OpenNetwork]
+        public void Dictionary_String_String()
+        {
+            var serverData = serverManager.CreateObject<DictionaryVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (DictionaryVarData)client.Objects.First();
+
+            Assert.AreEqual(0, serverData.StringDic.Count);
+            Assert.AreEqual(0, clientData.StringDic.Count);
+
+            serverData.StringDic["abc"] = "123";
+            Update();
+
+            string value;
+            Assert.IsTrue(serverData.StringDic.TryGetValue("abc", out value));
+            Assert.AreEqual("123", value);
+            Assert.IsTrue(clientData.StringDic.TryGetValue("abc", out value));
+            Assert.AreEqual("123", value);
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                serverData.StringDic.Add("abc", "456");
+            });
+
+
+            serverData.StringDic["abc"] = "123456";
+            Update();
+            Assert.IsTrue(serverData.StringDic.TryGetValue("abc", out value));
+            Assert.AreEqual("123456", value);
+            Assert.IsTrue(clientData.StringDic.TryGetValue("abc", out value));
+            Assert.AreEqual("123456", value);
+
+            serverData.StringDic.Add("def", "456");
+            Update();
+            Assert.IsTrue(serverData.StringDic.TryGetValue("def", out value));
+            Assert.AreEqual("456", value);
+            Assert.IsTrue(clientData.StringDic.TryGetValue("def", out value));
+            Assert.AreEqual("456", value);
+
+
+            serverData.StringDic.Remove("def");
+            Update();
+            Assert.IsFalse(serverData.StringDic.ContainsKey("def"));
+            Assert.IsFalse(clientData.StringDic.ContainsKey("def"));
+
+            serverData.StringDic.Clear();
+            Update();
+            Assert.AreEqual(0, serverData.StringDic.Count);
+            Assert.AreEqual(0, clientData.StringDic.Count);
+
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void Dictionary_Int_Int()
+        {
+            var serverData = serverManager.CreateObject<DictionaryVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (DictionaryVarData)client.Objects.First();
+
+            Assert.AreEqual(0, serverData.IntDic.Count);
+            Assert.AreEqual(0, clientData.IntDic.Count);
+
+            serverData.IntDic[1] = 123;
+            Update();
+
+            int value;
+            Assert.IsTrue(serverData.IntDic.TryGetValue(1, out value));
+            Assert.AreEqual(123, value);
+
+            Assert.IsTrue(clientData.IntDic.TryGetValue(1, out value));
+            Assert.AreEqual(123, value);
+        }
+
+        #endregion
     }
 }

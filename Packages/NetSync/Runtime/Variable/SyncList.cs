@@ -5,28 +5,30 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync
 {
-    public class SyncListSerializable<T> : SyncBase, IList<T>, IReadOnlyList<T>
-        where T : INetworkSerializable, new()
+    public class SyncList<T> : SyncBase, IList<T>, IReadOnlyList<T>
     {
         private List<T> list = new();
-        private List<NetworkListEvent<T>> listEvents = new();
+        private List<SyncListEvent<T>> listEvents = new();
 
 
-        public delegate void OnListChangedDelegate(NetworkListEvent<T> changeEvent);
+        public delegate void OnListChangedDelegate(SyncListEvent<T> changeEvent);
 
         public event OnListChangedDelegate OnListChanged;
 
-        public SyncListSerializable()
+        public SyncList()
+            : this(default, DefaultReadPermission, DefaultWritePermission)
         {
         }
 
-        public SyncListSerializable(SyncReadPermission readPermission = DefaultReadPermission,
+        public SyncList(
+            SyncReadPermission readPermission = DefaultReadPermission,
             SyncWritePermission writePermission = DefaultWritePermission)
-            : base(readPermission, writePermission)
+            : this(default, readPermission, writePermission)
         {
         }
 
-        public SyncListSerializable(IEnumerable<T> values = default,
+        public SyncList(
+            IEnumerable<T> values = default,
             SyncReadPermission readPermission = DefaultReadPermission,
             SyncWritePermission writePermission = DefaultWritePermission)
             : base(readPermission, writePermission)
@@ -46,17 +48,14 @@ namespace Yanmonet.NetSync
             get => list[index];
             set
             {
-                if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-                {
-                    throw new InvalidOperationException("Client is not allowed to write to this NetworkList");
-                }
+                CheckWrite();
 
                 var previousValue = list[index];
                 list[index] = value;
 
-                var listEvent = new NetworkListEvent<T>()
+                var listEvent = new SyncListEvent<T>()
                 {
-                    Type = NetworkListEvent<T>.EventType.Value,
+                    Type = SyncListEvent<T>.EventType.Value,
                     Index = index,
                     Value = value,
                     PreviousValue = previousValue
@@ -73,17 +72,13 @@ namespace Yanmonet.NetSync
 
         public void Add(T item)
         {
-
-            if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-            {
-                throw new InvalidOperationException("Client is not allowed to write to this NetworkList");
-            }
+            CheckWrite();
 
             list.Add(item);
 
-            var listEvent = new NetworkListEvent<T>()
+            var listEvent = new SyncListEvent<T>()
             {
-                Type = NetworkListEvent<T>.EventType.Add,
+                Type = SyncListEvent<T>.EventType.Add,
                 Value = item,
                 Index = list.Count - 1
             };
@@ -93,19 +88,16 @@ namespace Yanmonet.NetSync
 
         public void Clear()
         {
-            if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-            {
-                throw new InvalidOperationException("Client is not allowed to write to this NetworkVariable");
-            }
+            CheckWrite();
 
             if (list.Count == 0)
                 return;
 
             list.Clear();
 
-            var listEvent = new NetworkListEvent<T>()
+            var listEvent = new SyncListEvent<T>()
             {
-                Type = NetworkListEvent<T>.EventType.Clear
+                Type = SyncListEvent<T>.EventType.Clear
             };
 
             HandleAddListEvent(listEvent);
@@ -140,10 +132,7 @@ namespace Yanmonet.NetSync
 
         public void Insert(int index, T item)
         {
-            if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-            {
-                throw new InvalidOperationException("Client is not allowed to write to this NetworkList");
-            }
+            CheckWrite();
 
             if (index < list.Count)
             {
@@ -154,9 +143,9 @@ namespace Yanmonet.NetSync
                 list.Add(item);
             }
 
-            var listEvent = new NetworkListEvent<T>()
+            var listEvent = new SyncListEvent<T>()
             {
-                Type = NetworkListEvent<T>.EventType.Insert,
+                Type = SyncListEvent<T>.EventType.Insert,
                 Index = index,
                 Value = item
             };
@@ -167,10 +156,7 @@ namespace Yanmonet.NetSync
         public bool Remove(T item)
         {
 
-            if (NetworkObject != null && !CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-            {
-                throw new InvalidOperationException("Client is not allowed to write to this NetworkList");
-            }
+            CheckWrite();
 
             int index = list.IndexOf(item);
             if (index == -1)
@@ -179,9 +165,9 @@ namespace Yanmonet.NetSync
             }
 
             list.RemoveAt(index);
-            var listEvent = new NetworkListEvent<T>()
+            var listEvent = new SyncListEvent<T>()
             {
-                Type = NetworkListEvent<T>.EventType.Remove,
+                Type = SyncListEvent<T>.EventType.Remove,
                 Value = item
             };
 
@@ -191,22 +177,19 @@ namespace Yanmonet.NetSync
 
         public void RemoveAt(int index)
         {
-            if (!CanClientWrite(NetworkObject.NetworkManager.LocalClientId))
-            {
-                throw new InvalidOperationException("Client is not allowed to write to this NetworkList");
-            }
+            CheckWrite();
 
             list.RemoveAt(index);
 
-            var listEvent = new NetworkListEvent<T>()
+            var listEvent = new SyncListEvent<T>()
             {
-                Type = NetworkListEvent<T>.EventType.RemoveAt,
+                Type = SyncListEvent<T>.EventType.RemoveAt,
                 Index = index
             };
 
             HandleAddListEvent(listEvent);
         }
-        private void HandleAddListEvent(NetworkListEvent<T> listEvent)
+        private void HandleAddListEvent(SyncListEvent<T> listEvent)
         {
             listEvents.Add(listEvent);
 
@@ -240,8 +223,8 @@ namespace Yanmonet.NetSync
             SetDirty(true);
             //if (NetworkObject == null)
             //{
-            //    Debug.LogWarning($"NetworkList is written to, but doesn't know its NetworkObject yet. " +
-            //                     "Are you modifying a NetworkList before the NetworkObject is spawned?");
+            //    Debug.LogWarning($"Sync Variable is written to, but doesn't know its NetworkObject yet. " +
+            //                     "Are you modifying a Sync Variable before the NetworkObject is spawned?");
             //    return;
             //}
 
@@ -252,9 +235,11 @@ namespace Yanmonet.NetSync
         public override void ReadDelta(IReaderWriter reader, bool keepDirtyDelta)
         {
             ushort deltaCount = default;
-            NetworkListEvent<T>.EventType eventType = default;
+            SyncListEvent<T>.EventType eventType = default;
 
             reader.SerializeValue(ref deltaCount);
+
+            T value;
 
             for (int i = 0; i < deltaCount; i++)
             {
@@ -262,15 +247,15 @@ namespace Yanmonet.NetSync
 
                 switch (eventType)
                 {
-                    case NetworkListEvent<T>.EventType.Add:
+                    case SyncListEvent<T>.EventType.Add:
                         {
-                            var value = new T();
-                            reader.SerializeValue<T>(ref value);
+                              value = default;
+                            reader.SerializeValue(ref value);
                             list.Add(value);
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                     Index = list.Count - 1,
@@ -280,7 +265,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType,
                                     Index = list.Count - 1,
@@ -290,12 +275,12 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Insert:
+                    case SyncListEvent<T>.EventType.Insert:
                         {
                             int index = 0;
                             reader.SerializeValue(ref index);
-                            var value = new T();
-                            reader.SerializeValue<T>(ref value);
+                             value = default;
+                            reader.SerializeValue(ref value);
 
                             if (index < list.Count)
                             {
@@ -308,7 +293,7 @@ namespace Yanmonet.NetSync
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -318,7 +303,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -328,10 +313,10 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Remove:
+                    case SyncListEvent<T>.EventType.Remove:
                         {
-                            var value = new T();
-                            reader.SerializeValue<T>(ref value);
+                            value = default;
+                            reader.SerializeValue(ref value);
                             int index = list.IndexOf(value);
                             if (index == -1)
                             {
@@ -342,7 +327,7 @@ namespace Yanmonet.NetSync
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -352,7 +337,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -362,16 +347,16 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.RemoveAt:
+                    case SyncListEvent<T>.EventType.RemoveAt:
                         {
                             int index = 0;
                             reader.SerializeValue(ref index);
-                            T value = list[index];
+                              value = list[index];
                             list.RemoveAt(index);
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -381,7 +366,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -391,11 +376,11 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Value:
+                    case SyncListEvent<T>.EventType.Value:
                         {
                             int index = 0;
                             reader.SerializeValue(ref index);
-                            var value = new T();
+                            value = default;
                             reader.SerializeValue<T>(ref value);
                             if (index >= list.Count)
                             {
@@ -407,7 +392,7 @@ namespace Yanmonet.NetSync
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -418,7 +403,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType,
                                     Index = index,
@@ -429,14 +414,13 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Clear:
+                    case SyncListEvent<T>.EventType.Clear:
                         {
-                            //Read nothing
                             list.Clear();
 
                             if (OnListChanged != null)
                             {
-                                OnListChanged(new NetworkListEvent<T>
+                                OnListChanged(new SyncListEvent<T>
                                 {
                                     Type = eventType,
                                 });
@@ -444,7 +428,7 @@ namespace Yanmonet.NetSync
 
                             if (keepDirtyDelta)
                             {
-                                listEvents.Add(new NetworkListEvent<T>()
+                                listEvents.Add(new SyncListEvent<T>()
                                 {
                                     Type = eventType
                                 });
@@ -452,7 +436,7 @@ namespace Yanmonet.NetSync
                             }
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Full:
+                    case SyncListEvent<T>.EventType.Full:
                         {
                             Read(reader);
                             ResetDirty();
@@ -467,10 +451,11 @@ namespace Yanmonet.NetSync
             list.Clear();
             ushort count = 0;
             reader.SerializeValue(ref count);
+            T value;
             for (int i = 0; i < count; i++)
             {
-                T value = new T();
-                reader.SerializeValue<T>(ref value);
+                value = default;
+                reader.SerializeValue(ref value);
                 list.Add(value);
             }
         }
@@ -481,7 +466,7 @@ namespace Yanmonet.NetSync
             {
                 ushort n = 1;
                 writer.SerializeValue(ref n);
-                var t = NetworkListEvent<T>.EventType.Full;
+                var t = SyncListEvent<T>.EventType.Full;
                 writer.SerializeValue(ref t);
                 Write(writer);
 
@@ -500,38 +485,36 @@ namespace Yanmonet.NetSync
                 value = element.Value;
                 switch (element.Type)
                 {
-                    case NetworkListEvent<T>.EventType.Add:
+                    case SyncListEvent<T>.EventType.Add:
                         {
 
                             writer.SerializeValue(ref value);
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Insert:
+                    case SyncListEvent<T>.EventType.Insert:
                         {
                             writer.SerializeValue(ref index);
                             writer.SerializeValue(ref value);
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Remove:
+                    case SyncListEvent<T>.EventType.Remove:
                         {
                             writer.SerializeValue(ref value);
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.RemoveAt:
+                    case SyncListEvent<T>.EventType.RemoveAt:
                         {
                             writer.SerializeValue(ref index);
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Value:
+                    case SyncListEvent<T>.EventType.Value:
                         {
                             writer.SerializeValue(ref index);
                             writer.SerializeValue(ref value);
                         }
                         break;
-                    case NetworkListEvent<T>.EventType.Clear:
-                        {
-                            //Nothing has to be written
-                        }
+                    case SyncListEvent<T>.EventType.Clear:
+
                         break;
                 }
             }
@@ -551,7 +534,7 @@ namespace Yanmonet.NetSync
     }
 
 
-    public struct NetworkListEvent<T>
+    public struct SyncListEvent<T>
     {
         public enum EventType : byte
         {

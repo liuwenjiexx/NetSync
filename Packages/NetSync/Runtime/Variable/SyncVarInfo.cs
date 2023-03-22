@@ -65,34 +65,7 @@ namespace Yanmonet.NetSync
                         fieldMaps[info.hash] = info;
                         continue;
                     }
-
-                    var syncVarAttr = field.GetCustomAttributes(typeof(SyncVarAttribute), true).FirstOrDefault() as SyncVarAttribute;
-                    if (syncVarAttr != null)
-                    {
-                        SyncVarInfo info = new SyncVarInfo();
-                        info.bits = syncVarAttr.Bits;
-                        info.field = field;
-                        info.typeCode = Type.GetTypeCode(field.FieldType);
-                        info.hash = field.Name.Hash32();
-
-                        if (!SyncVarMessage.CanSerializeType(field.FieldType))
-                            throw new Exception("not implment type:" + field.FieldType);
-
-                        if (!string.IsNullOrEmpty(syncVarAttr.ChangeCallback))
-                        {
-                            var mInfo = type.GetMethod(syncVarAttr.ChangeCallback, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                            if (mInfo == null)
-                                throw new Exception("not found ChangedCallback method:" + syncVarAttr.ChangeCallback);
-                            info.changeCallback = mInfo;
-                        }
-
-                        if (list == null)
-                            list = new List<SyncVarInfo>();
-
-                        list.Add(info);
-                        if (list.Count > 32)
-                            throw new Exception("max 32 sync var");
-                    }
+                    
                 }
 
                 if (list != null)
