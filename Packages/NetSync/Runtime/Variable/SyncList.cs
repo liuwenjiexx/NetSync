@@ -476,14 +476,14 @@ namespace Yanmonet.NetSync
             writer.SerializeValue(ref evtCount);
             for (int i = 0; i < listEvents.Count; i++)
             {
-                var element = listEvents[i];
-                var evtType = element.Type;
+                var evt = listEvents[i];
+                var evtType = evt.Type;
                 writer.SerializeValue(ref evtType);
                 int index;
                 T value;
-                index = element.Index;
-                value = element.Value;
-                switch (element.Type)
+                index = evt.Index;
+                value = evt.Value;
+                switch (evt.Type)
                 {
                     case SyncListEvent<T>.EventType.Add:
                         {

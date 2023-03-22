@@ -63,7 +63,7 @@ namespace Yanmonet.NetSync
                 {
                     return;
                 }
-                
+
                 Set(value);
             }
         }
@@ -171,8 +171,9 @@ namespace Yanmonet.NetSync
             {
                 INetworkSerializable s = (INetworkSerializable)value;
                 if (s == null)
-                    throw new Exception($"NetworkVariableSerializer Type '{typeof(T)}' value not null");
+                    s = (INetworkSerializable)NetworkUtility.CreateInstance<T>();
                 s.NetworkSerialize(reader);
+                value = (T)s;
                 return;
             }
             throw new NotImplementedException($"{typeof(T)} Not Implement INetworkVariableSerializer");
@@ -184,7 +185,7 @@ namespace Yanmonet.NetSync
             {
                 INetworkSerializable s = (INetworkSerializable)value;
                 if (s == null)
-                    throw new Exception($"NetworkVariableSerializer Type '{typeof(T)}' value not null");
+                    s = (INetworkSerializable)NetworkUtility.CreateInstance<T>();
                 s.NetworkSerialize(writer);
                 return;
             }

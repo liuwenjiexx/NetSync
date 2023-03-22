@@ -205,10 +205,23 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             private SyncList<string> stringList = new();
             private SyncList<int> intList = new();
+            private SyncList<RefData> refList = new();
 
             public IList<string> StringList => stringList;
 
             public IList<int> IntList => intList;
+
+            public IList<RefData> RefList => refList;
+        }
+
+        class RefData:INetworkSerializable
+        {
+            public int n;
+
+            public void NetworkSerialize(IReaderWriter readerWriter)
+            {
+                readerWriter.SerializeValue(ref n);
+            }
         }
 
         [Test]
@@ -262,6 +275,65 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         }
 
+        [Test]
+        [OpenNetwork]
+        public void List_String()
+        {
+            var serverData = serverManager.CreateObject<ListVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (ListVarData)client.Objects.First();
+
+            Assert.AreEqual(0, serverData.StringList.Count);
+            Assert.AreEqual(0, clientData.StringList.Count);
+
+            serverData.StringList.Add("abc");
+            Update();
+
+            string value;
+            Assert.AreEqual(1, serverData.StringList.Count);
+            Assert.AreEqual("abc", serverData.StringList[0]);
+            Assert.AreEqual(1, clientData.StringList.Count);
+            Assert.AreEqual("abc", clientData.StringList[0]);
+
+            serverData.StringList[0] = "def";
+            Update();
+            Assert.AreEqual(1, serverData.StringList.Count);
+            Assert.AreEqual("def", serverData.StringList[0]);
+            Assert.AreEqual(1, clientData.StringList.Count);
+            Assert.AreEqual("def", clientData.StringList[0]);
+        }
+
+        [Test]
+        [OpenNetwork]
+        public void List_Ref()
+        {
+            var serverData = serverManager.CreateObject<ListVarData>();
+            serverData.Spawn();
+            serverData.AddObserver(clientManager.LocalClientId);
+            Update();
+            var clientData = (ListVarData)client.Objects.First();
+
+            Assert.AreEqual(0, serverData.RefList.Count);
+            Assert.AreEqual(0, clientData.RefList.Count);
+
+            serverData.RefList.Add(new RefData() { n = 1 });
+            Update();
+
+            string value;
+            Assert.AreEqual(1, serverData.RefList.Count);
+            Assert.AreEqual(1, serverData.RefList[0].n);
+            Assert.AreEqual(1, clientData.RefList.Count);
+            Assert.AreEqual(1, clientData.RefList[0].n);
+
+            serverData.RefList[0] = new RefData() { n = 2 };
+            Update();
+            Assert.AreEqual(1, serverData.RefList.Count);
+            Assert.AreEqual(2, serverData.RefList[0].n);
+            Assert.AreEqual(1, clientData.RefList.Count);
+            Assert.AreEqual(2, clientData.RefList[0].n);
+        }
         #endregion
 
         #region Dictionary

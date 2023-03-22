@@ -395,7 +395,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                         readSymbols = true;
                         mdb = true;
                     }
-                    //readSymbols = false;
+                    readSymbols = false;
 
                     ReaderParameters readerParameters = new ReaderParameters();
                     readerParameters.ReadWrite = true;

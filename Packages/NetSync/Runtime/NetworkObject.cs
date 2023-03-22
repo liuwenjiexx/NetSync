@@ -183,7 +183,7 @@ namespace Yanmonet.NetSync
 
             InstanceId = default;
             IsSpawned = false;
-            
+
             foreach (var variable in variables.Values)
             {
                 //variable.networkObject = null;
@@ -352,7 +352,7 @@ namespace Yanmonet.NetSync
                             field.SetValue(this, variable);
                         }
                         variable.Name = varInfo.field.Name;
-                        variable.networkObject= this;
+                        variable.networkObject = this;
                         variables[varInfo.hash] = variable;
                     }
                     else
@@ -401,17 +401,14 @@ namespace Yanmonet.NetSync
             foreach (var pair in variables)
             {
                 var variable = pair.Value;
-                if (variable.CanClientWrite(NetworkManager.LocalClientId))
+                if (variable.IsDirty() && variable.CanClientWrite(NetworkManager.LocalClientId))
                 {
-                    if (variable.IsDirty())
+                    if (packet == null)
                     {
-                        if (packet == null)
-                        {
-                            msg = new SyncVarMessage(this, true, false);
-                            packet = NetworkUtility.PackMessage((ushort)NetworkMsgId.SyncVar, msg);
-                        }
-                        variable.ResetDirty();
+                        msg = new SyncVarMessage(this, true, false);
+                        packet = NetworkUtility.PackMessage((ushort)NetworkMsgId.SyncVar, msg);
                     }
+                    variable.ResetDirty();
                 }
             }
 

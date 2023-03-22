@@ -75,5 +75,39 @@ namespace Yanmonet.NetSync
 
         }
 
+        public static void SerializeValue<TKey, TValue>(this IReaderWriter readerWriter, IDictionary<TKey, TValue> value)
+        {
+            TKey key;
+            TValue _value;
+
+            if (readerWriter.IsReader)
+            {
+                value.Clear();
+                int count = 0;
+                readerWriter.SerializeValue(ref count);
+
+                for (int i = 0; i < count; i++)
+                {
+                    key = default;
+                    _value = default;
+                    readerWriter.SerializeValue(ref key);
+                    readerWriter.SerializeValue(ref _value);
+                    value[key] = _value;
+                }
+            }
+            else
+            {
+                int count = value.Count;
+                readerWriter.SerializeValue(ref count);
+                foreach (var item in value)
+                {
+                    key = item.Key;
+                    _value = item.Value;
+                    readerWriter.SerializeValue(ref key);
+                    readerWriter.SerializeValue(ref _value);
+                }
+            }
+        }
+
     }
 }
