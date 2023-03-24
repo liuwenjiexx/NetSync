@@ -3,7 +3,8 @@
     "rootNamespace": "",
     "references": [
         "Yanmonet.NetSync",
-        ""
+        "",
+        "Yanmonet.Injection.Assembly.Editor"
     ],
     "includePlatforms": [
         "Editor"
