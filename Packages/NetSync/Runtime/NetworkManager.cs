@@ -81,7 +81,8 @@ namespace Yanmonet.NetSync
         public int Version;
         public byte[] ConnectionData = new byte[0];
 
-        public Func<int, byte[], byte[]> ValidateConnect;
+        public ValidateConnectDelegate ValidateConnect;
+        public delegate byte[] ValidateConnectDelegate(int version, byte[] payload);
 
         public static NetworkManager Singleton { get; private set; }
 

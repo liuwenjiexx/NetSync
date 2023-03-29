@@ -45,7 +45,7 @@ namespace Yanmonet.NetSync.Editor.Tests
 
                 this.result = a + b;
              }
-
+             
             public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
             {
                 __BeginServerRpc__(nameof(ServerRpc3), rpcParams, a, b);

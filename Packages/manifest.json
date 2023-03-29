@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "com.yanmonet.async":"file:../../../tfs/UnityPackages/Async/Assets/Plugins/Async",
+    "com.yanmonet.async":"file:../../../tfs/UnityPackages/Async/Assets/Plugins/Async",    
+    "com.yanmonet.injection.assembly": "file:/tfs/UnityPackages/AssemblyInjection/Assets/Plugins/AssemblyInjection",
     "com.unity.collab-proxy": "1.15.15",
     "com.unity.ide.rider": "3.0.13",
     "com.unity.ide.visualstudio": "2.0.14",

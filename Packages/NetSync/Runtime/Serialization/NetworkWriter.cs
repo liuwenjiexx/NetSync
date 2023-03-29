@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using UnityEngine.UIElements;
 
 namespace Yanmonet.NetSync
 {
@@ -56,6 +57,16 @@ namespace Yanmonet.NetSync
         {
             WriteByte((byte)((packageSize >> 8) & 0xFF));
             WriteByte((byte)(packageSize & 0xFF));
+        }
+
+        public void WriteRaw(byte[] value, int offset, int count)
+        {
+            baseStream.Write(value, offset, count);
+        }
+
+        public void WriteRaw(ArraySegment<byte> value)
+        {
+            WriteRaw(value.Array, value.Offset, value.Count);
         }
 
         private void WriteByte(byte value)
@@ -234,8 +245,14 @@ namespace Yanmonet.NetSync
         public void SerializeValue(ref byte[] value, int offset, ref int length)
         {
             WriteInt32(length);
-            Write(value, offset, length);
+            if (length > 0)
+            {
+                Write(value, offset, length);
+            }
         }
+
+
+
         public void SerializeValue(ref Guid value)
         {
             WriteGuid(value);
