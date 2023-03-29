@@ -1,21 +1,16 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.Management;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEditor.PackageManager;
-using static PlasticPipe.PlasticProtocol.Client.ConnectionCreator.PlasticProtoSocketConnection;
 
 namespace Yanmonet.NetSync
 {
-    public class SoketTransport : INetworkTransport 
+    public class SoketTransport : INetworkTransport
     {
-        private TcpListener server;
+
         private Socket socket;
         public string address = "127.0.0.1";
         public string listenAddress = "0.0.0.0";
@@ -27,7 +22,7 @@ namespace Yanmonet.NetSync
         private Dictionary<ulong, ClientData> clients;
         private LinkedList<ClientData> clientList;
 
-        private Queue<EventData> eventQueue;
+        private Queue<NetworkEvent> eventQueue;
 
         private object lockObj = new();
 
@@ -38,6 +33,7 @@ namespace Yanmonet.NetSync
         SemaphoreSlim semaphore;
 
         private DateTime startTime;
+
 
         private float NowTime
         {
@@ -64,7 +60,7 @@ namespace Yanmonet.NetSync
 
             writePool = new Pool<NetworkWriter>(() => new NetworkWriter(new MemoryStream()));
 
-            semaphore = new SemaphoreSlim(3, 3);
+            semaphore = new SemaphoreSlim(2, 3);
             eventQueue = new();
             startTime = DateTime.Now;
 
@@ -87,30 +83,17 @@ namespace Yanmonet.NetSync
                     ipAddress = IPAddress.Parse(listenAddress);
                 }
 
-                server = new TcpListener(new IPEndPoint(ipAddress, port));
+                //server = new TcpListener(new IPEndPoint(ipAddress, port));
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                socket.Bind(new IPEndPoint(IPAddress.Parse(listenAddress), port));
+                socket.Listen(port);
 
-                server.Start();
                 acceptWorkerTask = Task.Run(AcceptWorker, cancellationTokenSource.Token);
             }
             catch (Exception ex)
             {
-                isServer = false;
-                cancellationTokenSource.Cancel();
+                Shutdown();
 
-                if (server != null)
-                {
-                    try
-                    {
-                        server.Stop();
-                    }
-                    catch (Exception ex2) { }
-                    server = null;
-                }
-                try
-                {
-                    acceptWorkerTask.Wait();
-                }
-                catch { }
                 return false;
             }
             return true;
@@ -124,25 +107,39 @@ namespace Yanmonet.NetSync
 
             try
             {
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-                socket.Connect(address, port);
-                localClient = new ClientData()
+                if (isServer)
                 {
-                    socket = socket,
-                    cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token),
-                    IsLocalClient = true,
-                    //Stream = tcpClient.GetStream(),
-                    IsAccept = true,
-                    IsConnected = false,
-                    //Reader = new NetworkReader(tcpClient.GetStream(), new MemoryStream(1024 * 4)),
-                    //Writer = new NetworkWriter(tcpClient.GetStream()),
-                    ClientId = ulong.MaxValue,
-                };
+                    localClient = new ClientData()
+                    {
+                        IsAccept = true,
+                        ClientId = ServerClientId,
+                    };
+
+                }
+                else
+                {
+
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                    socket.Connect(address, port);
+                    socket.Blocking = false;
+                    localClient = new ClientData()
+                    {
+                        socket = socket,
+                        cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token),
+                        IsLocalClient = true,
+                        //Stream = tcpClient.GetStream(),
+                        IsAccept = true,
+                        IsConnected = false,
+                        //Reader = new NetworkReader(tcpClient.GetStream(), new MemoryStream(1024 * 4)),
+                        //Writer = new NetworkWriter(tcpClient.GetStream()),
+                        ClientId = ulong.MaxValue,
+                    };
 
 
-                localClient.sendWorkerTask = Task.Run(() => SendWorker(localClient), localClient.cancellationTokenSource.Token);
-                localClient.receiveWorkerTask = Task.Run(() => ReceiveWorker(localClient), localClient.cancellationTokenSource.Token);
+                    localClient.sendWorkerTask = Task.Run(() => SendWorker(localClient), localClient.cancellationTokenSource.Token);
+                    localClient.receiveWorkerTask = Task.Run(() => ReceiveWorker(localClient), localClient.cancellationTokenSource.Token);
+                }
 
                 ConnectRequestMessage connRequest = new ConnectRequestMessage();
                 if (networkManager != null)
@@ -154,58 +151,35 @@ namespace Yanmonet.NetSync
 
                 _SendMsg(localClient, MsgId.ConnectRequest, connRequest);
 
-                float connTimeout = NowTime + 5f;
+                float connTimeout = NowTime + 10f;
 
                 while (true)
                 {
-                    if (!socket.Connected)
-                    {
-                        throw new Exception("Client Disconnected");
-                    }
-
                     if (!localClient.IsAccept)
                     {
-                        if (localClient.IsConnected)
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            throw new Exception($"Connect fail, {ConnectFailReson}");
-                        }
+                        break;
                     }
 
                     if (NowTime > connTimeout)
                     {
                         throw new Exception("Connect Timeout");
                     }
+                    Thread.Sleep(0);
                 }
+
+
+                if (!localClient.IsConnected)
+                {
+                    Shutdown();
+                    return false;
+                }
+
             }
             catch (Exception ex)
             {
-                isClient = false;
+                Shutdown();
+
                 networkManager?.LogError(ex.Message + "\n" + ex.StackTrace);
-                if (localClient != null)
-                {
-                    if (localClient.cancellationTokenSource != null)
-                    {
-                        localClient.cancellationTokenSource.Cancel();
-                    }
-                    if (localClient.sendWorkerTask != null)
-                    {
-                        try { localClient.sendWorkerTask.Wait(); } catch { }
-                    }
-                    if (localClient.receiveWorkerTask != null)
-                    {
-                        try { localClient.receiveWorkerTask.Wait(); } catch { }
-                    }
-                    localClient = null;
-                }
-                if (socket != null)
-                {
-                    try { socket.Dispose(); } catch { }
-                    socket = null;
-                }
 
                 return false;
             }
@@ -243,43 +217,23 @@ namespace Yanmonet.NetSync
 
         }
 
-        class EventData
-        {
-            public NetworkEvent Event;
-            public ulong ClientId;
-            public ArraySegment<byte> Payload;
-            public float ReceiveTime;
-        }
 
-
-        public NetworkEvent PollEvent(out ulong clientId, out ArraySegment<byte> payload, out float receiveTime)
+        public bool PollEvent(out NetworkEvent @event)
         {
-            EventData eventData = default;
-            bool hasEventData = false;
             if (eventQueue.Count > 0)
             {
                 lock (lockObj)
                 {
                     if (eventQueue.Count > 0)
                     {
-                        eventData = eventQueue.Dequeue();
-                        hasEventData = true;
+                        @event = eventQueue.Dequeue();
+                        return true;
                     }
                 }
             }
 
-            if (hasEventData)
-            {
-                clientId = eventData.ClientId;
-                payload = eventData.Payload;
-                receiveTime = eventData.ReceiveTime;
-                return eventData.Event;
-            }
-
-            clientId = 0;
-            payload = null;
-            receiveTime = 0;
-            return NetworkEvent.None;
+            @event = default;
+            return false;
         }
 
         void AcceptWorker()
@@ -294,7 +248,7 @@ namespace Yanmonet.NetSync
                         break;
 
                     ClientData client = null;
-                    Socket socketClient = server.AcceptSocket();
+                    Socket socketClient = socket.Accept();
                     if (socketClient != null)
                     {
                         try
@@ -378,15 +332,22 @@ namespace Yanmonet.NetSync
             Packet packet = default;
             bool hasPacket = false;
             int sendCount = 0;
+            Socket socket = client.socket;
+
             while (true)
             {
-                if (cancelToken.IsCancellationRequested)
-                    break;
-
                 semaphore.Wait();
-                networkManager?.Log($"SendWorker: Local: {client.IsLocalClient}, {client.ClientId}");
                 try
                 {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
+
+                    if (client.WillDisconnect && client.sendPacketQueue.Count == 0)
+                        break;
+
+                    if (!socket.Connected)
+                        break;
+
                     while (client.sendPacketQueue.Count > 0)
                     {
                         if (!hasPacket)
@@ -408,6 +369,8 @@ namespace Yanmonet.NetSync
                         if (hasPacket)
                         {
                             var payload = packet.Payload;
+                            networkManager?.Log($"SendWorker: Local: {client.IsLocalClient}, {client.ClientId}, {socket.RemoteEndPoint}, Time: {NowTime:0.#}");
+
                             int n = socket.Send(payload.Array, payload.Offset + sendCount, payload.Count - sendCount, SocketFlags.None);
                             if (n > 0)
                             {
@@ -431,14 +394,23 @@ namespace Yanmonet.NetSync
                         break;
                     }
                     networkManager?.LogException(ex);
-                    throw;
+                    break;
                 }
                 finally
                 {
                     semaphore.Release();
                 }
 
-                Thread.Sleep(100);
+                Thread.Sleep(10);
+            }
+
+            if (client.IsLocalClient)
+            {
+                DisconnectLocalClient();
+            }
+            else
+            {
+                DisconnectRemoteClient(client.ClientId);
             }
         }
 
@@ -447,49 +419,30 @@ namespace Yanmonet.NetSync
             var cancelToken = client.cancellationTokenSource.Token;
 
             Packet packet;
+            byte[] buffer = new byte[1024 * 4];
             int packageSize = 0;
-            var bufferReader = client.ReaderBuffer;
-            var buffer = bufferReader.GetBuffer();
+            int offset = 0;
             var socket = client.socket;
 
+            networkManager?.Log($"Start ReceiveWorker: Local: {client.IsLocalClient}, {client.ClientId}, Time: {NowTime:0.#}");
 
             while (true)
             {
-                if (cancelToken.IsCancellationRequested)
-                    break;
-
                 semaphore.Wait();
-                networkManager?.Log($"ReceiveWorker: Local: {client.IsLocalClient}, {client.ClientId}");
 
                 try
                 {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
 
+                    if (!(client.IsAccept || client.IsConnected))
+                        break;
+
+                    if (client.WillDisconnect && packageSize == 0)
+                        break;
 
                     if (!socket.Connected)
                     {
-                        if (client.IsConnected)
-                        {
-                            client.IsAccept = false;
-                            client.IsConnected = false;
-                            lock (lockObj)
-                            {
-                                if (client.IsLocalClient)
-                                {
-                                    DisconnectLocalClient();
-                                }
-                                else
-                                {
-                                    DisconnectRemoteClient(client.ClientId);
-                                }
-
-                                eventQueue.Enqueue(new EventData()
-                                {
-                                    Event = NetworkEvent.Disconnect,
-                                    ClientId = client.ClientId,
-                                    ReceiveTime = NowTime,
-                                });
-                            }
-                        }
                         break;
                     }
 
@@ -505,33 +458,41 @@ namespace Yanmonet.NetSync
                             {
                                 socket.Receive(buffer, 2, SocketFlags.None);
                                 packageSize = (ushort)(buffer[0] << 8) | (ushort)(buffer[1]);
-
-                                bufferReader.Position = 0;
-                                bufferReader.SetLength(packageSize);
+                                offset = 0;
                             }
                         }
 
                         if (packageSize > 0)
                         {
-                            int count = packageSize - (int)bufferReader.Position;
+                            int count = packageSize - offset;
                             if (count > 0)
                             {
                                 int readCount;
-                                readCount = socket.Receive(buffer, (int)bufferReader.Position, count, SocketFlags.None);
+                                readCount = socket.Receive(buffer, offset, count, SocketFlags.None);
 
                                 if (readCount > 0)
                                 {
-                                    bufferReader.Position += readCount;
+                                    offset += readCount;
                                 }
                             }
                         }
 
-                        if (bufferReader.Position >= packageSize)
+                        if (packageSize > 0 && offset >= packageSize)
                         {
-                            bufferReader.Position = 0;
                             packet = UnpackMessage(buffer, 0, packageSize);
+                            offset = 0;
+                            packageSize = 0;
                             packet.SenderClientId = client.ClientId;
-                            HandleReceiveMsg(client, packet);
+                            try
+                            {
+                                HandleReceiveMsg(client, packet);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (cancelToken.IsCancellationRequested)
+                                    break;
+                                networkManager?.LogException(ex);
+                            }
                         }
                         else
                         {
@@ -544,9 +505,8 @@ namespace Yanmonet.NetSync
                 catch (Exception ex)
                 {
                     if (cancelToken.IsCancellationRequested)
-                    {
                         break;
-                    }
+
                     networkManager?.LogException(ex);
                     throw;
                 }
@@ -554,7 +514,16 @@ namespace Yanmonet.NetSync
                 {
                     semaphore.Release();
                 }
-                Thread.Sleep(100);
+                Thread.Sleep(10);
+            }
+
+            if (client.IsLocalClient)
+            {
+                DisconnectLocalClient();
+            }
+            else
+            {
+                DisconnectRemoteClient(client.ClientId);
             }
         }
 
@@ -575,23 +544,28 @@ namespace Yanmonet.NetSync
                         {
                             var request = new ConnectRequestMessage();
                             request.NetworkSerialize(reader);
+
                             if (networkManager != null)
                             {
-                                networkManager.ValidateConnect(0, request.Payload);
+                                networkManager.ValidateConnect?.Invoke(request.Payload);
                             }
+
+                            client.IsConnected = true;
+                            client.IsAccept = false;
 
                             response.Success = true;
                             response.ClientId = client.ClientId;
+
                         }
                         catch (Exception ex)
                         {
                             response.Success = false;
-                            response.Reson = ex.Message + "\n" + ex.Message;
+                            response.Reson = ex.Message;
                         }
 
-                        EventData eventData = new EventData()
+                        NetworkEvent eventData = new NetworkEvent()
                         {
-                            Event = NetworkEvent.Connect,
+                            Type = NetworkEventType.Connect,
                             ReceiveTime = NowTime,
                             ClientId = client.ClientId,
                         };
@@ -614,18 +588,16 @@ namespace Yanmonet.NetSync
                             {
                                 client.IsConnected = true;
                                 client.IsAccept = false;
-                                if (!client.IsLocalClient)
+
+                                NetworkEvent eventData = new NetworkEvent()
                                 {
-                                    EventData eventData = new EventData()
-                                    {
-                                        Event = NetworkEvent.Connect,
-                                        ClientId = client.ClientId,
-                                        ReceiveTime = NowTime,
-                                    };
-                                    lock (lockObj)
-                                    {
-                                        eventQueue.Enqueue(eventData);
-                                    }
+                                    Type = NetworkEventType.Connect,
+                                    ClientId = client.ClientId,
+                                    ReceiveTime = NowTime,
+                                };
+                                lock (lockObj)
+                                {
+                                    eventQueue.Enqueue(eventData);
                                 }
                             }
                         }
@@ -640,17 +612,24 @@ namespace Yanmonet.NetSync
                     }
                     break;
                 case MsgId.Disconnect:
-                    {
-                        DisconnectRemoteClient(packet.SenderClientId);
+                    { 
+                        if (client.IsLocalClient)
+                        {
+                            DisconnectLocalClient(false);
+                        }
+                        else
+                        {
+                            DisconnectRemoteClient(packet.SenderClientId, false);
+                        }
                     }
                     break;
                 case MsgId.Data:
                     {
                         byte[] bytes = new byte[packet.Payload.Count];
                         packet.Payload.CopyTo(bytes, 0);
-                        EventData eventData = new EventData()
+                        NetworkEvent eventData = new NetworkEvent()
                         {
-                            Event = NetworkEvent.Data,
+                            Type = NetworkEventType.Data,
                             ClientId = packet.SenderClientId,
                             Payload = new ArraySegment<byte>(bytes),
                             ReceiveTime = NowTime,
@@ -750,6 +729,7 @@ namespace Yanmonet.NetSync
             MsgId msgId = (MsgId)buffer[offset];
             byte[] data = null;
             count--;
+            offset++;
             data = new byte[count];
             Array.Copy(buffer, offset, data, 0, count);
             Packet packet = new Packet();
@@ -760,20 +740,55 @@ namespace Yanmonet.NetSync
 
         public void DisconnectLocalClient()
         {
-            if (localClient.IsConnected)
-            {
-                localClient.IsConnected = false;
+            DisconnectLocalClient(true);
+        }
 
+        private void DisconnectLocalClient(bool sendMsg)
+        {
+            ClientData client = null;
+            lock (lockObj)
+            {
+                client = this.localClient;
+                if (client == null)
+                    return;
+                this.localClient = null;
+            }
+
+            if (client.IsConnected)
+            {
                 lock (lockObj)
                 {
-                    eventQueue.Enqueue(new EventData()
+                    eventQueue.Enqueue(new NetworkEvent()
                     {
-                        Event = NetworkEvent.Disconnect,
-                        ClientId = localClient.ClientId,
+                        Type = NetworkEventType.Disconnect,
+                        ClientId = client.ClientId,
                         ReceiveTime = NowTime,
                     });
+
+                    if (sendMsg)
+                    {
+                        _SendMsg(client, MsgId.Disconnect, null);
+                    }
                 }
             }
+
+            client.WillDisconnect = true;
+
+            //断开超时时间
+            client.cancellationTokenSource.CancelAfter(100);
+
+            try { client.sendWorkerTask.Wait(); } catch { }
+            try { client.receiveWorkerTask.Wait(); } catch { }
+
+            try
+            {
+                client.socket.Dispose();
+            }
+            catch { }
+
+
+            client.IsConnected = false;
+
         }
 
         public void DisconnectRemoteClient(ulong clientId)
@@ -783,44 +798,97 @@ namespace Yanmonet.NetSync
 
         void DisconnectRemoteClient(ulong clientId, bool sendMsg)
         {
+            ClientData client;
             lock (lockObj)
             {
-                if (clients.TryGetValue(clientId, out var client))
-                {
-                    clients.Remove(clientId);
-                    clientList.Remove(client);
-
-                    if (client.IsConnected)
-                    {
-                        client.IsConnected = false;
-
-                        eventQueue.Enqueue(new EventData()
-                        {
-                            Event = NetworkEvent.Disconnect,
-                            ClientId = clientId,
-                            ReceiveTime = NowTime
-                        });
-
-                        //if (sendMsg)
-                        //{
-                        //    try
-                        //    {
-                        //        client.Stream.Write();
-                        //        client.Stream.Flush();
-                        //    }
-                        //    catch { }
-                        //}
-                    }
-
-                }
+                if (!clients.TryGetValue(clientId, out client))
+                    return;
+                clients.Remove(clientId);
+                clientList.Remove(client);
             }
+
+
+            if (client.IsConnected)
+            {
+                lock (lockObj)
+                {
+                    eventQueue.Enqueue(new NetworkEvent()
+                    {
+                        Type = NetworkEventType.Disconnect,
+                        ClientId = clientId,
+                        ReceiveTime = NowTime
+                    });
+
+                    if (sendMsg)
+                    {
+                        _SendMsg(client, MsgId.Disconnect, null);
+                    }
+                }
+
+            }
+
+            client.WillDisconnect = true;
+
+            //断开超时时间
+            client.cancellationTokenSource.CancelAfter(100);
+
+            try { client.sendWorkerTask.Wait(); } catch { }
+            try { client.receiveWorkerTask.Wait(); } catch { }
+
+            try
+            {
+                client.socket.Dispose();
+            }
+            catch { }
+
+            client.IsConnected = false;
         }
 
         public void Shutdown()
         {
-            
+            if (!(isServer || isClient))
+                return;
+
+            if (isClient)
+            {
+                isClient = false;
+                DisconnectLocalClient();
+            }
+
+            cancellationTokenSource.Cancel();
+
+            if (isServer)
+            {
+                isServer = false;
+
+                float timeout = NowTime + 1f;
+                while (clients.Count > 0 && NowTime < timeout)
+                {
+                    Thread.Sleep(0);
+                }
+
+            }
+
+            if (socket != null)
+            {
+                try { socket.Dispose(); } catch { }
+                socket = null;
+            }
+
+            if (acceptWorkerTask != null)
+            {
+                acceptWorkerTask.Wait();
+                acceptWorkerTask = null;
+            }
+
+            if (semaphore != null)
+            {
+                semaphore.Dispose();
+                semaphore = null;
+            }
+
         }
-         
+
 
         class ClientData
         {
@@ -828,6 +896,7 @@ namespace Yanmonet.NetSync
             public Socket socket;
             public bool IsAccept;
             public bool IsConnected;
+            public bool WillDisconnect;
             public bool IsLocalClient;
             public bool processConnectEvent;
             public CancellationTokenSource cancellationTokenSource;
@@ -839,18 +908,12 @@ namespace Yanmonet.NetSync
             public Queue<Packet> sendPacketQueue;
             public Queue<Packet> receivePacketQueue;
 
-            public MemoryStream ReaderBuffer;
-            public int ReaderPacketLength;
-
 
             public ClientData()
             {
                 sendWaitEvent = new AutoResetEvent(false);
                 sendPacketQueue = new Queue<Packet>();
                 receivePacketQueue = new Queue<Packet>();
-                ReaderBuffer = new MemoryStream(new byte[1024 * 4]);
-
-                ReaderPacketLength = 0;
             }
 
             public void Send(byte[] buffer)
@@ -931,4 +994,5 @@ namespace Yanmonet.NetSync
         }
 
     }
+
 }

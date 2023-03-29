@@ -82,7 +82,7 @@ namespace Yanmonet.NetSync
         public byte[] ConnectionData = new byte[0];
 
         public ValidateConnectDelegate ValidateConnect;
-        public delegate byte[] ValidateConnectDelegate(int version, byte[] payload);
+        public delegate byte[] ValidateConnectDelegate(byte[] payload);
 
         public static NetworkManager Singleton { get; private set; }
 
@@ -331,7 +331,7 @@ namespace Yanmonet.NetSync
                 byte[] resData = null;
                 if (ValidateConnect != null)
                 {
-                    resData = ValidateConnect(Version, ConnectionData ?? new byte[0]);
+                    resData = ValidateConnect(ConnectionData ?? new byte[0]);
                 }
 
                 Server.OnClientConnected(localClient);
@@ -499,7 +499,7 @@ namespace Yanmonet.NetSync
                     {
                         try
                         {
-                            responseData = ValidateConnect(msg.Version, msg.data);
+                            responseData = ValidateConnect( msg.data);
                         }
                         catch (Exception ex)
                         {

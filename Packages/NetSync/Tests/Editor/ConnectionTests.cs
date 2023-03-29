@@ -170,7 +170,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             NetworkManager clientManager = new NetworkManager();
             clientManager.port = serverManager.port = NextPort();
             string serverData = null;
-            serverManager.ValidateConnect = (version, data) =>
+            serverManager.ValidateConnect = (data) =>
             {
                 serverData = Encoding.UTF8.GetString(data);
                 return null;

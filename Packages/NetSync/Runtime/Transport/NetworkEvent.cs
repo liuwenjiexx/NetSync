@@ -1,14 +1,14 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
 
 namespace Yanmonet.NetSync
 {
-    public enum NetworkEvent
+
+    public struct NetworkEvent
     {
-        None = 0,
-        Connect,
-        Disconnect,
-        Data,
-        Error,
+        public NetworkEventType Type;
+        public ulong ClientId;
+        public ArraySegment<byte> Payload;
+        public float ReceiveTime;
     }
+
 }

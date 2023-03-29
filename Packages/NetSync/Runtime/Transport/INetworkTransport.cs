@@ -20,7 +20,7 @@ namespace Yanmonet.NetSync
 
         abstract void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery);
 
-        abstract NetworkEvent PollEvent(out ulong clientId, out ArraySegment<byte> payload, out float receiveTime);
+        abstract bool PollEvent(out NetworkEvent @event);
 
         abstract void DisconnectRemoteClient(ulong clientId);
 

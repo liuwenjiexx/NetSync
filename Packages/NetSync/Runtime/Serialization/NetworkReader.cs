@@ -31,11 +31,11 @@ namespace Yanmonet.NetSync
         }
         internal NetworkReader(byte[] data, int offset, int length)
         {
-            msReader = new MemoryStream(data, offset, length);
+            msReader = new MemoryStream(data, offset, length, false, true);
         }
         internal NetworkReader(ArraySegment<byte> data)
+            : this(data.Array, data.Offset, data.Count)
         {
-            msReader = new MemoryStream(data.Array, data.Offset, data.Count);
         }
 
         private ushort packageSize;
@@ -69,7 +69,7 @@ namespace Yanmonet.NetSync
             }
             else
             {
-                
+
                 if (baseStream.Length - baseStream.Position > 2)
                 {
                     packageSize = (ushort)(baseStream.ReadByte() << 8);
