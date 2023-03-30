@@ -6,7 +6,9 @@ using System.ComponentModel.Composition.Primitives;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
+using Yanmonet.NetSync.Transport.Socket;
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
@@ -15,9 +17,9 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         protected string localAddress = "127.0.0.1";
         static int port = 7777;
-        protected NetworkServer server;
-        protected NetworkClient serverClient;
-        protected NetworkClient client;
+        protected NetworkManager server;
+        protected ulong serverClientId;
+        protected NetworkManager client;
 
         protected NetworkManager serverManager;
         protected NetworkManager clientManager;
@@ -33,7 +35,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             {
                 isHost = attr.IsHost;
                 OpenNetwork(isHost);
-            } 
+            }
             Thread.Sleep(10);
         }
 
@@ -80,6 +82,18 @@ namespace Yanmonet.NetSync.Editor.Tests
                 });
             }
         }
+        public NetworkManager CreateNetworkManager(int port)
+        {
+            NetworkManager netMgr = new NetworkManager();
+            SocketTransport transport = new SocketTransport();
+            transport.port = port;
+            netMgr.Transport = transport;
+
+            return netMgr;
+        }
+
+        Task serverTask;
+        CancellationTokenSource cancellationTokenSource;
 
         protected void _OpenNetwork(bool isHost = false)
         {
@@ -88,11 +102,9 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsNull(serverManager, "serverManager not null, Last Method: " + lastMethod);
             Assert.IsNull(clientManager, "clientManager not null, Last Method: " + lastMethod);
 
-            serverManager = new NetworkManager();
-            clientManager = new NetworkManager();
+            serverManager = CreateNetworkManager(port);
+            clientManager = CreateNetworkManager(port);
 
-            serverManager.port = port;
-            clientManager.port = port;
             if (isHost)
             {
                 serverManager.StartHost();
@@ -101,13 +113,37 @@ namespace Yanmonet.NetSync.Editor.Tests
             {
                 serverManager.StartServer();
             }
+            cancellationTokenSource = new CancellationTokenSource();
+            serverTask = Task.Run(() =>
+            {
+                try
+                {
+                    while (serverManager.IsServer)
+                    {
+                        if (cancellationTokenSource.IsCancellationRequested)
+                            break;
+                        serverManager.Update();
+                        Thread.Sleep(5);
+                    }
+                    serverManager.Shutdown();
+                }catch(Exception ex)
+                {
+                    if (cancellationTokenSource.IsCancellationRequested)
+                        return;
+                    throw ex;
+                }
+
+            }, cancellationTokenSource.Token);
+
+
+
             clientManager.StartClient();
-            server = serverManager.Server;
-            client = clientManager.LocalClient;
+            server = serverManager;
+            client = clientManager;
             Update(serverManager, clientManager);
 
-            CollectionAssert.IsNotEmpty(serverManager.ConnnectedClientList, "ConnnectedClientList empty");
-            serverClient = serverManager.ConnnectedClientList.First();
+            CollectionAssert.IsNotEmpty(serverManager.ConnnectedClientIds, "ConnnectedClientList empty");
+            serverClientId = serverManager.ConnnectedClientIds.First();
 
         }
 
@@ -147,13 +183,15 @@ namespace Yanmonet.NetSync.Editor.Tests
             Debug.Log("===== Close Network =====");
             if (clientManager != null)
             {
-                clientManager.Dispose();
+                clientManager.Shutdown();
                 clientManager = null;
             }
-
+ 
             if (serverManager != null)
             {
-                serverManager.Dispose();
+                cancellationTokenSource.Cancel();
+                serverTask.Wait();
+                serverTask = null;
                 serverManager = null;
             }
         }
@@ -165,25 +203,19 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         protected void Update(params NetworkManager[] manager)
         {
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 10; i++)
             {
                 foreach (var mgr in manager)
                 {
+                    if (mgr == serverManager)
+                        continue;
                     mgr.Update();
                 }
+                Thread.Sleep(5);
             }
         }
 
-        protected void Update(params NetworkConnection[] connections)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                foreach (var conn in connections)
-                {
-                    conn.Update();
-                }
-            }
-        }
+
     }
 
 

@@ -57,9 +57,9 @@ namespace Yanmonet.NetSync.Editor.Tests
         [OpenNetwork]
         public void ServerVariable()
         {
-            var serverData = serverManager.CreateObject<OwnerVarData>();
+            var serverData = server.CreateObject<OwnerVarData>();
             serverData.Spawn();
-            serverData.AddObserver(clientManager.LocalClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
             var clientData = (OwnerVarData)client.Objects.First();
 
@@ -67,6 +67,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(0, clientData.IntVar);
 
             serverData.IntVar = 1;
+            Update();
             Update();
             Assert.AreEqual(1, serverData.IntVar);
             Assert.AreEqual(1, clientData.IntVar);
@@ -76,8 +77,8 @@ namespace Yanmonet.NetSync.Editor.Tests
         [OpenNetwork]
         public void ClientVariable()
         {
-            var serverData = serverManager.CreateObject<OwnerVarData>();
-            serverData.SpawnWithOwnership(clientManager.LocalClientId);
+            var serverData = server.CreateObject<OwnerVarData>();
+            serverData.SpawnWithOwnership(client.LocalClientId);
             Update();
             var clientData = (OwnerVarData)client.Objects.First();
 

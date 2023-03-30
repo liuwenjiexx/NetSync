@@ -6,31 +6,34 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using UnityEngine;
+using Yanmonet.NetSync.Transport.Socket;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
     public class ConnectionTests : TestBase
     {
-        [Test]
-        public void Listen()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            using (NetworkConnection serverConn = new NetworkConnection(serverManager))
-            {
-                Assert.IsFalse(serverConn.IsListening);
-                Assert.IsNull(serverConn.Socket);
+        //[Test]
+        //public void Listen()
+        //{
+        //    NetworkManager serverManager = new NetworkManager();
+        //    using (NetworkConnection serverConn = new NetworkConnection(serverManager))
+        //    {
+        //        Assert.IsFalse(serverConn.IsListening);
+        //        Assert.IsNull(serverConn.Socket);
 
-                serverConn.Listen(localAddress, NextPort());
-                Assert.IsTrue(serverConn.IsListening);
-                Assert.IsNotNull(serverConn.Socket);
-                Assert.IsFalse(serverConn.IsConnecting);
-                Assert.IsFalse(serverConn.IsConnected);
+        //        serverConn.Listen(localAddress, NextPort());
+        //        Assert.IsTrue(serverConn.IsListening);
+        //        Assert.IsNotNull(serverConn.Socket);
+        //        Assert.IsFalse(serverConn.IsConnecting);
+        //        Assert.IsFalse(serverConn.IsConnected);
 
-                Update(serverConn);
-                Assert.IsTrue(serverConn.IsListening);
-                Assert.IsNotNull(serverConn.Socket);
-            }
-        }
+        //        Update(serverConn);
+        //        Assert.IsTrue(serverConn.IsListening);
+        //        Assert.IsNotNull(serverConn.Socket);
+        //    }
+        //}
 
         /*
         [Test]
@@ -95,105 +98,28 @@ namespace Yanmonet.NetSync.Editor.Tests
         }
         */
 
-        [Test]
-        public void Disconnect_Client()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            NetworkManager clientManager = new NetworkManager();
-            clientManager.port = serverManager.port = NextPort();
 
-            serverManager.StartServer();
-            clientManager.StartClient();
+        //[Test]
+        //public void RegisterHandler()
+        //{
+        //    NetworkManager manager = new NetworkManager();
 
-            Update(serverManager, clientManager);
-            var serverConn = serverManager.clients.Values.FirstOrDefault().Connection;
-            var clientConn = clientManager.LocalClient.Connection;
-            Assert.IsTrue(clientConn.IsConnected);
-            Assert.IsTrue(serverConn.IsConnected);
+        //    Assert.IsFalse(conn.HasHandler((ushort)NetworkMsgId.Max));
 
-            clientConn.Disconnect();
-            Update(serverManager, clientManager);
-
-            Assert.IsFalse(clientConn.IsConnected);
-            Assert.IsTrue(serverConn.IsConnected);
-
-            clientManager.Shutdown();
-            serverManager.Shutdown();
-        }
+        //    manager.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) => { });
+        //    Assert.IsTrue(conn.HasHandler((ushort)NetworkMsgId.Max));
+        //    manager.Shutdown();
+        //}
 
 
-        //  [Test]
-        public void Disconnect_Server()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            NetworkManager clientManager = new NetworkManager();
-            clientManager.port = serverManager.port = NextPort();
 
-            serverManager.StartServer();
-            clientManager.StartClient();
-
-            Update(serverManager, clientManager);
-            var serverConn = serverManager.clients.Values.FirstOrDefault().Connection;
-            var clientConn = clientManager.LocalClient.Connection;
-            Assert.IsTrue(clientConn.IsConnected);
-            Assert.IsTrue(serverConn.IsConnected);
-
-            serverConn.Disconnect();
-            Update(serverManager, clientManager);
-            Update(serverManager, clientManager);
-
-            Assert.IsFalse(clientConn.IsConnected);
-            Assert.IsTrue(serverConn.IsConnected);
-
-            clientManager.Shutdown();
-            serverManager.Shutdown();
-
-        }
-
-
-        [Test]
-        public void RegisterHandler()
-        {
-            NetworkManager manager = new NetworkManager();
-            NetworkConnection conn = new NetworkConnection(manager);
-            Assert.IsFalse(conn.HasHandler((ushort)NetworkMsgId.Max));
-
-            conn.RegisterHandler((ushort)NetworkMsgId.Max, (netMsg) => { });
-            Assert.IsTrue(conn.HasHandler((ushort)NetworkMsgId.Max));
-            manager.Shutdown();
-        }
-
-        [Test]
-        public void ConnectionData()
-        {
-            NetworkManager serverManager = new NetworkManager();
-            NetworkManager clientManager = new NetworkManager();
-            clientManager.port = serverManager.port = NextPort();
-            string serverData = null;
-            serverManager.ValidateConnect = (data) =>
-            {
-                serverData = Encoding.UTF8.GetString(data);
-                return null;
-            };
-            serverManager.StartServer();
-            serverManager.Update();
-
-            clientManager.ConnectionData = Encoding.UTF8.GetBytes("AuthToken");
-            clientManager.StartClient();
-
-            Update(serverManager, clientManager);
-
-            Assert.AreEqual("AuthToken", serverData);
-
-            clientManager.Shutdown();
-            serverManager.Shutdown();
-        }
 
         [Test]
         public void StartServer()
         {
-            NetworkManager serverManager = new NetworkManager();
-            serverManager.port = NextPort();
+            int port = NextPort();
+            NetworkManager serverManager = CreateNetworkManager(port);
+
             try
             {
                 Assert.IsFalse(serverManager.IsServer);
@@ -204,13 +130,11 @@ namespace Yanmonet.NetSync.Editor.Tests
 
                 Assert.IsTrue(serverManager.IsServer);
                 Assert.IsFalse(serverManager.IsClient);
-
-                var server = serverManager.Server;
-
-                Assert.IsTrue(server.IsRunning);
+                Assert.AreEqual(ulong.MaxValue, serverManager.LocalClientId);
 
                 serverManager.Shutdown();
-                Assert.IsFalse(server.IsRunning);
+                Assert.IsFalse(serverManager.IsServer);
+                Assert.IsFalse(serverManager.IsClient);
             }
             finally
             {
@@ -223,45 +147,313 @@ namespace Yanmonet.NetSync.Editor.Tests
         [Test]
         public void StartClient()
         {
-            NetworkManager serverManager = new NetworkManager();
-            NetworkManager clientManager = new NetworkManager();
-            clientManager.port = serverManager.port = NextPort();
+            int port = NextPort();
+            NetworkManager serverManager = CreateNetworkManager(port);
+            NetworkManager clientManager = CreateNetworkManager(port);
+
+
+            serverManager.StartServer();
+            var serverTask = Task.Run(() =>
+            {
+                while (serverManager.IsServer)
+                {
+                    serverManager.Update();
+                    Thread.Sleep(1);
+                }
+            });
 
             try
             {
-                serverManager.StartServer();
                 clientManager.StartClient();
 
-                var server = serverManager.Server;
-                Update(clientManager, serverManager);
+                Update(clientManager);
 
                 Assert.IsFalse(clientManager.IsServer);
                 Assert.IsTrue(clientManager.IsClient);
 
-                Assert.IsNotNull(clientManager.LocalClient);
-                var client = clientManager.LocalClient;
+                Assert.AreEqual(1, serverManager.ConnnectedClientIds.Count);
+                Assert.AreEqual(1, serverManager.ConnnectedClientIds[0]);
+                Assert.AreEqual(1, clientManager.LocalClientId);
 
-                Assert.IsTrue(client.IsRunning);
-                Assert.IsTrue(client.Connection.IsConnected);
-                Assert.AreEqual(1uL, clientManager.LocalClientId);
-                Assert.AreEqual(1uL, client.ClientId);
-
-                Assert.AreEqual(1, server.Connections.Count());
-                Assert.AreEqual(server.Clients.Count(), 1);
-
-                client.Dispose();
-                Update(clientManager, serverManager);
-
-                Assert.IsFalse(client.IsRunning);
             }
             finally
             {
                 clientManager.Shutdown();
                 serverManager.Shutdown();
             }
+            serverTask.Wait();
         }
 
 
+        [Test]
+        public void StartHost()
+        {
+            int port = NextPort();
+            NetworkManager host = CreateNetworkManager(port);
+            bool serverConnected = false;
+            bool clientConnected = false;
+            ulong serverConnectedId = 0;
+            host.ClientConnected += (clientId) =>
+            {
+                serverConnected = true;
+                serverConnectedId = clientId;
+            };
+            host.Connected += () =>
+            {
+                clientConnected = true;
+            };
+
+
+            Assert.IsFalse(host.IsServer);
+            Assert.IsFalse(host.IsClient);
+
+            host.StartHost();
+
+            Assert.IsTrue(host.IsServer);
+            Assert.IsTrue(host.IsClient);
+            Assert.AreEqual(NetworkManager.ServerClientId, host.LocalClientId);
+
+            Assert.IsTrue(clientConnected);
+            Assert.IsTrue(serverConnected);
+            Assert.AreEqual(NetworkManager.ServerClientId, serverConnectedId);
+
+            host.Shutdown();
+            Assert.IsFalse(host.IsServer);
+            Assert.IsFalse(host.IsClient);
+        }
+
+
+
+        [Test]
+        public void Client_Host()
+        {
+            int port = NextPort();
+            NetworkManager host = CreateNetworkManager(port);
+            bool serverConnected = false;
+            bool clientConnected = false;
+            ulong serverConnectedId = 0;
+            host.ClientConnected += (clientId) =>
+            {
+                serverConnected = true;
+                serverConnectedId = clientId;
+            };
+            host.Connected += () =>
+            {
+                clientConnected = true;
+            };
+
+
+            Assert.IsFalse(host.IsServer);
+            Assert.IsFalse(host.IsClient);
+
+            host.StartHost();
+            var hostTask = Task.Run(() =>
+            {
+                while (host.IsServer)
+                {
+                    host.Update();
+                    Thread.Sleep(1);
+                }
+            });
+            Assert.IsTrue(host.IsServer);
+            Assert.IsTrue(host.IsClient);
+
+            NetworkManager client = CreateNetworkManager(port);
+
+            client.StartClient();
+
+
+            Assert.AreEqual(1, client.LocalClientId);
+
+            Assert.IsTrue(clientConnected);
+            Assert.IsTrue(serverConnected);
+            Assert.AreEqual(1, serverConnectedId);
+
+            client.Shutdown();
+            host.Shutdown();
+            hostTask.Wait();
+        }
+
+
+        [Test]
+        public void Client_Shutdown()
+        {
+            var port = NextPort();
+            NetworkManager serverManager = CreateNetworkManager(port);
+            NetworkManager clientManager = CreateNetworkManager(port);
+
+            bool serverDisconnected = false;
+            bool clientDisconnected = false;
+            ulong serverDisconnectedId = 0;
+            serverManager.ClientDisconnected += (clientId) =>
+            {
+                serverDisconnected = true;
+                serverDisconnectedId = clientId;
+            };
+            clientManager.Disconnected += () =>
+            {
+                clientDisconnected = true;
+            };
+
+            serverManager.StartServer();
+            var serverTask = Task.Run(() =>
+            {
+                while (serverManager.IsServer)
+                {
+                    serverManager.Update();
+                    Thread.Sleep(1);
+                }
+            });
+
+            try
+            {
+                clientManager.StartClient();
+
+                Update(clientManager, serverManager);
+
+                clientManager.Shutdown();
+                Update(clientManager, serverManager);
+
+                Assert.AreEqual(0, serverManager.ConnnectedClientIds.Count);
+                Assert.IsFalse(clientManager.IsClient);
+
+                Assert.IsTrue(serverDisconnected);
+                Assert.AreEqual(1, serverDisconnectedId);
+                Assert.IsTrue(clientDisconnected);
+
+            }
+            finally
+            {
+                serverManager.Shutdown();
+            }
+            serverTask.Wait();
+        }
+
+
+        [Test]
+        public void Server_Disconnect()
+        {
+            var port = NextPort();
+            NetworkManager serverManager = CreateNetworkManager(port);
+            NetworkManager clientManager = CreateNetworkManager(port);
+
+            bool serverDisconnected = false;
+            bool clientDisconnected = false;
+            ulong serverDisconnectedId = 0;
+            serverManager.ClientDisconnected += (clientId) =>
+            {
+                serverDisconnected = true;
+                serverDisconnectedId = clientId;
+            };
+            clientManager.Disconnected += () =>
+            {
+                clientDisconnected = true;
+            };
+
+            serverManager.StartServer();
+            var serverTask = Task.Run(() =>
+            {
+                while (serverManager.IsServer)
+                {
+                    serverManager.Update();
+                    Thread.Sleep(1);
+                }
+            });
+
+            try
+            {
+
+                clientManager.StartClient();
+
+                Update(clientManager, serverManager);
+
+                serverManager.DisconnectClient(serverManager.ConnnectedClientIds[0]);
+                Update(clientManager, serverManager);
+
+                Assert.AreEqual(0, serverManager.ConnnectedClientIds.Count);
+                Assert.IsFalse(clientManager.IsClient);
+
+
+                Assert.IsTrue(serverDisconnected);
+                Assert.AreEqual(1, serverDisconnectedId);
+                Assert.IsTrue(clientDisconnected);
+
+            }
+            finally
+            {
+                clientManager.Shutdown();
+                serverManager.Shutdown();
+            }
+            serverTask.Wait();
+        }
+
+
+        [Test]
+        public void Host_Shutdown()
+        {
+            var port = NextPort();
+            NetworkManager host = CreateNetworkManager(port);
+
+            bool serverDisconnected = false;
+            bool clientDisconnected = false;
+            ulong serverDisconnectedId = 0;
+            host.ClientDisconnected += (clientId) =>
+            {
+                serverDisconnected = true;
+                serverDisconnectedId = clientId;
+            };
+            host.Disconnected += () =>
+            {
+                clientDisconnected = true;
+            };
+
+            host.StartHost();
+
+
+            host.Shutdown();
+
+            Assert.IsTrue(serverDisconnected);
+            Assert.AreEqual(NetworkManager.ServerClientId, serverDisconnectedId);
+            Assert.IsTrue(clientDisconnected);
+        }
+
+
+        [Test]
+        public void ConnectionData()
+        {
+            var port = NextPort();
+            NetworkManager serverManager = CreateNetworkManager(port);
+            NetworkManager clientManager = CreateNetworkManager(port);
+
+            string serverData = null;
+            serverManager.ValidateConnect = (data) =>
+            {
+                serverData = Encoding.UTF8.GetString(data);
+                return null;
+            };
+
+            serverManager.StartServer();
+            var serverTask = Task.Run(() =>
+            {
+                while (serverManager.IsServer)
+                {
+                    serverManager.Update();
+                    Thread.Sleep(1);
+                }
+            });
+
+
+            clientManager.ConnectionData = Encoding.UTF8.GetBytes("AuthToken");
+            clientManager.StartClient();
+
+            Update(clientManager);
+
+            Assert.AreEqual("AuthToken", serverData);
+
+            clientManager.Shutdown();
+            serverManager.Shutdown();
+            serverTask.Wait();
+        }
 
     }
 }

@@ -5,13 +5,13 @@ namespace Yanmonet.NetSync
     internal class SyncVarMessage : MessageBase
     {
         public NetworkObject netObj;
-        public NetworkConnection conn;
+        public NetworkManager netMgr;
         public uint bits;
         public byte action;
         public bool isDelta;
         public bool isAll;
         public bool keepDirty;
-        public byte type;        
+        public byte type;
         public const byte Action_ResponseSyncVar = 1;
         public const byte Action_RequestSyncVar = 2;
 
@@ -60,14 +60,7 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref isDelta);
             netObj = null;
 
-            if (conn.NetworkManager.IsServer)
-            {
-                netObj = conn.NetworkManager.Server.GetObject(instanceId);
-            }
-            else
-            {
-                netObj = conn.GetObject(instanceId);
-            }
+            netObj = netMgr.GetObject(instanceId);
 
             if (netObj == null)
                 return;
@@ -110,17 +103,17 @@ namespace Yanmonet.NetSync
                         }
                         catch (Exception ex)
                         {
-                            conn.NetworkManager.LogException(ex);
+                            netMgr.LogException(ex);
                         }
                     }
 
                     if (netObj.IsServer)
                     {
-                        foreach (var _conn in netObj.NetworkManager.GetAvaliableConnections(netObj.Observers))
+                        foreach (var _client in netObj.NetworkManager.GetAvaliableClients(netObj.Observers))
                         {
-                            if (_conn.ConnectionId == netObj.OwnerClientId)
+                            if (_client.ClientId == netObj.OwnerClientId)
                                 continue;
-                            _conn.SendMessage((ushort)NetworkMsgId.SyncVar, this);
+                            _client.SendMessage((ushort)NetworkMsgId.SyncVar, this);
                         }
 
                     }

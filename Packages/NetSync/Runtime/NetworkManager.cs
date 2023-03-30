@@ -6,20 +6,29 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Yanmonet.NetSync.Messages;
+using Yanmonet.NetSync.Transport.Socket;
+using UnityEditor.PackageManager;
+using System.IO;
+using System.Linq;
+using System.Management.Instrumentation;
+using Codice.Client.BaseCommands;
+using System.Threading;
 
 namespace Yanmonet.NetSync
 {
     public class NetworkManager
     {
-        public string address = "127.0.0.1";
-        public string listenAddress = "0.0.0.0";
-        public int port = 7777;
-        private NetworkServer server;
+        //public string address = "127.0.0.1";
+        //public string listenAddress = "0.0.0.0";
+        //public int port = 7777;
+        //private NetworkClient serverClient;
         private NetworkClient localClient;
         internal Dictionary<ushort, NetworkMessageDelegate> msgHandlers;
 
         public const ulong ServerClientId = 0;
         public Action<string> LogCallback;
+        private HashSet<ulong> destoryObjIds;
+        public string ConnectFailReson;
 
         public NetworkManager()
         {
@@ -33,47 +42,69 @@ namespace Yanmonet.NetSync
         }
 
 
+        internal Dictionary<ulong, NetworkObject> objects;
+        internal uint nextObjectId;
+
+        public IEnumerable<NetworkObject> Objects
+        {
+            get
+            {
+                return objects.Select(o => o.Value);
+            }
+        }
+
         public ulong LocalClientId { get; internal set; }
 
         public bool IsServer { get; private set; }
 
-        public NetworkServer Server => server;
 
         public bool IsClient { get; private set; }
 
-        public NetworkClient LocalClient => localClient;
+        internal NetworkClient LocalClient => localClient;
 
 
         public bool IsHost => IsServer && IsClient;
 
+        private ulong NextClientId;
+
+        private Dictionary<ulong, NetworkClient> transportToClients;
         internal Dictionary<ulong, NetworkClient> clients;
-        internal LinkedList<NetworkClient> clientList;
-        internal LinkedList<ulong> clientIds;
+        internal List<ulong> clientIds;
 
-        internal Dictionary<ulong, LinkedListNode<NetworkClient>> clientNodes;
 
-        public IReadOnlyDictionary<ulong, NetworkClient> ConnnectedClients
+        public event Action<ulong> ClientConnected;
+        public event Action<ulong> ClientDisconnected;
+
+        public event Action Connected;
+        public event Action Disconnected;
+
+        public event Action<NetworkObject> ObjectSpawned;
+        public event Action<NetworkObject> ObjectDespawned;
+
+
+
+        //internal IReadOnlyDictionary<ulong, NetworkClient> ConnnectedClients
+        //{
+        //    get
+        //    {
+        //        if (!IsServer) throw new NotServerException("ConnnectedClients only access on server");
+        //        return clients;
+        //    }
+        //}
+        //internal IReadOnlyCollection<NetworkClient> ConnnectedClientList
+        //{
+        //    get
+        //    {
+        //        if (!IsServer) throw new NotServerException("ConnnectedClientList only access on server");
+        //        return clientList;
+        //    }
+        //}
+
+        public IReadOnlyList<ulong> ConnnectedClientIds
         {
             get
             {
-                if (!IsServer) throw new NotServerException("ConnnectedClients only access on server");
-                return clients;
-            }
-        }
-        public IReadOnlyCollection<NetworkClient> ConnnectedClientList
-        {
-            get
-            {
-                if (!IsServer) throw new NotServerException("ConnnectedClientList only access on server");
-                return clientList;
-            }
-        }
-
-        public IReadOnlyCollection<ulong> ConnnectedClientIds
-        {
-            get
-            {
-                if (!IsServer) throw new NotServerException("ConnnectedClientIds only access on server");
+                if (!IsServer) throw new NotServerException($"{nameof(ConnnectedClientIds)} only access on server");
                 return clientIds;
             }
         }
@@ -86,15 +117,23 @@ namespace Yanmonet.NetSync
 
         public static NetworkManager Singleton { get; private set; }
 
-
+        private INetworkTransport transport;
+        public INetworkTransport Transport { get => transport; set => transport = value; }
         private void Initalize()
         {
+            if (transport == null) throw new Exception("Transport null");
+
             IsServer = false;
             IsClient = false;
             clients = new();
             clientIds = new();
-            clientList = new();
-            clientNodes = new();
+            destoryObjIds = new();
+            transportToClients = new();
+            objects = new();
+            startTime = DateTime.Now;
+            NextClientId = 0;
+            nextObjectId = 0;
+            ConnectFailReson = null;
         }
 
         void InitalizeMessageHandler()
@@ -104,7 +143,6 @@ namespace Yanmonet.NetSync
             msgHandlers = new Dictionary<ushort, NetworkMessageDelegate>();
             msgHandlers[(ushort)NetworkMsgId.ConnectRequest] = OnMessage_ConnectRequest;
             msgHandlers[(ushort)NetworkMsgId.ConnectResponse] = OnMessage_ConnectResponse;
-            msgHandlers[(ushort)NetworkMsgId.Disconnect] = OnMessage_Disconnect;
             msgHandlers[(ushort)NetworkMsgId.CreateObject] = OnMessage_CreateObject;
             msgHandlers[(ushort)NetworkMsgId.Despawn] = OnMessage_DespawnObject;
             msgHandlers[(ushort)NetworkMsgId.Spawn] = OnMessage_SpawnObject;
@@ -147,6 +185,17 @@ namespace Yanmonet.NetSync
             Sync<Guid>.Serializer = new GuidSerializer();
             Sync<Guid>.AreEqual = Sync<Guid>.ValueEquals;
         }
+        private DateTime startTime;
+
+
+        private float NowTime
+        {
+            get
+            {
+                return (float)DateTime.Now.Subtract(startTime).TotalSeconds;
+            }
+        }
+
 
         public void StartHost()
         {
@@ -157,40 +206,44 @@ namespace Yanmonet.NetSync
 
             try
             {
-                server = new NetworkServer(this);
-                server.Start(listenAddress, port);
+                transport.Initialize(this);
+                if (!transport.StartServer())
+                {
+                    transport.Shutdown();
+                    IsServer = false;
+                    IsClient = false;
+                    return;
+                }
 
-                localClient = new NetworkClient(this);
+                //serverClient = new NetworkClient(this);
+                //serverClient.ClientId = ServerClientId;
 
-                delayHostConn = true;
+                //localClient = serverClient;
+
+                if (ValidateConnect != null)
+                {
+                    try
+                    {
+                        ValidateConnect?.Invoke(ConnectionData);
+                    }
+                    catch (Exception ex)
+                    {
+                        ConnectFailReson = ex.Message;
+                        throw ex;
+                    }
+                }
+
+                ClientConnected?.Invoke(ServerClientId);
+
+                Connected?.Invoke();
             }
             catch
             {
-                IsServer = false;
-                IsClient = false;
-                if (localClient != null)
-                {
-                    try
-                    {
-                        localClient.Dispose();
-                    }
-                    catch { }
-                    localClient = null;
-                }
-                if (server != null)
-                {
-                    try
-                    {
-                        server.Dispose();
-                    }
-                    catch { }
-                    server = null;
-                }
-
-                LocalClientId = ulong.MaxValue;
+                Shutdown();
                 throw;
             }
         }
+
         public void StartServer()
         {
             Initalize();
@@ -200,25 +253,24 @@ namespace Yanmonet.NetSync
 
             try
             {
-                server = new NetworkServer(this);
-                server.Start(port);
+                transport.Initialize(this);
+                if (!transport.StartServer())
+                {
+                    transport.Shutdown();
+                    IsServer = false;
+                    return;
+                }
+                //serverClient = new NetworkClient(this);
+                //serverClient.ClientId = ServerClientId;
+
             }
             catch
             {
-                if (server != null)
-                {
-                    try
-                    {
-                        server.Dispose();
-                    }
-                    catch { }
-                    server = null;
-                }
-
-                LocalClientId = ulong.MaxValue;
+                Shutdown();
                 throw;
             }
         }
+
         public void StartClient()
         {
             Initalize();
@@ -228,22 +280,56 @@ namespace Yanmonet.NetSync
 
             try
             {
+                transport.Initialize(this);
+                if (!transport.StartClient())
+                {
+                    transport.Shutdown();
+                    IsClient = false;
+                    return;
+                }
+
+                NetworkEvent @event;
+                transport.PollEvent(out @event);
+
+                if (@event.Type != NetworkEventType.Connect)
+                    throw new Exception($"Not Connect Network Event, Event: {@event.Type}");
+
                 localClient = new NetworkClient(this);
-                localClient.Connect(address, port, Version, ConnectionData);
+                localClient.transportClientId = @event.ClientId;
+                var connectRequest = new ConnectRequestMessage()
+                {
+                    Payload = ConnectionData,
+                };
+                transport.Send(localClient.transportClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
+
+                float timeout = NowTime + 10;
+                while (true)
+                {
+                    Update();
+
+                    if (!IsClient)
+                        return;
+                    if (localClient.isConnected)
+                    {
+                        break;
+                    }
+
+                    if (NowTime > timeout)
+                    {
+                        throw new TimeoutException();
+                    }
+
+                    Thread.Sleep(1);
+                }
+
+                localClient.ClientId = LocalClientId;
+
+                Connected?.Invoke();
+
             }
             catch
             {
-                if (localClient != null)
-                {
-                    try
-                    {
-                        localClient.Dispose();
-                    }
-                    catch { }
-                    localClient = null;
-                }
-
-                LocalClientId = ulong.MaxValue;
+                Shutdown();
                 throw;
             }
         }
@@ -304,72 +390,6 @@ namespace Yanmonet.NetSync
         }
 
 
-        #endregion
-
-
-        public void InvokeHandler(NetworkMessage netMsg)
-        {
-            NetworkMessageDelegate handler;
-
-
-
-            if (msgHandlers == null || !msgHandlers.TryGetValue(netMsg.MsgId, out handler))
-            {
-                // Console.WriteLine("not found msgId: " + netMsg.MsgId);
-                return;
-            }
-
-            handler(netMsg);
-        }
-        bool delayHostConn;
-        public void Update()
-        {
-            if (delayHostConn)
-            {
-                delayHostConn = false;
-
-                byte[] resData = null;
-                if (ValidateConnect != null)
-                {
-                    resData = ValidateConnect(ConnectionData ?? new byte[0]);
-                }
-
-                Server.OnClientConnected(localClient);
-
-                NetworkMessage netMsg = new NetworkMessage();
-
-                localClient.Connection.ConnectionId = ServerClientId;
-                localClient.Connection.IsConnecting = false;
-                localClient.Connection.IsConnected = true;
-                LocalClient.Connection.OnConnected(resData ?? new byte[0]);
-            }
-
-            if (IsServer)
-            {
-                server.Update();
-            }
-            if (IsClient)
-            {
-                localClient.Update();
-            }
-        }
-
-        public NetworkConnection GetConnection(ulong clientId)
-        {
-            if (clients.TryGetValue(clientId, out var client))
-                return client.Connection;
-            return null;
-        }
-
-        public IEnumerable<NetworkConnection> GetAvaliableConnections(IEnumerable<ulong> clientIds)
-        {
-            foreach (var clientId in clientIds)
-            {
-                if (clients.TryGetValue(clientId, out var client))
-                    yield return client.Connection;
-            }
-        }
-
         public T CreateObject<T>()
           where T : NetworkObject
         {
@@ -386,15 +406,464 @@ namespace Yanmonet.NetSync
             NetworkObject instance = objInfo.create(typeId);
             if (instance == null)
                 throw new Exception("create object, instance null");
+
             instance.typeId = typeId;
+
+            //调用 Spawn 需要
             instance.networkManager = this;
             return instance;
         }
 
+        internal void SpawnObject(NetworkObject obj)
+        {
+            if (!objects.ContainsKey(obj.InstanceId))
+                return;
+            if (obj.IsSpawned)
+                return;
+            obj.IsSpawned = true;
+
+            try
+            {
+                obj.OnSpawned();
+            }
+            catch (Exception ex) { LogException(ex); }
+
+            try
+            {
+                ObjectSpawned?.Invoke(obj);
+            }
+            catch (Exception ex) { LogException(ex); }
+        }
+
+        internal void DespawnObject(NetworkObject obj)
+        {
+            if (!objects.ContainsKey(obj.InstanceId))
+                return;
+            objects.Remove(obj.InstanceId);
+
+            if (!obj.IsSpawned)
+                return;
+            obj.IsSpawned = false;
+
+            foreach (var variable in obj.variables.Values)
+            {
+                //variable.networkObject = null;
+            }
+
+            try
+            {
+                obj.OnDespawned();
+            }
+            catch (Exception ex) { LogException(ex); }
+
+            try
+            {
+                ObjectDespawned?.Invoke(obj);
+            }
+            catch (Exception ex) { LogException(ex); }
+
+            obj.InstanceId = 0;
+
+        }
+
+        internal void DestroryObject(NetworkObject obj)
+        {
+            if (obj.isDestrory)
+                return;
+            obj.isDestrory = true;
+
+            var info = NetworkObjectInfo.Get(obj.typeId);
+
+            if (info.destroy != null)
+            {
+                try
+                {
+                    info.destroy(obj);
+                }
+                catch (Exception ex) { LogException(ex); }
+            }
+
+
+            try
+            {
+                obj.OnDestrory();
+            }
+            catch (Exception ex) { LogException(ex); }
+
+
+            if (obj is IDisposable)
+            {
+                try
+                {
+                    ((IDisposable)obj).Dispose();
+                }
+                catch (Exception ex) { LogException(ex); }
+            }
+        }
+
+        internal bool ContainsObject(ulong instanceId)
+        {
+            return objects.ContainsKey(instanceId);
+        }
+
+        public NetworkObject GetObject(ulong instanceId)
+        {
+            NetworkObject obj;
+            objects.TryGetValue(instanceId, out obj);
+            return obj;
+        }
+
+        public void UpdateObjects()
+        {
+
+            foreach (var netObj in Objects)
+            {
+                if (netObj != null)
+                {
+                    try
+                    {
+                        netObj.InternalUpdate();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogException(ex);
+                    }
+
+                }
+            }
+
+            if (destoryObjIds.Count > 0)
+            {
+                foreach (var id in destoryObjIds)
+                {
+                    NetworkObject netObj;
+                    if (objects.TryGetValue(id, out netObj))
+                    {
+                        objects.Remove(id);
+                        if (netObj.IsSpawned)
+                        {
+                            netObj.Despawn();
+                        }
+                        netObj.Destrory();
+                    }
+                }
+                destoryObjIds.Clear();
+            }
+        }
+        #endregion
+
+
+        internal void InvokeHandler(NetworkMessage netMsg)
+        {
+            NetworkMessageDelegate handler;
+
+
+
+            if (msgHandlers == null || !msgHandlers.TryGetValue(netMsg.MsgId, out handler))
+            {
+                LogError("Unknown msgId: " + netMsg.MsgId);
+                return;
+            }
+            try
+            {
+
+                handler(netMsg);
+            }
+            catch (Exception ex)
+            {
+                Log("Handle message error, msgId: " + netMsg.MsgId);
+                LogException(ex);
+            }
+        }
+
+
+
+
+        internal void HostHandleMessage(ulong clientId, ushort msgId, byte[] packet)
+        {
+            MemoryStream ms = new MemoryStream(packet, 0, packet.Length, true, true);
+            ms.Position = 0;
+            ms.SetLength(packet.Length);
+            NetworkReader reader = new NetworkReader(ms);
+            reader.rawPacket = packet;
+
+            NetworkMessage netMsg = new NetworkMessage();
+            netMsg.MsgId = msgId;
+            netMsg.NetworkManager = this;
+            netMsg.ClientId = clientId;
+            netMsg.Reader = reader;
+            netMsg.rawPacket = packet;
+            InvokeHandler(netMsg);
+        }
+
+        public void Update()
+        {
+
+            NetworkEvent evt;
+            ulong? clientId = null;
+            NetworkClient client;
+            while (transport.PollEvent(out evt))
+            {
+                clientId = null;
+                client = null;
+                if (evt.ClientId == transport.ServerClientId)
+                {
+                    clientId = ServerClientId;
+                }
+                else if (IsClient && localClient != null && localClient.transportClientId == evt.ClientId)
+                {
+                    clientId = localClient.clientId;
+                    client = localClient;
+                }
+                else
+                {
+                    if (transportToClients.TryGetValue(evt.ClientId, out client))
+                    {
+                        clientId = client.ClientId;
+
+                    }
+                }
+
+                if (client != null)
+                {
+                    client.LastReceiveTime = evt.ReceiveTime;
+                }
+
+
+                switch (evt.Type)
+                {
+                    case NetworkEventType.Data:
+                        {
+                            if (clientId.HasValue)
+                            {
+                                NetworkMessage netMsg = new NetworkMessage();
+                                netMsg.NetworkManager = this;
+
+                                NetworkReader reader = new NetworkReader(evt.Payload);
+
+                                ushort msgId = reader.ReadUInt16();
+
+                                netMsg.MsgId = msgId;
+                                netMsg.ClientId = clientId.Value;
+                                netMsg.Reader = reader;
+                                netMsg.rawPacket = reader.rawPacket;
+                                Log("======receive " + (NetworkMsgId)msgId);
+                                InvokeHandler(netMsg);
+                            }
+                        }
+                        break;
+                    case NetworkEventType.Connect:
+                        OnServerTransportConnect(evt.ClientId);
+                        break;
+                    case NetworkEventType.Disconnect:
+                        if (IsServer)
+                        {
+                            OnServerTransportDisconnect(evt.ClientId);
+                        }
+                        else
+                        {
+                            OnClientTransportDisconnect(evt.ClientId);
+                        }
+                        break;
+                    case NetworkEventType.Error:
+                        {
+                            Log("Network Transport error");
+                            Shutdown();
+                        }
+                        break;
+
+                }
+            }
+
+            foreach (var obj in objects.Values)
+            {
+                obj.InternalUpdate();
+            }
+
+
+
+        }
+
+
+
+
+        private NetworkClient OnServerTransportConnect(ulong transportClientId)
+        {
+            NetworkClient client;
+            OnServerTransportDisconnect(transportClientId);
+            client = new NetworkClient(this);
+            ulong clientId;
+            if (transportClientId == transport.ServerClientId)
+            {
+                clientId = ServerClientId;
+            }
+            else
+            {
+                clientId = ++NextClientId;
+            }
+
+
+            client.transportClientId = transportClientId;
+            client.ClientId = clientId;
+
+            //NetworkManager.Log($"Accept Client {connId}, IsConnecting: {client.Connection.IsConnecting}, IsRunning: {client.IsRunning}");
+
+            transportToClients[transportClientId] = client;
+            clients[client.ClientId] = client;
+            clientIds.Add(client.ClientId);
+
+            try
+            {
+                ClientConnected?.Invoke(clientId);
+            }
+            catch (Exception ex) { LogException(ex); }
+
+            return client;
+        }
+
+        private void OnServerTransportDisconnect(ulong transportClientId)
+        {
+
+            NetworkClient client;
+            if (!transportToClients.TryGetValue(transportClientId, out client))
+            {
+                return;
+            }
+            ulong clientId = client.ClientId;
+            transportToClients.Remove(transportClientId);
+
+            clientIds.Remove(clientId);
+            clients.Remove(clientId);
+
+            foreach (var obj in objects.Values)
+            {
+                if (obj.IsSpawned)
+                {
+                    obj.RemoveObserver(clientId);
+
+                    if (obj.OwnerClientId == clientId)
+                    {
+                        obj.Despawn();
+                    }
+                }
+            }
+
+            try
+            {
+                ClientDisconnected?.Invoke(clientId);
+            }
+            catch (Exception ex) { LogException(ex); }
+        }
+
+        private void OnClientTransportDisconnect(ulong transportClientId)
+        {
+            ulong clientId;
+
+            if (!IsClient)
+                return;
+            if (LocalClient == null || LocalClient.transportClientId != transportClientId)
+                return;
+
+            clientId = localClient.clientId;
+
+            foreach (var obj in objects.Values.ToArray())
+            {
+                if (obj.IsSpawned)
+                {
+                    DespawnObject(obj);
+                }
+                if (!obj.isDestrory)
+                {
+                    DestroryObject(obj);
+                }
+            }
+            objects.Clear();
+
+            try
+            {
+                Disconnected?.Invoke();
+            }
+            catch (Exception ex) { LogException(ex); }
+
+            Shutdown();
+        }
+
+        public bool ContainsClient(ulong clientId)
+        {
+            return clients.ContainsKey(clientId);
+        }
+
+        internal NetworkClient GetClient(ulong clientId)
+        {
+            if (clients.TryGetValue(clientId, out var client))
+                return client;
+            return null;
+        }
+        internal IEnumerable<NetworkClient> GetAvaliableClients(IEnumerable<ulong> clientIds)
+        {
+            foreach (var clientId in clientIds)
+            {
+                if (clients.TryGetValue(clientId, out var client))
+                    yield return client;
+            }
+        }
+
+        public void DisconnectClient(ulong clientId)
+        {
+            if (!IsServer) throw new NotServerException();
+
+            var client = GetClient(clientId);
+            if (client == null)
+                return;
+
+            transport.DisconnectRemoteClient(client.transportClientId);
+
+            OnServerTransportDisconnect(client.transportClientId);
+        }
+
+
         public void Shutdown()
         {
-            IsServer = false;
-            IsClient = false;
+            if (IsClient)
+            {
+                IsClient = false;
+                if (LocalClientId != ServerClientId)
+                {
+                    transport.DisconnectLocalClient();
+                }
+                try
+                {
+                    Disconnected?.Invoke();
+                }
+                catch (Exception ex) { LogException(ex); }
+                if (IsServer)
+                {
+                    try
+                    {
+                        ClientDisconnected?.Invoke(LocalClientId);
+                    }
+                    catch (Exception ex) { LogException(ex); }
+                }
+                LocalClientId = ulong.MaxValue;
+            }
+
+            if (IsServer)
+            {
+                foreach (var client in clients.Values.ToArray())
+                {
+                    DisconnectClient(client.ClientId);
+                }
+                IsServer = false;
+                clientIds.Clear();
+                clients.Clear();
+                transportToClients.Clear();
+            }
+
+            if (transport != null)
+            {
+                transport.Shutdown();
+            }
+
 
             if (localClient != null)
             {
@@ -405,23 +874,7 @@ namespace Yanmonet.NetSync
                 catch { }
                 localClient = null;
             }
-            if (server != null)
-            {
-                try
-                {
-                    server.Dispose();
-                }
-                catch { }
-                server = null;
-            }
-            if (clientIds != null)
-            {
-                clientIds.Clear();
-                clientList.Clear();
-                clientNodes.Clear();
-                clients.Clear();
-            }
-            LocalClientId = ulong.MaxValue;
+
         }
 
         public void Log(string msg)
@@ -471,103 +924,193 @@ namespace Yanmonet.NetSync
 
         }
 
-        #region Receive Message
+        #region Send Message
 
 
-        private void OnMessage_ConnectRequest(NetworkMessage netMsg)
+        internal void SendMessage(ulong clientId, ushort msgId, MessageBase msg = null)
         {
-            var msg = netMsg.ReadMessage<ConnectRequestMessage>();
-            var conn = netMsg.Connection;
-
-            if (conn.isConnecting)
-            {
-                if (!IsServer) throw new NotServerException("Connect To Server Msg only server");
-
-                try
-                {
-
-                    NetworkClient client;
-                    if (!clients.TryGetValue(conn.ConnectionId, out client))
-                    {
-                        conn.isConnecting = false;
-                        conn.isConnected = false;
-                        Log("Not found client id: " + conn.ConnectionId);
-                        return;
-                    }
-                    byte[] responseData = null;
-                    if (ValidateConnect != null)
-                    {
-                        try
-                        {
-                            responseData = ValidateConnect( msg.data);
-                        }
-                        catch (Exception ex)
-                        {
-                            conn.isConnecting = false;
-                            conn.isConnected = false;
-                            conn.Disconnect();
-                            LogException(ex);
-                            return;
-                        }
-                    }
-                    if (responseData == null)
-                        responseData = new byte[0];
-
-                    conn.isConnecting = false;
-                    conn.isConnected = true;
-                    //Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
-                    conn.SendMessage((ushort)NetworkMsgId.ConnectResponse, new ConnectResponseMessage()
-                    {
-                        ownerClientId = conn.ConnectionId,
-                        data = responseData
-                    });
-                    Server.OnClientConnected(client);
-                    conn.OnConnected(responseData);
-                }
-                catch (Exception ex)
-                {
-                    conn.isConnected = false;
-                    conn.Disconnect();
-                    throw ex;
-                }
-            }
+            var s = PackMessage(msgId, msg);
+            if (s == null)
+                return;
+            SendPacket(clientId, msgId, s);
         }
 
-        private void OnMessage_ConnectResponse(NetworkMessage netMsg)
+        internal void SendPacket(ulong clientId, ushort msgId, byte[] packet, NetworkDelivery delivery = NetworkDelivery.ReliableSequenced)
         {
+            Log($"{clientId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
 
-            var msg = netMsg.ReadMessage<ConnectResponseMessage>();
-            var conn = netMsg.Connection;
+            NetworkClient client = null;
+            if (IsServer)
+            {
+                if (clientId == ServerClientId)
+                {
+                    HostHandleMessage(clientId, msgId, packet);
+                }
+                else
+                {
+                    client = GetClient(clientId);
+                }
+            }
+            else
+            {
+                client = LocalClient;
+            }
+
+            if (client != null)
+            {
+                transport.Send(client.transportClientId, new ArraySegment<byte>(packet), delivery);
+            }
+
+        }
+
+
+        internal byte[] PackMessage(ushort msgId, MessageBase msg = null)
+        {
+            byte[] bytes = null;
             try
             {
-                Log($"Client Receive Connect Msg, ClientId: {msg.ownerClientId}");
-                conn.isConnecting = false;
-                conn.isConnected = true;
-                conn.ConnectionId = msg.ownerClientId;
-                if (IsClient && LocalClient != null && LocalClient.Connection == conn)
+                NetworkWriter s;
+                //NetworkManager.Log($"Send Msg: {(msgId < (int)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId)}");
+
+                s = NetworkUtility.GetWriter();
+
+                s.BaseStream.Position = 0;
+                s.BaseStream.SetLength(0);
+                //s.BeginWritePackage();
+                s.SerializeValue(ref msgId);
+                if (msg != null)
                 {
-                    LocalClientId = conn.ConnectionId;
+                    msg.Serialize(s);
                 }
-                conn.OnConnected(msg.data ?? new byte[0]);
+
+                //s.EndWritePackage();
+                bytes = new byte[s.BaseStream.Length];
+                s.BaseStream.Position = 0;
+                s.BaseStream.Read(bytes, 0, bytes.Length);
+                NetworkUtility.UnusedWriter(s);
             }
             catch (Exception ex)
             {
-                conn.isConnected = false;
-                conn.Disconnect();
-                throw ex;
+                Log($"Write Message error, msgId: {msgId}, type: {msg.GetType().Name}");
+                LogException(ex);
+            }
+            return bytes;
+        }
+
+        #endregion
+
+        #region Receive Message
+
+
+        private static void OnMessage_ConnectRequest(NetworkMessage netMsg)
+        {
+            var netMgr = netMsg.NetworkManager;
+            if (!netMgr.IsServer) throw new NotServerException("Connect To Server Msg only server");
+            var msg = netMsg.ReadMessage<ConnectRequestMessage>();
+
+            ulong clientId = netMsg.ClientId;
+            NetworkClient client = null;
+            var resp = new ConnectResponseMessage();
+            try
+            {
+
+                client = netMgr.GetClient(clientId);
+                if (client == null)
+                {
+                    return;
+                }
+                resp.Success = true;
+                resp.clientId = clientId;
+
+                byte[] responseData = null;
+                if (netMgr.ValidateConnect != null)
+                {
+                    try
+                    {
+                        responseData = netMgr.ValidateConnect(msg.Payload);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        netMgr.LogException(ex);
+                        netMgr.DisconnectClient(clientId);
+                        resp.Success = false;
+                        resp.Reson = ex.Message;
+                    }
+                }
+
+                if (responseData == null)
+                    responseData = new byte[0];
+                resp.data = responseData;
+                //Log($"Send Accept Client Msg, ClientId: {conn.ConnectionId}");
+                netMgr.SendMessage(clientId, (ushort)NetworkMsgId.ConnectResponse, resp);
+
+                if (resp.Success)
+                {
+
+                    client.isConnected = true;
+                    try
+                    {
+                        netMgr.ClientConnected?.Invoke(clientId);
+                    }
+                    catch (Exception ex) { netMgr.LogException(ex); }
+                }
+                else
+                {
+                    netMgr.DisconnectClient(clientId);
+                }
+            }
+            catch (Exception ex)
+            {
+                netMgr.LogException(ex);
+                if (client != null)
+                {
+                    client.isConnected = false;
+                }
+                netMgr.DisconnectClient(clientId);
+
+            }
+
+        }
+
+        private static void OnMessage_ConnectResponse(NetworkMessage netMsg)
+        {
+            var netMgr = netMsg.NetworkManager;
+            var msg = netMsg.ReadMessage<ConnectResponseMessage>();
+
+            netMgr.Log($"Client Receive Connect Msg, ClientId: {msg.clientId}");
+
+            if (netMgr.IsClient && netMgr.LocalClient != null)
+            {
+                netMgr.LocalClientId = msg.clientId;
+                netMgr.localClient.clientId = msg.clientId;
+
+                if (msg.Success)
+                {
+                    netMgr.localClient.isConnected = true;
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(msg.Reson))
+                    {
+                        netMgr.LogError(msg.Reson);
+                    }
+                    netMgr.Shutdown();
+                }
             }
         }
 
+        /*
         private static void OnMessage_Disconnect(NetworkMessage netMsg)
         {
             netMsg.Connection.Disconnect();
         }
-
+        */
 
         private static void OnMessage_CreateObject(NetworkMessage netMsg)
         {
-            var conn = netMsg.Connection;
-            if (conn.NetworkManager.IsServer)
+            var netMgr = netMsg.NetworkManager;
+            if (netMgr.IsServer)
                 return;
 
             var msg = netMsg.ReadMessage<CreateObjectMessage>();
@@ -588,103 +1131,83 @@ namespace Yanmonet.NetSync
 
             ulong instanceId = msg.objectId;
 
-            if (!conn.ContainsObject(instanceId))
+            if (!netMgr.ContainsObject(instanceId))
             {
                 NetworkObject instance = null;
-                if (conn.NetworkManager.IsServer)
-                {
-                    instance = conn.NetworkManager.Server.GetObject(instanceId);
-                }
-                else
-                {
-                    var info = NetworkObjectInfo.Get(typeId);
-                    conn.NetworkManager.Log($"Spawn Object '{info.type.Name}', instance: {instanceId}");
 
-                    instance = conn.NetworkManager.CreateObject(typeId);
-                    if (instance == null)
-                        throw new Exception("create instance null, Type id:" + typeId);
-                    instance.typeId = typeId;
-                    instance.InstanceId = instanceId;
-                    instance.networkManager = conn.NetworkManager;
-                    instance.OwnerClientId = msg.ownerClientId;
-                    instance.ConnectionToOwner = conn;
-                    instance.Connection = conn;
-                    if (instance.IsOwner)
-                    {
-                        instance.ConnectionToOwner = conn;
-                    }
-                    conn.AddObject(instance);
-                }
+                var info = NetworkObjectInfo.Get(typeId);
+                netMgr.Log($"Create Object '{info.type.Name}', instance: {instanceId}");
+
+                instance = netMgr.CreateObject(typeId);
+                if (instance == null)
+                    throw new Exception("create instance null, Type id:" + typeId);
+                instance.InstanceId = instanceId;
+                instance.OwnerClientId = msg.ownerClientId;
+
+                netMgr.objects[instanceId] = instance;
 
             }
             //}
         }
-        private static void OnMessage_DespawnObject(NetworkMessage netMsg)
-        {
-            var conn = netMsg.Connection;
-            var msg = netMsg.ReadMessage<DespawnMessage>();
-
-            ulong instanceId = msg.instanceId;
-
-            NetworkObject instance;
-            instance = conn.GetObject(instanceId);
-            if (instance != null)
-            {
-                if (!instance.NetworkManager.IsServer)
-                {
-                    conn.RemoveObject(instance);
-                    if (msg.isDestroy)
-                    {
-                        instance.Destrory();
-                    }
-                }
-            }
-        }
 
         private static void OnMessage_SpawnObject(NetworkMessage netMsg)
         {
+            var netMgr = netMsg.NetworkManager;
             var msg = new SpawnMessage();
             netMsg.ReadMessage(msg);
-            var conn = netMsg.Connection;
 
-            NetworkObject netObj = null;
+            NetworkObject netObj;
 
-            if (conn.NetworkManager.IsServer)
-            {
-                netObj = conn.NetworkManager.Server.GetObject(msg.instanceId);
-            }
-            else
-            {
-                netObj = conn.GetObject(msg.instanceId);
-            }
+            netObj = netMgr.GetObject(msg.instanceId);
 
             if (netObj == null)
                 return;
+            if (netObj.IsSpawned)
+                return;
 
             netObj.OwnerClientId = msg.ownerClientId;
-            netObj.IsSpawned = true;
-            netObj.OnSpawned();
+            netMgr.SpawnObject(netObj);
+        }
 
-            conn.OnObjectAdded(netObj);
+        private static void OnMessage_DespawnObject(NetworkMessage netMsg)
+        {
+            var netMgr = netMsg.NetworkManager;
+            if (netMgr.IsServer)
+                return;
 
+            var msg = netMsg.ReadMessage<DespawnMessage>();
+
+            NetworkObject instance;
+            instance = netMgr.GetObject(msg.instanceId);
+            if (instance == null)
+                return;
+            if (!instance.IsSpawned)
+                return;
+
+            netMgr.DespawnObject(instance);
+
+            if (msg.isDestroy)
+            {
+                netMgr.DestroryObject(instance);
+            }
         }
 
         private void OnMessage_SyncVar(NetworkMessage netMsg)
         {
             var msg = new SyncVarMessage();
-            msg.conn = netMsg.Connection;
+            msg.netMgr = netMsg.NetworkManager;
 
             netMsg.ReadMessage(msg);
 
             if (IsServer)
             {
                 //服务端收到的变量转发给其它端
-                foreach (var conn in GetAvaliableConnections(msg.netObj.observers))
+                foreach (var clientId in msg.netObj.observers)
                 {
-                    if (conn.ConnectionId == msg.netObj.OwnerClientId)
+                    if (clientId == msg.netObj.OwnerClientId)
                         continue;
-                    conn.SendPacket(netMsg.MsgId, netMsg.rawPacket);
-                    Log("Redirect Variable Msg: " + conn.ConnectionId);
+                    SendPacket(clientId, netMsg.MsgId, netMsg.rawPacket);
+                    Log("Redirect Variable Msg: " + clientId);
                 }
             }
 
@@ -693,7 +1216,7 @@ namespace Yanmonet.NetSync
         private static void OnMessage_Rpc(NetworkMessage netMsg)
         {
             var msg = new RpcMessage();
-            msg.conn = netMsg.Connection;
+            msg.netMgr = netMsg.NetworkManager;
 
             netMsg.ReadMessage(msg);
         }
@@ -705,16 +1228,17 @@ namespace Yanmonet.NetSync
 
         private static void OnMessage_Ping(NetworkMessage netMsg)
         {
-            var conn = netMsg.Connection;
+            var netMgr = netMsg.NetworkManager;
+            var client = netMgr.GetClient(netMsg.ClientId);
             var pingMsg = netMsg.ReadMessage<PingMessage>();
             switch (pingMsg.Action)
             {
                 case PingMessage.Action_Ping:
-                    conn.SendMessage((ushort)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
+                    netMgr.SendMessage(client.ClientId, (ushort)NetworkMsgId.Ping, PingMessage.Reply(pingMsg, Timestamp));
                     break;
                 case PingMessage.Action_Reply:
                     int timeout = (int)(pingMsg.ReplyTimestamp - pingMsg.Timestamp);
-                    conn.pingDelay = timeout;
+                    client.pingDelay = timeout;
                     break;
             }
         }
@@ -731,10 +1255,10 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public override string ToString()
-        {
-            return $"{address}:{port}";
-        }
+        //public override string ToString()
+        //{
+        //    return $"{address}:{port}";
+        //}
 
     }
 }

@@ -11,70 +11,39 @@ using System.Threading.Tasks;
 
 namespace Yanmonet.NetSync
 {
-    public class NetworkClient : IDisposable
+    internal class NetworkClient : IDisposable
     {
-        private NetworkConnection conn;
+
+        public ulong clientId;
+        public ulong transportClientId;
         internal bool isRunning;
 
         private bool isClient;
         private Status status;
-        private string address;
-        private int port;
+        public bool isConnected;
+
+        private float lastSendTime;
+        private float lastReceiveTime;
+        private INetworkTransport transport;
+
         private bool isReady;
-        private NetworkServer server;
 
         public NetworkClient(NetworkManager manager)
-            : this(manager, null, null, false, false)
         {
-        }
-
-        internal NetworkClient(NetworkManager manager, NetworkServer server, Socket socket, bool ownerSocket, bool isListen)
-        {
-            this.server = server;
-            isClient = !isListen;
             networkManager = manager;
-            conn = new NetworkConnection(networkManager, server, socket, ownerSocket, isListen);
 
-            if (IsClient)
-            {
-
-                ConnectionToServer = conn;
-            }
-            else
-            {
-                ConnectionToClient = conn;
-            }
-            conn.Connected += Conn_Connected;
-            conn.Disconnected += Conn_Disconnected;
-
-            if (server != null && socket != null)
-            {
-                isRunning = true;
-            }
+            //if (socket == null) throw new ArgumentNullException("socket");
 
         }
 
         public ulong ClientId
         {
-            get
-            {
-                if (conn != null)
-                    return conn.ConnectionId;
-                return 0;
-            }
+            get => clientId;
+            internal set => clientId = value;
         }
 
-        public ulong ServerClientId
-        {
-            get; internal set;
-        }
 
-        public NetworkConnection Connection
-        {
-            get { return conn; }
-        }
-        public NetworkConnection ConnectionToServer;
-        public NetworkConnection ConnectionToClient;
+        internal int pingDelay;
 
         public bool IsRunning
         {
@@ -87,13 +56,9 @@ namespace Yanmonet.NetSync
         }
 
 
-        public IEnumerable<NetworkObject> Objects
-        {
-            get { return conn.Objects; }
-        }
 
-        public int Port { get => port; }
-        public string Address { get => address; }
+        public float LastSendTime { get => lastSendTime; }
+        public float LastReceiveTime { get => lastReceiveTime; internal set => lastReceiveTime = value; }
 
         //public event Action<NetworkClient> Started;
         //public event Action<NetworkClient> Stoped;
@@ -134,44 +99,23 @@ namespace Yanmonet.NetSync
 
 
 
-        static NetworkObject _CreateObject(ulong objectId)
+
+
+        public void Ping()
         {
-            NetworkObjectInfo objInfo = NetworkObjectInfo.Get(objectId);
-            return Activator.CreateInstance(objInfo.type) as NetworkObject;
+            long timestamp = NetworkManager.Timestamp;
+
+            SendMessage((ushort)NetworkMsgId.Ping, PingMessage.Ping(timestamp));
         }
 
-        public void Connect(string address, int port)
+
+        internal void SendMessage(ushort msgId, MessageBase msg = null)
         {
-            Connect(address, port, 0, null);
+            networkManager.SendMessage(clientId, msgId, msg);
         }
 
 
-        public virtual void Connect(string address, int port, int version, byte[] data)
-        {
-            if (isRunning)
-                return;
-            conn.Connect(address, port, version, data);
-            isRunning = true;
-        }
 
-        public void Disconnect()
-        {
-            isRunning = false;
-            isReady = false;
-
-            if (conn.IsConnected)
-            {
-                try
-                {
-                    conn.SendMessage((ushort)NetworkMsgId.Disconnect);
-                    conn.Flush(1000);
-                }
-                catch { }
-                conn.Disconnect();
-            }
-
-            //Stoped?.Invoke(this);
-        }
 
         protected void Ready()
         {
@@ -185,39 +129,13 @@ namespace Yanmonet.NetSync
         public void Update()
         {
 
-            if (!(conn.IsConnecting || conn.IsConnected))
-            {
-                //NetworkManager.Log($"Connection Update: {conn.ConnectionId}, IsConnecting: {conn.IsConnecting}, IsConnected: {conn.IsConnected}");
-                return;
-            }
-
-
-            //using (Connection)
-            {
-
-                //  while (isRunning)
-                {
-                    try
-                    {
-                        conn.Update();
-                        //conn.ProcessMessage();
-                    }
-                    catch (Exception ex)
-                    {
-                        //NetworkManager.LogError($"Connection Error: {conn.Address}:{conn.Port}\n{ex.Message}\n{ex.StackTrace}");
-                    }
-
-                }
-            }
-
-
 
         }
 
-        public void Send(ushort msgId, MessageBase msg = null)
-        {
-            Connection.SendMessage(msgId, msg);
-        }
+        private List<ulong> destoryObjIds = new List<ulong>();
+
+
+
         protected virtual void OnServerConnect(byte[] data)
         {
             Ready();
@@ -228,39 +146,6 @@ namespace Yanmonet.NetSync
             Ready();
         }
 
-        private void Conn_Connected(NetworkConnection obj, byte[] data)
-        {
-            if (isRunning)
-            {
-
-                try
-                {
-                    if (isClient)
-                    {
-                        OnClientConnect(data);
-                    }
-                    else
-                    {
-                        OnServerConnect(data);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    isRunning = false;
-                }
-            }
-        }
-
-        private void Conn_Disconnected(NetworkConnection obj)
-        {
-            if (!(status == Status.Stoped || status == Status.ConnectError))
-            {
-                status = Status.Connecting;
-            }
-
-            Disconnect();
-            //Disconnected?.Invoke(this);
-        }
 
 
 
@@ -307,12 +192,26 @@ namespace Yanmonet.NetSync
         //    conn.SendMessage((short)NetworkMsgId.CreateObject, msg);
         //}
 
+        public override bool Equals(object obj)
+        {
+            var client = obj as NetworkClient;
+            if (client != null)
+                return clientId != 0 && object.Equals(clientId, client.clientId);
+            return false;
+        }
+        public override int GetHashCode()
+        {
+            return clientId.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return $"Connection: {clientId}";
+        }
 
 
         public virtual void Dispose()
         {
-            //Stop();
-            Disconnect();
         }
 
         ~NetworkClient()

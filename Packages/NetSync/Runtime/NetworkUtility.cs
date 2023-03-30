@@ -18,7 +18,7 @@ namespace Yanmonet.NetSync
                 return default;
             return (T)Activator.CreateInstance(typeof(T));
         }
-         
+
 
         public static string GetMethodSignature(MethodInfo method)
         {

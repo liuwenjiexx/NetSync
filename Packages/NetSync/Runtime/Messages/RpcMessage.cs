@@ -11,7 +11,7 @@ namespace Yanmonet.NetSync
         public NetworkObject netObj;
         public object[] args;
         public RpcInfo rpcInfo;
-        public NetworkConnection conn;
+        public NetworkManager netMgr;
 
 
         public const byte Action_RpcClient = 1;
@@ -64,8 +64,6 @@ namespace Yanmonet.NetSync
                             {
                                 pInfo = rpcInfo.parameters[i];
 
-                                if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
-                                    continue;
                                 if (pInfo.ParameterType == typeof(ServerRpcParams) || pInfo.ParameterType == typeof(ClientRpcParams))
                                     continue;
                                 object arg = args[j++];
@@ -78,11 +76,11 @@ namespace Yanmonet.NetSync
                         {
                             if (pInfo != null)
                             {
-                                conn.NetworkManager.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
+                                netMgr.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name} param: {pInfo.Name}, paramType: {pInfo.ParameterType}");
                             }
                             else
                             {
-                                conn.NetworkManager.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
+                                netMgr.Log($"Write parameter error  method: {rpcInfo.method.DeclaringType}: {rpcInfo.method.Name}");
                             }
                             throw ex;
                         }
@@ -105,20 +103,12 @@ namespace Yanmonet.NetSync
             reader.SerializeValue(ref instanceId);
 
             rpcInfo = RpcInfo.GetRpcInfo(methodId);
-            netObj = null;
 
-            if (conn.NetworkManager.IsServer)
-            {
-                netObj = conn.NetworkManager.Server.GetObject(instanceId);
-            }
-            else
-            {
-                netObj = conn.GetObject(instanceId);
-            }
+            netObj = netMgr.GetObject(instanceId);
 
             if (netObj == null)
             {
-                conn.NetworkManager.Log($"Rpc '{rpcInfo.methodSignature}', Get Object null, instance: {instanceId}");
+                netMgr.Log($"Rpc '{rpcInfo.methodSignature}', Get Object null, instance: {instanceId}");
                 return;
             }
 
@@ -149,11 +139,7 @@ namespace Yanmonet.NetSync
                             for (int i = 0; i < rpcInfo.paramCount; i++)
                             {
                                 pInfo = rpcInfo.parameters[i];
-                                if (i == 0 && pInfo.ParameterType == typeof(NetworkConnection))
-                                {
-                                    args[i] = conn;
-                                }
-                                else if (pInfo.ParameterType == typeof(ServerRpcParams))
+                                if (pInfo.ParameterType == typeof(ServerRpcParams))
                                 {
                                     args[i] = new ServerRpcParams();
                                 }

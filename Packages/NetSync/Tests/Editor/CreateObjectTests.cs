@@ -28,7 +28,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             {
                 isOnDespawned = true;
             }
-            protected override void OnDestrory()
+            internal protected override void OnDestrory()
             {
                 isOnDestrory = true;
             }
@@ -43,8 +43,7 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             var serverData = serverManager.CreateObject<TestObject>();
             Assert.IsNotNull(serverData);
-            Assert.IsTrue(serverData.IsOwner);
-            Assert.IsTrue(serverData.IsOwnedByServer);
+            Assert.IsFalse(serverData.IsOwner);
 
             Update(serverManager, clientManager);
 
@@ -54,14 +53,16 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsTrue(serverData.IsSpawned);
             Assert.AreEqual(NetworkManager.ServerClientId, serverData.OwnerClientId);
             Assert.IsTrue(serverData.IsOwnedByServer);
-            Assert.AreEqual(NetworkManager.ServerClientId, serverData.OwnerClientId);
+            Assert.AreEqual(1, server.Objects.Count());
+            Assert.AreEqual(0, client.Objects.Count());
 
             Assert.IsTrue(serverData.isOnSpawned);
             Assert.IsFalse(serverData.isOnDespawned);
 
-            serverData.AddObserver(client.ClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update(serverManager, clientManager);
 
+            Assert.AreEqual(1, client.Objects.Count());
             var clientData = client.Objects.FirstOrDefault() as TestObject;
             Assert.IsNotNull(clientData);
             Assert.IsTrue(clientData.IsSpawned);
@@ -85,7 +86,7 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             var serverData = serverManager.CreateObject<TestObject>();
             Assert.IsNotNull(serverData);
-            Assert.IsTrue(serverData.IsOwner);
+            Assert.IsFalse(serverData.IsOwner);
             Assert.IsTrue(serverData.IsOwnedByServer);
 
             Update(serverManager, clientManager);
@@ -104,7 +105,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsTrue(clientData.IsSpawned);
             Assert.IsTrue(clientData.IsOwner);
             Assert.IsFalse(clientData.IsOwnedByServer);
-            Assert.AreEqual(client.ClientId, clientData.OwnerClientId);
+            Assert.AreEqual(client.LocalClientId, clientData.OwnerClientId);
             Assert.AreEqual(server.Objects.Count(), 1);
             Assert.AreEqual(clientData.InstanceId, serverData.InstanceId);
             Assert.IsFalse(object.ReferenceEquals(clientData, serverData));

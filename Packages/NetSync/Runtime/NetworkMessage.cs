@@ -8,14 +8,17 @@ namespace Yanmonet.NetSync
     {
         private ushort msgId;
         private NetworkReader reader;
-        private NetworkConnection connection;
+        
         public byte[] rawPacket;
 
         public NetworkMessage()
         {
         }
         public ushort MsgId { get => msgId; set => msgId = value; }
-        public NetworkConnection Connection { get => connection; set => connection = value; }
+ 
+        public NetworkManager NetworkManager;
+
+        public ulong ClientId;
         public NetworkReader Reader { get => reader; set => reader = value; }
 
         public TMsg ReadMessage<TMsg>()

@@ -67,8 +67,7 @@ namespace Yanmonet.NetSync
 
                     foreach (var pInfo in mInfo.GetParameters())
                     {
-                        if (pInfo.ParameterType == typeof(NetworkConnection) ||
-                            pInfo.ParameterType == typeof(ServerRpcParams) ||
+                        if (pInfo.ParameterType == typeof(ServerRpcParams) ||
                             pInfo.ParameterType == typeof(ClientRpcParams))
                         {
                         }

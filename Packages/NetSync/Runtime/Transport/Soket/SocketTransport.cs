@@ -6,9 +6,11 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.NetSync.Transport.Socket
 {
-    public class SoketTransport : INetworkTransport
+    using Socket = System.Net.Sockets.Socket;
+
+    public class SocketTransport : INetworkTransport
     {
 
         private Socket socket;
@@ -107,39 +109,39 @@ namespace Yanmonet.NetSync
 
             try
             {
-                if (isServer)
+                //if (isServer)
+                //{
+                //    localClient = new ClientData()
+                //    {
+                //        IsAccept = true,
+                //        ClientId = ServerClientId,
+                //    };
+
+                //}
+                //else
+                //{
+
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+                socket.Connect(address, port);
+                socket.Blocking = false;
+                localClient = new ClientData()
                 {
-                    localClient = new ClientData()
-                    {
-                        IsAccept = true,
-                        ClientId = ServerClientId,
-                    };
-
-                }
-                else
-                {
-
-                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-                    socket.Connect(address, port);
-                    socket.Blocking = false;
-                    localClient = new ClientData()
-                    {
-                        socket = socket,
-                        cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token),
-                        IsLocalClient = true,
-                        //Stream = tcpClient.GetStream(),
-                        IsAccept = true,
-                        IsConnected = false,
-                        //Reader = new NetworkReader(tcpClient.GetStream(), new MemoryStream(1024 * 4)),
-                        //Writer = new NetworkWriter(tcpClient.GetStream()),
-                        ClientId = ulong.MaxValue,
-                    };
+                    socket = socket,
+                    cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token),
+                    IsLocalClient = true,
+                    //Stream = tcpClient.GetStream(),
+                    IsAccept = true,
+                    IsConnected = false,
+                    //Reader = new NetworkReader(tcpClient.GetStream(), new MemoryStream(1024 * 4)),
+                    //Writer = new NetworkWriter(tcpClient.GetStream()),
+                    ClientId = ulong.MaxValue,
+                };
 
 
-                    localClient.sendWorkerTask = Task.Run(() => SendWorker(localClient), localClient.cancellationTokenSource.Token);
-                    localClient.receiveWorkerTask = Task.Run(() => ReceiveWorker(localClient), localClient.cancellationTokenSource.Token);
-                }
+                localClient.sendWorkerTask = Task.Run(() => SendWorker(localClient), localClient.cancellationTokenSource.Token);
+                localClient.receiveWorkerTask = Task.Run(() => ReceiveWorker(localClient), localClient.cancellationTokenSource.Token);
+                //}
 
                 ConnectRequestMessage connRequest = new ConnectRequestMessage();
                 if (networkManager != null)
@@ -164,7 +166,7 @@ namespace Yanmonet.NetSync
                     {
                         throw new Exception("Connect Timeout");
                     }
-                    Thread.Sleep(0);
+                    Thread.Sleep(1);
                 }
 
 
@@ -310,8 +312,16 @@ namespace Yanmonet.NetSync
 
         public void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
         {
-            if (!clients.TryGetValue(clientId, out var client))
-                return;
+            ClientData client;
+            if (isClient && clientId == localClient.ClientId)
+            {
+                client = localClient;
+            }
+            else
+            {
+                if (!clients.TryGetValue(clientId, out client))
+                    return;
+            }
 
             Packet packet = new Packet();
             packet.ReceiverClientId = clientId;
@@ -369,7 +379,7 @@ namespace Yanmonet.NetSync
                         if (hasPacket)
                         {
                             var payload = packet.Payload;
-                            networkManager?.Log($"SendWorker: Local: {client.IsLocalClient}, {client.ClientId}, {socket.RemoteEndPoint}, Time: {NowTime:0.#}");
+                            //networkManager?.Log($"SendWorker: Local: {client.IsLocalClient}, {client.ClientId}, {socket.RemoteEndPoint}, Time: {NowTime:0.#}");
 
                             int n = socket.Send(payload.Array, payload.Offset + sendCount, payload.Count - sendCount, SocketFlags.None);
                             if (n > 0)
@@ -424,7 +434,7 @@ namespace Yanmonet.NetSync
             int offset = 0;
             var socket = client.socket;
 
-            networkManager?.Log($"Start ReceiveWorker: Local: {client.IsLocalClient}, {client.ClientId}, Time: {NowTime:0.#}");
+            //networkManager?.Log($"Start ReceiveWorker: Local: {client.IsLocalClient}, {client.ClientId}, Time: {NowTime:0.#}");
 
             while (true)
             {
@@ -545,11 +555,6 @@ namespace Yanmonet.NetSync
                             var request = new ConnectRequestMessage();
                             request.NetworkSerialize(reader);
 
-                            if (networkManager != null)
-                            {
-                                networkManager.ValidateConnect?.Invoke(request.Payload);
-                            }
-
                             client.IsConnected = true;
                             client.IsAccept = false;
 
@@ -586,9 +591,6 @@ namespace Yanmonet.NetSync
                         {
                             if (client.IsAccept)
                             {
-                                client.IsConnected = true;
-                                client.IsAccept = false;
-
                                 NetworkEvent eventData = new NetworkEvent()
                                 {
                                     Type = NetworkEventType.Connect,
@@ -598,7 +600,10 @@ namespace Yanmonet.NetSync
                                 lock (lockObj)
                                 {
                                     eventQueue.Enqueue(eventData);
+                                    client.IsConnected = true;
+                                    client.IsAccept = false;
                                 }
+
                             }
                         }
                         else
@@ -612,7 +617,7 @@ namespace Yanmonet.NetSync
                     }
                     break;
                 case MsgId.Disconnect:
-                    { 
+                    {
                         if (client.IsLocalClient)
                         {
                             DisconnectLocalClient(false);
@@ -645,9 +650,17 @@ namespace Yanmonet.NetSync
 
         void _SendMsg(ulong clientId, MsgId msgId, INetworkSerializable msg)
         {
-            if (!clients.TryGetValue(clientId, out var client))
+            ClientData client;
+            if (isClient && clientId == localClient.ClientId)
             {
-                return;
+                client = localClient;
+            }
+            else
+            {
+                if (!clients.TryGetValue(clientId, out client))
+                {
+                    return;
+                }
             }
             _SendMsg(client, msgId, msg);
         }
@@ -990,6 +1003,14 @@ namespace Yanmonet.NetSync
                 readerWriter.SerializeValue(ref Reson);
                 readerWriter.SerializeValue(ref ClientId);
 
+            }
+        }
+
+        ~SocketTransport()
+        {
+            if (cancellationTokenSource != null && !cancellationTokenSource.IsCancellationRequested)
+            {
+                cancellationTokenSource.Cancel();
             }
         }
 

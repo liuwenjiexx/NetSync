@@ -8,34 +8,38 @@ namespace Yanmonet.NetSync.Messages
     internal class ConnectRequestMessage : MessageBase
     {
         public int Version;
-        public byte[] data;
+        public byte[] Payload;
 
         public override void Serialize(IReaderWriter writer)
         {
             writer.SerializeValue(ref Version);
-            if (data == null)
-                data = new byte[0];
-            int length = data.Length;
-            writer.SerializeValue(ref data, 0, ref length);
+            if (Payload == null)
+                Payload = new byte[0];
+            int length = Payload.Length;
+            writer.SerializeValue(ref Payload, 0, ref length);
         }
         public override void Deserialize(IReaderWriter reader)
         {
             reader.SerializeValue(ref Version);
-            data = null;
+            Payload = null;
             int length = 0;
-            reader.SerializeValue(ref data, 0, ref length);
+            reader.SerializeValue(ref Payload, 0, ref length);
         }
 
     }
 
     internal class ConnectResponseMessage : MessageBase
     {
-        public ulong ownerClientId;
+        public ulong clientId;
         public byte[] data;
+        public bool Success;
+        public string Reson;
 
         public override void Serialize(IReaderWriter writer)
         {
-            writer.SerializeValue(ref ownerClientId);
+            writer.SerializeValue(ref Success);
+            writer.SerializeValue(ref clientId);
+            writer.SerializeValue(ref Reson);
             if (data == null)
                 data = new byte[0];
             int length = 0;
@@ -44,7 +48,9 @@ namespace Yanmonet.NetSync.Messages
         }
         public override void Deserialize(IReaderWriter reader)
         {
-            reader.SerializeValue(ref ownerClientId);
+            reader.SerializeValue(ref Success);
+            reader.SerializeValue(ref clientId);
+            reader.SerializeValue(ref Reson);
             int length = 0;
             data = null;
             reader.SerializeValue(ref data, 0, ref length);

@@ -4,19 +4,20 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
-using UnityEditor.PackageManager;
 using UnityEngine;
-using static Codice.Client.Common.WebApi.WebApiEndpoints;
+using Yanmonet.NetSync.Transport.Socket;
+
 
 
 namespace Yanmonet.NetSync.Editor.Tests
 {
+    
     public class TransportTests
     {
         //[Test]
         //public void Host()
         //{
-        //    SoketTransport server = new SoketTransport();
+        //    SocketTransport server = new SocketTransport();
         //    server.StartServer();
 
         //    server.StartClient();
@@ -30,7 +31,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         //    server.Shutdown();
         //}
 
-        [Test]
+       /* [Test]
         public void ConnectValidate()
         {
             NetworkManager serverNetworkManager = new NetworkManager();
@@ -43,11 +44,11 @@ namespace Yanmonet.NetSync.Editor.Tests
                 return null;
             };
 
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize(serverNetworkManager);
             Assert.IsTrue(server.StartServer());
 
-            SoketTransport client = new SoketTransport();
+            SocketTransport client = new SocketTransport();
             client.Initialize(clientNetworkManager);
             Assert.IsTrue(client.StartClient());
 
@@ -67,11 +68,11 @@ namespace Yanmonet.NetSync.Editor.Tests
                 throw new Exception("my error");
             };
 
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize(serverNetworkManager);
             Assert.IsTrue(server.StartServer());
 
-            SoketTransport client = new SoketTransport();
+            SocketTransport client = new SocketTransport();
             client.Initialize(clientNetworkManager);
             Assert.IsFalse(client.StartClient());
 
@@ -79,16 +80,16 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             client.Shutdown();
             server.Shutdown();
-        }
+        }*/
 
         [Test]
         public void Connect()
         {
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize();
             Assert.IsTrue(server.StartServer());
 
-            SoketTransport client = new SoketTransport();
+            SocketTransport client = new SocketTransport();
             client.Initialize();
             Assert.IsTrue(client.StartClient());
 
@@ -108,11 +109,11 @@ namespace Yanmonet.NetSync.Editor.Tests
         [Test]
         public void DisconnectRemoteClient()
         {
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize();
             server.StartServer();
 
-            SoketTransport client = new SoketTransport();
+            SocketTransport client = new SocketTransport();
             client.Initialize();
             client.StartClient();
 
@@ -139,11 +140,11 @@ namespace Yanmonet.NetSync.Editor.Tests
         [Test]
         public void DisconnectLocalClient()
         {
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize();
             server.StartServer();
 
-            SoketTransport client = new SoketTransport();
+            SocketTransport client = new SocketTransport();
             client.Initialize();
             client.StartClient();
 
@@ -172,7 +173,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             NetworkManager networkManager = new NetworkManager();
 
-            SoketTransport server = new SoketTransport();
+            SocketTransport server = new SocketTransport();
             server.Initialize(networkManager);
             Assert.IsTrue(server.StartServer());
 
@@ -185,14 +186,14 @@ namespace Yanmonet.NetSync.Editor.Tests
         [Test]
         public void ClientShutdown()
         {
-            SoketTransport server = null;
-            SoketTransport client = null;
+            SocketTransport server = null;
+            SocketTransport client = null;
 
-            server = new SoketTransport();
+            server = new SocketTransport();
             server.Initialize();
             server.StartServer();
 
-            client = new SoketTransport();
+            client = new SocketTransport();
             client.Initialize();
             client.StartClient();
 
