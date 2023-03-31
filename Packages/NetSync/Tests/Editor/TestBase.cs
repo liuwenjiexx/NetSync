@@ -47,7 +47,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         }
 
 
-        protected int NextPort()
+        public static int NextPort()
         {
             return Interlocked.Increment(ref port);
         }
@@ -85,6 +85,8 @@ namespace Yanmonet.NetSync.Editor.Tests
         public NetworkManager CreateNetworkManager(int port)
         {
             NetworkManager netMgr = new NetworkManager();
+            netMgr.LogLevel = LogLevel.Debug;
+
             SocketTransport transport = new SocketTransport();
             transport.port = port;
             netMgr.Transport = transport;
@@ -97,7 +99,7 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         protected void _OpenNetwork(bool isHost = false)
         {
-            Debug.Log("===== Open Network =====");
+            //Debug.Log("===== Open Network =====");
             int port = NextPort();
             Assert.IsNull(serverManager, "serverManager not null, Last Method: " + lastMethod);
             Assert.IsNull(clientManager, "clientManager not null, Last Method: " + lastMethod);
@@ -122,11 +124,20 @@ namespace Yanmonet.NetSync.Editor.Tests
                     {
                         if (cancellationTokenSource.IsCancellationRequested)
                             break;
-                        serverManager.Update();
+                        try
+                        {
+                            serverManager.Update();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogException(ex);
+                            break;
+                        }
                         Thread.Sleep(5);
                     }
                     serverManager.Shutdown();
-                }catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     if (cancellationTokenSource.IsCancellationRequested)
                         return;
@@ -180,17 +191,24 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         protected void CloseNetwork()
         {
-            Debug.Log("===== Close Network =====");
+            //Debug.Log("===== Close Network =====");
             if (clientManager != null)
             {
                 clientManager.Shutdown();
                 clientManager = null;
             }
- 
+
             if (serverManager != null)
             {
                 cancellationTokenSource.Cancel();
-                serverTask.Wait();
+                try
+                {
+                    serverTask.Wait();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex.InnerException);
+                }
                 serverTask = null;
                 serverManager = null;
             }

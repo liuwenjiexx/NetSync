@@ -118,27 +118,27 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void StartServer()
         {
             int port = NextPort();
-            NetworkManager serverManager = CreateNetworkManager(port);
+            NetworkManager server = CreateNetworkManager(port);
 
             try
             {
-                Assert.IsFalse(serverManager.IsServer);
-                Assert.IsFalse(serverManager.IsClient);
+                Assert.IsFalse(server.IsServer);
+                Assert.IsFalse(server.IsClient);
 
-                serverManager.StartServer();
-                Update(serverManager);
+                server.StartServer();
+                Update(server);
 
-                Assert.IsTrue(serverManager.IsServer);
-                Assert.IsFalse(serverManager.IsClient);
-                Assert.AreEqual(ulong.MaxValue, serverManager.LocalClientId);
+                Assert.IsTrue(server.IsServer);
+                Assert.IsFalse(server.IsClient);
+                Assert.AreEqual(0, server.LocalClientId);
 
-                serverManager.Shutdown();
-                Assert.IsFalse(serverManager.IsServer);
-                Assert.IsFalse(serverManager.IsClient);
+                server.Shutdown();
+                Assert.IsFalse(server.IsServer);
+                Assert.IsFalse(server.IsClient);
             }
             finally
             {
-                serverManager.Shutdown();
+                server.Shutdown();
             }
 
         }
@@ -148,38 +148,38 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void StartClient()
         {
             int port = NextPort();
-            NetworkManager serverManager = CreateNetworkManager(port);
-            NetworkManager clientManager = CreateNetworkManager(port);
+            NetworkManager server = CreateNetworkManager(port);
+            NetworkManager client = CreateNetworkManager(port);
 
 
-            serverManager.StartServer();
+            server.StartServer();
             var serverTask = Task.Run(() =>
             {
-                while (serverManager.IsServer)
+                while (server.IsServer)
                 {
-                    serverManager.Update();
-                    Thread.Sleep(1);
+                    server.Update();
+                    Thread.Sleep(5);
                 }
             });
 
             try
             {
-                clientManager.StartClient();
+                client.StartClient();
 
-                Update(clientManager);
+                Update(client);
 
-                Assert.IsFalse(clientManager.IsServer);
-                Assert.IsTrue(clientManager.IsClient);
+                Assert.IsFalse(client.IsServer);
+                Assert.IsTrue(client.IsClient);
 
-                Assert.AreEqual(1, serverManager.ConnnectedClientIds.Count);
-                Assert.AreEqual(1, serverManager.ConnnectedClientIds[0]);
-                Assert.AreEqual(1, clientManager.LocalClientId);
+                Assert.AreEqual(1, server.ConnnectedClientIds.Count);
+                Assert.AreEqual(1, server.ConnnectedClientIds[0]);
+                Assert.AreEqual(1, client.LocalClientId);
 
             }
             finally
             {
-                clientManager.Shutdown();
-                serverManager.Shutdown();
+                client.Shutdown();
+                server.Shutdown();
             }
             serverTask.Wait();
         }
@@ -279,43 +279,43 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void Client_Shutdown()
         {
             var port = NextPort();
-            NetworkManager serverManager = CreateNetworkManager(port);
-            NetworkManager clientManager = CreateNetworkManager(port);
+            NetworkManager server = CreateNetworkManager(port);
+            NetworkManager client = CreateNetworkManager(port);
 
             bool serverDisconnected = false;
             bool clientDisconnected = false;
             ulong serverDisconnectedId = 0;
-            serverManager.ClientDisconnected += (clientId) =>
+            server.ClientDisconnected += (clientId) =>
             {
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            clientManager.Disconnected += () =>
+            client.Disconnected += () =>
             {
                 clientDisconnected = true;
             };
 
-            serverManager.StartServer();
+            server.StartServer();
             var serverTask = Task.Run(() =>
             {
-                while (serverManager.IsServer)
+                while (server.IsServer)
                 {
-                    serverManager.Update();
-                    Thread.Sleep(1);
+                    server.Update();
+                    Thread.Sleep(5);
                 }
             });
 
             try
             {
-                clientManager.StartClient();
+                client.StartClient();
 
-                Update(clientManager, serverManager);
+                Update(client, server);
 
-                clientManager.Shutdown();
-                Update(clientManager, serverManager);
+                client.Shutdown();
+                Update(client, server);
 
-                Assert.AreEqual(0, serverManager.ConnnectedClientIds.Count);
-                Assert.IsFalse(clientManager.IsClient);
+                Assert.AreEqual(0, server.ConnnectedClientIds.Count);
+                Assert.IsFalse(client.IsClient);
 
                 Assert.IsTrue(serverDisconnected);
                 Assert.AreEqual(1, serverDisconnectedId);
@@ -324,7 +324,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             }
             finally
             {
-                serverManager.Shutdown();
+                server.Shutdown();
             }
             serverTask.Wait();
         }

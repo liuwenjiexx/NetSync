@@ -87,7 +87,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -106,7 +106,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.SpawnWithOwnership(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -126,7 +126,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -146,7 +146,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -169,7 +169,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -191,7 +191,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -212,7 +212,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.AddObserver(serverClientId);
             Update();
 
-            var clientData = (RpcTest)client.Objects.FirstOrDefault();
+            var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
 
             serverData.result = 0;
             clientData.result = 0;
@@ -233,7 +233,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.ClientRpc(1, 2);
             Update();
 
-            var clientData = (RpcTestObject)client.Objects.FirstOrDefault();
+            var clientData = (RpcTestObject)client.SpawnedObjects.FirstOrDefault();
 
             Assert.AreEqual(3, serverData.ClientRpcResult);
             Assert.AreEqual(3, clientData.ClientRpcResult);

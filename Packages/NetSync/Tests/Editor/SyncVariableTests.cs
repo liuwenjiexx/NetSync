@@ -61,7 +61,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(client.LocalClientId);
             Update();
-            var clientData = (OwnerVarData)client.Objects.First();
+            var clientData = (OwnerVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.IntVar);
             Assert.AreEqual(0, clientData.IntVar);
@@ -80,7 +80,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             var serverData = server.CreateObject<OwnerVarData>();
             serverData.SpawnWithOwnership(client.LocalClientId);
             Update();
-            var clientData = (OwnerVarData)client.Objects.First();
+            var clientData = (OwnerVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.IntVar);
             Assert.AreEqual(0, clientData.IntVar);
@@ -100,7 +100,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (OwnerVarData)client.Objects.First();
+            var clientData = (OwnerVarData)client.SpawnedObjects.First();
 
             Assert.Throws<InvalidOperationException>(() =>
             {
@@ -128,7 +128,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+            var clientData = (OwnerVarData)client.SpawnedObjects.FirstOrDefault();
 
             serverData.IntVar = 1;
             Update();
@@ -152,7 +152,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.SpawnWithOwnership(clientManager.LocalClientId);
 
             Update();
-            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+            var clientData = (OwnerVarData)client.SpawnedObjects.FirstOrDefault();
 
             clientData.IntVar = 1;
             Update();
@@ -174,7 +174,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+            var clientData = (OwnerVarData)client.SpawnedObjects.FirstOrDefault();
 
             serverData.StringVar = "abc";
 
@@ -192,7 +192,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.SpawnWithOwnership(clientManager.LocalClientId);
 
             Update();
-            var clientData = (OwnerVarData)client.Objects.FirstOrDefault();
+            var clientData = (OwnerVarData)client.SpawnedObjects.FirstOrDefault();
             clientData.StringVar = "abc";
 
             Update();
@@ -233,7 +233,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (ListVarData)client.Objects.First();
+            var clientData = (ListVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.IntList.Count);
             Assert.AreEqual(0, clientData.IntList.Count);
@@ -284,7 +284,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (ListVarData)client.Objects.First();
+            var clientData = (ListVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.StringList.Count);
             Assert.AreEqual(0, clientData.StringList.Count);
@@ -314,7 +314,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (ListVarData)client.Objects.First();
+            var clientData = (ListVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.RefList.Count);
             Assert.AreEqual(0, clientData.RefList.Count);
@@ -360,7 +360,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (DictionaryVarData)client.Objects.First();
+            var clientData = (DictionaryVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.StringDic.Count);
             Assert.AreEqual(0, clientData.StringDic.Count);
@@ -415,7 +415,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             serverData.Spawn();
             serverData.AddObserver(clientManager.LocalClientId);
             Update();
-            var clientData = (DictionaryVarData)client.Objects.First();
+            var clientData = (DictionaryVarData)client.SpawnedObjects.First();
 
             Assert.AreEqual(0, serverData.IntDic.Count);
             Assert.AreEqual(0, clientData.IntDic.Count);

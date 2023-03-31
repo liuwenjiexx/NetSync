@@ -71,7 +71,7 @@ namespace Yanmonet.NetSync
             if (IsSpawned) throw new Exception($"{GetType().Name} is Spawned");
 
             typeId = NetworkManager.GetTypeId(GetType());
-            InstanceId = ++NetworkManager.nextObjectId;
+            InstanceId = ++NetworkManager.NextObjectId;
 
             //if (!IsOwnedByServer)
             //{

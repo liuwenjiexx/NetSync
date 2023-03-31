@@ -13,6 +13,8 @@ using System.Linq;
 using System.Management.Instrumentation;
 using Codice.Client.BaseCommands;
 using System.Threading;
+using ConnectRequestMessage = Yanmonet.NetSync.Messages.ConnectRequestMessage;
+using ConnectResponseMessage = Yanmonet.NetSync.Messages.ConnectResponseMessage;
 
 namespace Yanmonet.NetSync
 {
@@ -29,6 +31,7 @@ namespace Yanmonet.NetSync
         public Action<string> LogCallback;
         private HashSet<ulong> destoryObjIds;
         public string ConnectFailReson;
+        private LogLevel logLevel = LogLevel.Error;
 
         public NetworkManager()
         {
@@ -42,16 +45,12 @@ namespace Yanmonet.NetSync
         }
 
 
+        internal uint NextObjectId;
         internal Dictionary<ulong, NetworkObject> objects;
-        internal uint nextObjectId;
+        private LinkedList<NetworkObject> spawnedObjects;
 
-        public IEnumerable<NetworkObject> Objects
-        {
-            get
-            {
-                return objects.Select(o => o.Value);
-            }
-        }
+        public IReadOnlyCollection<NetworkObject> SpawnedObjects => spawnedObjects;
+
 
         public ulong LocalClientId { get; internal set; }
 
@@ -130,9 +129,10 @@ namespace Yanmonet.NetSync
             destoryObjIds = new();
             transportToClients = new();
             objects = new();
+            spawnedObjects = new();
             startTime = DateTime.Now;
             NextClientId = 0;
-            nextObjectId = 0;
+            NextObjectId = 0;
             ConnectFailReson = null;
         }
 
@@ -215,11 +215,6 @@ namespace Yanmonet.NetSync
                     return;
                 }
 
-                //serverClient = new NetworkClient(this);
-                //serverClient.ClientId = ServerClientId;
-
-                //localClient = serverClient;
-
                 if (ValidateConnect != null)
                 {
                     try
@@ -260,8 +255,6 @@ namespace Yanmonet.NetSync
                     IsServer = false;
                     return;
                 }
-                //serverClient = new NetworkClient(this);
-                //serverClient.ClientId = ServerClientId;
 
             }
             catch
@@ -300,6 +293,12 @@ namespace Yanmonet.NetSync
                 {
                     Payload = ConnectionData,
                 };
+
+                if (LogLevel <= LogLevel.Debug)
+                {
+                    Log($"[Client] Send Message: {NetworkMsgId.ConnectRequest}");
+                }
+
                 transport.Send(localClient.transportClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
 
                 float timeout = NowTime + 10;
@@ -319,7 +318,7 @@ namespace Yanmonet.NetSync
                         throw new TimeoutException();
                     }
 
-                    Thread.Sleep(1);
+                    Thread.Sleep(5);
                 }
 
                 localClient.ClientId = LocalClientId;
@@ -421,7 +420,7 @@ namespace Yanmonet.NetSync
             if (obj.IsSpawned)
                 return;
             obj.IsSpawned = true;
-
+            spawnedObjects.AddLast(obj);
             try
             {
                 obj.OnSpawned();
@@ -439,11 +438,12 @@ namespace Yanmonet.NetSync
         {
             if (!objects.ContainsKey(obj.InstanceId))
                 return;
-            objects.Remove(obj.InstanceId);
 
             if (!obj.IsSpawned)
                 return;
+
             obj.IsSpawned = false;
+            spawnedObjects.Remove(obj);
 
             foreach (var variable in obj.variables.Values)
             {
@@ -470,7 +470,14 @@ namespace Yanmonet.NetSync
         {
             if (obj.isDestrory)
                 return;
+
+            if (obj.IsSpawned)
+            {
+                DespawnObject(obj);
+            }
+
             obj.isDestrory = true;
+            objects.Remove(obj.InstanceId);
 
             var info = NetworkObjectInfo.Get(obj.typeId);
 
@@ -516,7 +523,7 @@ namespace Yanmonet.NetSync
         public void UpdateObjects()
         {
 
-            foreach (var netObj in Objects)
+            foreach (var netObj in SpawnedObjects)
             {
                 if (netObj != null)
                 {
@@ -561,7 +568,8 @@ namespace Yanmonet.NetSync
 
             if (msgHandlers == null || !msgHandlers.TryGetValue(netMsg.MsgId, out handler))
             {
-                LogError("Unknown msgId: " + netMsg.MsgId);
+                if (LogLevel <= LogLevel.Error)
+                    LogError(netMsg.ClientId, "Unknown msgId: " + netMsg.MsgId);
                 return;
             }
             try
@@ -571,7 +579,8 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex)
             {
-                Log("Handle message error, msgId: " + netMsg.MsgId);
+                if (LogLevel <= LogLevel.Error)
+                    LogError(netMsg.ClientId, "Handle message error, msgId: " + netMsg.MsgId);
                 LogException(ex);
             }
         }
@@ -585,7 +594,6 @@ namespace Yanmonet.NetSync
             ms.Position = 0;
             ms.SetLength(packet.Length);
             NetworkReader reader = new NetworkReader(ms);
-            reader.rawPacket = packet;
 
             NetworkMessage netMsg = new NetworkMessage();
             netMsg.MsgId = msgId;
@@ -638,16 +646,24 @@ namespace Yanmonet.NetSync
                             {
                                 NetworkMessage netMsg = new NetworkMessage();
                                 netMsg.NetworkManager = this;
+                                var payload = evt.Payload;
+                                byte[] rawPacket = new byte[evt.Payload.Count];
+                                Buffer.BlockCopy(payload.Array, payload.Offset, rawPacket, 0, payload.Count);
+                                netMsg.rawPacket = rawPacket;
 
-                                NetworkReader reader = new NetworkReader(evt.Payload);
+                                NetworkReader reader = new NetworkReader(rawPacket);
 
                                 ushort msgId = reader.ReadUInt16();
 
                                 netMsg.MsgId = msgId;
                                 netMsg.ClientId = clientId.Value;
                                 netMsg.Reader = reader;
-                                netMsg.rawPacket = reader.rawPacket;
-                                Log("======receive " + (NetworkMsgId)msgId);
+
+                                if (LogLevel <= LogLevel.Debug)
+                                {
+                                    Log(clientId.Value, $"Receive Message [{(NetworkMsgId)msgId}]");
+                                }
+
                                 InvokeHandler(netMsg);
                             }
                         }
@@ -667,7 +683,7 @@ namespace Yanmonet.NetSync
                         break;
                     case NetworkEventType.Error:
                         {
-                            Log("Network Transport error");
+                            LogError(clientId.Value, "Network Transport error");
                             Shutdown();
                         }
                         break;
@@ -675,11 +691,16 @@ namespace Yanmonet.NetSync
                 }
             }
 
-            foreach (var obj in objects.Values)
+            var objNode = spawnedObjects.First;
+            LinkedListNode<NetworkObject> next;
+            NetworkObject obj;
+            while (objNode != null)
             {
+                next = objNode.Next;
+                obj = objNode.Value;
                 obj.InternalUpdate();
+                objNode = next;
             }
-
 
 
         }
@@ -723,30 +744,43 @@ namespace Yanmonet.NetSync
 
         private void OnServerTransportDisconnect(ulong transportClientId)
         {
-
             NetworkClient client;
             if (!transportToClients.TryGetValue(transportClientId, out client))
             {
                 return;
             }
             ulong clientId = client.ClientId;
+
+
+            var objNode = spawnedObjects.First;
+            LinkedListNode<NetworkObject> next;
+            while (objNode != null)
+            {
+                next = objNode.Next;
+                var obj = objNode.Value;
+                if (obj.IsSpawned)
+                {
+                    if (obj.observers.Contains(clientId))
+                    {
+                        obj.RemoveObserver(clientId);
+                    }
+
+                    if (obj.OwnerClientId == clientId)
+                    {
+                        obj.Despawn();
+                        DestroryObject(obj);
+                    }
+                }
+
+                objNode = next;
+            }
+
             transportToClients.Remove(transportClientId);
 
             clientIds.Remove(clientId);
             clients.Remove(clientId);
 
-            foreach (var obj in objects.Values)
-            {
-                if (obj.IsSpawned)
-                {
-                    obj.RemoveObserver(clientId);
 
-                    if (obj.OwnerClientId == clientId)
-                    {
-                        obj.Despawn();
-                    }
-                }
-            }
 
             try
             {
@@ -766,18 +800,26 @@ namespace Yanmonet.NetSync
 
             clientId = localClient.clientId;
 
-            foreach (var obj in objects.Values.ToArray())
+
+            var objNode = spawnedObjects.First;
+            LinkedListNode<NetworkObject> next;
+            NetworkObject obj;
+            while (objNode != null)
             {
+                next = objNode.Next;
+                obj = objNode.Value;
                 if (obj.IsSpawned)
                 {
-                    DespawnObject(obj);
-                }
-                if (!obj.isDestrory)
-                {
+                    if (obj.IsSpawned)
+                    {
+                        DespawnObject(obj);
+                    }
                     DestroryObject(obj);
                 }
+
+                objNode = next;
             }
-            objects.Clear();
+
 
             try
             {
@@ -864,65 +906,8 @@ namespace Yanmonet.NetSync
                 transport.Shutdown();
             }
 
-
-            if (localClient != null)
-            {
-                try
-                {
-                    localClient.Dispose();
-                }
-                catch { }
-                localClient = null;
-            }
-
         }
 
-        public void Log(string msg)
-        {
-            if (LogCallback != null)
-            {
-                LogCallback(msg);
-                return;
-            }
-
-#if UNITY_ENGINE
-            Debug.Log(msg);
-#else
-            Console.WriteLine(msg);
-#endif
-
-        }
-
-        public void LogError(string error)
-        {
-            if (LogCallback != null)
-            {
-                LogCallback(error);
-                return;
-            }
-
-#if UNITY_ENGINE
-            Debug.LogError(error);
-#else
-            Console.WriteLine(error);
-#endif
-
-        }
-        public void LogException(Exception ex)
-        {
-            if (LogCallback != null)
-            {
-                LogCallback(ex.Message + "\n" + ex.StackTrace);
-                return;
-            }
-
-#if UNITY_ENGINE
-            Debug.LogException(ex);
-#else
-            Console.WriteLine(ex.Message + "\n" + ex.StackTrace);
-#endif
-
-        }
 
         #region Send Message
 
@@ -937,7 +922,10 @@ namespace Yanmonet.NetSync
 
         internal void SendPacket(ulong clientId, ushort msgId, byte[] packet, NetworkDelivery delivery = NetworkDelivery.ReliableSequenced)
         {
-            Log($"{clientId} Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
+            if (LogLevel <= LogLevel.Debug)
+            {
+                Log(clientId, $"Send Msg: " + (msgId < (short)NetworkMsgId.Max ? (NetworkMsgId)msgId : msgId));
+            }
 
             NetworkClient client = null;
             if (IsServer)
@@ -991,8 +979,11 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex)
             {
-                Log($"Write Message error, msgId: {msgId}, type: {msg.GetType().Name}");
-                LogException(ex);
+                if (LogLevel <= LogLevel.Error)
+                {
+                    LogError($"Write Message error, msgId: {msgId}, type: {msg.GetType().Name}");
+                    LogException(ex);
+                }
             }
             return bytes;
         }
@@ -1078,8 +1069,6 @@ namespace Yanmonet.NetSync
             var netMgr = netMsg.NetworkManager;
             var msg = netMsg.ReadMessage<ConnectResponseMessage>();
 
-            netMgr.Log($"Client Receive Connect Msg, ClientId: {msg.clientId}");
-
             if (netMgr.IsClient && netMgr.LocalClient != null)
             {
                 netMgr.LocalClientId = msg.clientId;
@@ -1136,7 +1125,6 @@ namespace Yanmonet.NetSync
                 NetworkObject instance = null;
 
                 var info = NetworkObjectInfo.Get(typeId);
-                netMgr.Log($"Create Object '{info.type.Name}', instance: {instanceId}");
 
                 instance = netMgr.CreateObject(typeId);
                 if (instance == null)
@@ -1146,6 +1134,10 @@ namespace Yanmonet.NetSync
 
                 netMgr.objects[instanceId] = instance;
 
+                if (netMgr.LogLevel <= LogLevel.Debug)
+                {
+                    netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
+                }
             }
             //}
         }
@@ -1166,7 +1158,16 @@ namespace Yanmonet.NetSync
                 return;
 
             netObj.OwnerClientId = msg.ownerClientId;
+
+
+            if (netMgr.LogLevel <= LogLevel.Debug)
+            {
+                netMgr.Log(netMsg.ClientId, $"Receive Message: Spawn Object [{netObj.GetType().Name}] instanceId: {netObj.InstanceId}, owner: {netObj.OwnerClientId}");
+            }
+
             netMgr.SpawnObject(netObj);
+
+
         }
 
         private static void OnMessage_DespawnObject(NetworkMessage netMsg)
@@ -1183,6 +1184,12 @@ namespace Yanmonet.NetSync
                 return;
             if (!instance.IsSpawned)
                 return;
+
+
+            if (netMgr.LogLevel <= LogLevel.Debug)
+            {
+                netMgr.Log(netMsg.ClientId, $"Receive Message: Despawn Object [{instance.GetType().Name}] instanceId: {instance.InstanceId}, destroy: {msg.isDestroy}");
+            }
 
             netMgr.DespawnObject(instance);
 
@@ -1207,7 +1214,8 @@ namespace Yanmonet.NetSync
                     if (clientId == msg.netObj.OwnerClientId)
                         continue;
                     SendPacket(clientId, netMsg.MsgId, netMsg.rawPacket);
-                    Log("Redirect Variable Msg: " + clientId);
+                    if (LogLevel <= LogLevel.Debug)
+                        Log(netMsg.ClientId, "Redirect Sync Variable");
                 }
             }
 
@@ -1226,6 +1234,8 @@ namespace Yanmonet.NetSync
             get { return Utils.Timestamp; }
         }
 
+        public LogLevel LogLevel { get => logLevel; set => logLevel = value; }
+
         private static void OnMessage_Ping(NetworkMessage netMsg)
         {
             var netMgr = netMsg.NetworkManager;
@@ -1241,6 +1251,77 @@ namespace Yanmonet.NetSync
                     client.pingDelay = timeout;
                     break;
             }
+        }
+
+        #endregion
+
+
+        #region Log
+
+        string GetClientLogPrefix(ulong clientId)
+        {
+            if (IsServer)
+            {
+                return $"[Server] [{clientId}] ";
+            }
+            return $"[Client] [{clientId}] ";
+        }
+
+        public void Log(ulong clientId, string msg)
+        {
+            Log($"{GetClientLogPrefix(clientId)}{msg}");
+        }
+
+        public void LogError(ulong clientId, string error)
+        {
+            Log($"{GetClientLogPrefix(clientId)}{error}");
+        }
+
+        public void Log(string msg)
+        {
+            if (LogCallback != null)
+            {
+                LogCallback(msg);
+                return;
+            }
+
+#if UNITY_ENGINE
+            Debug.Log(msg);
+#else
+            Console.WriteLine(msg);
+#endif
+
+        }
+
+        public void LogError(string error)
+        {
+            if (LogCallback != null)
+            {
+                LogCallback(error);
+                return;
+            }
+
+#if UNITY_ENGINE
+            Debug.LogError(error);
+#else
+            Console.WriteLine(error);
+#endif
+
+        }
+        public void LogException(Exception ex)
+        {
+            if (LogCallback != null)
+            {
+                LogCallback(ex.Message + "\n" + ex.StackTrace);
+                return;
+            }
+
+#if UNITY_ENGINE
+            Debug.LogException(ex);
+#else
+            Console.WriteLine(ex.Message + "\n" + ex.StackTrace);
+#endif
+
         }
 
         #endregion
