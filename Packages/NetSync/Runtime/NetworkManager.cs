@@ -71,11 +71,11 @@ namespace Yanmonet.NetSync
         internal List<ulong> clientIds;
 
 
-        public event Action<ulong> ClientConnected;
-        public event Action<ulong> ClientDisconnected;
+        public event Action<NetworkManager, ulong> ClientConnected;
+        public event Action<NetworkManager, ulong> ClientDisconnected;
 
-        public event Action Connected;
-        public event Action Disconnected;
+        public event Action<NetworkManager> Connected;
+        public event Action<NetworkManager> Disconnected;
 
         public event Action<NetworkObject> ObjectSpawned;
         public event Action<NetworkObject> ObjectDespawned;
@@ -99,11 +99,11 @@ namespace Yanmonet.NetSync
         //    }
         //}
 
-        public IReadOnlyList<ulong> ConnnectedClientIds
+        public IReadOnlyList<ulong> ConnectedClientIds
         {
             get
             {
-                if (!IsServer) throw new NotServerException($"{nameof(ConnnectedClientIds)} only access on server");
+                if (!IsServer) throw new NotServerException($"{nameof(ConnectedClientIds)} only access on server");
                 return clientIds;
             }
         }
@@ -118,6 +118,10 @@ namespace Yanmonet.NetSync
 
         private INetworkTransport transport;
         public INetworkTransport Transport { get => transport; set => transport = value; }
+
+        public string Address { get; set; }
+
+
         private void Initalize()
         {
             if (transport == null) throw new Exception("Transport null");
@@ -228,9 +232,9 @@ namespace Yanmonet.NetSync
                     }
                 }
 
-                ClientConnected?.Invoke(ServerClientId);
+                ClientConnected?.Invoke(this, ServerClientId);
 
-                Connected?.Invoke();
+                Connected?.Invoke(this);
             }
             catch
             {
@@ -323,7 +327,7 @@ namespace Yanmonet.NetSync
 
                 localClient.ClientId = LocalClientId;
 
-                Connected?.Invoke();
+                Connected?.Invoke(this);
 
             }
             catch
@@ -331,6 +335,14 @@ namespace Yanmonet.NetSync
                 Shutdown();
                 throw;
             }
+        }
+
+        public bool IsConnected(ulong clientId)
+        {
+            if (!IsServer) new NotServerException();
+            if (clientId == ServerClientId)
+                return true;
+            return clientIds.Contains(clientId);
         }
 
 
@@ -735,7 +747,7 @@ namespace Yanmonet.NetSync
 
             try
             {
-                ClientConnected?.Invoke(clientId);
+                ClientConnected?.Invoke(this, clientId);
             }
             catch (Exception ex) { LogException(ex); }
 
@@ -784,7 +796,7 @@ namespace Yanmonet.NetSync
 
             try
             {
-                ClientDisconnected?.Invoke(clientId);
+                ClientDisconnected?.Invoke(this, clientId);
             }
             catch (Exception ex) { LogException(ex); }
         }
@@ -823,7 +835,7 @@ namespace Yanmonet.NetSync
 
             try
             {
-                Disconnected?.Invoke();
+                Disconnected?.Invoke(this);
             }
             catch (Exception ex) { LogException(ex); }
 
@@ -875,14 +887,14 @@ namespace Yanmonet.NetSync
                 }
                 try
                 {
-                    Disconnected?.Invoke();
+                    Disconnected?.Invoke(this);
                 }
                 catch (Exception ex) { LogException(ex); }
                 if (IsServer)
                 {
                     try
                     {
-                        ClientDisconnected?.Invoke(LocalClientId);
+                        ClientDisconnected?.Invoke(this, LocalClientId);
                     }
                     catch (Exception ex) { LogException(ex); }
                 }
@@ -1042,7 +1054,7 @@ namespace Yanmonet.NetSync
                     client.isConnected = true;
                     try
                     {
-                        netMgr.ClientConnected?.Invoke(clientId);
+                        netMgr.ClientConnected?.Invoke(netMgr, clientId);
                     }
                     catch (Exception ex) { netMgr.LogException(ex); }
                 }

@@ -58,7 +58,6 @@ namespace Yanmonet.NetSync
         public bool IsServer => NetworkManager.IsServer;
         public bool IsClient => NetworkManager.IsClient;
 
-
         public void Spawn()
         {
             if (!NetworkManager.IsServer) throw new NotServerException($"{nameof(Spawn)} only on server");

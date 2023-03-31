@@ -171,8 +171,8 @@ namespace Yanmonet.NetSync.Editor.Tests
                 Assert.IsFalse(client.IsServer);
                 Assert.IsTrue(client.IsClient);
 
-                Assert.AreEqual(1, server.ConnnectedClientIds.Count);
-                Assert.AreEqual(1, server.ConnnectedClientIds[0]);
+                Assert.AreEqual(1, server.ConnectedClientIds.Count);
+                Assert.AreEqual(1, server.ConnectedClientIds[0]);
                 Assert.AreEqual(1, client.LocalClientId);
 
             }
@@ -193,12 +193,12 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool serverConnected = false;
             bool clientConnected = false;
             ulong serverConnectedId = 0;
-            host.ClientConnected += (clientId) =>
+            host.ClientConnected += (netMgr, clientId) =>
             {
                 serverConnected = true;
                 serverConnectedId = clientId;
             };
-            host.Connected += () =>
+            host.Connected += (netMgr) =>
             {
                 clientConnected = true;
             };
@@ -232,12 +232,12 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool serverConnected = false;
             bool clientConnected = false;
             ulong serverConnectedId = 0;
-            host.ClientConnected += (clientId) =>
+            host.ClientConnected += (netMgr, clientId) =>
             {
                 serverConnected = true;
                 serverConnectedId = clientId;
             };
-            host.Connected += () =>
+            host.Connected += (netMgr) =>
             {
                 clientConnected = true;
             };
@@ -285,12 +285,12 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool serverDisconnected = false;
             bool clientDisconnected = false;
             ulong serverDisconnectedId = 0;
-            server.ClientDisconnected += (clientId) =>
+            server.ClientDisconnected += (netMgr, clientId) =>
             {
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            client.Disconnected += () =>
+            client.Disconnected += (netMgr) =>
             {
                 clientDisconnected = true;
             };
@@ -314,7 +314,7 @@ namespace Yanmonet.NetSync.Editor.Tests
                 client.Shutdown();
                 Update(client, server);
 
-                Assert.AreEqual(0, server.ConnnectedClientIds.Count);
+                Assert.AreEqual(0, server.ConnectedClientIds.Count);
                 Assert.IsFalse(client.IsClient);
 
                 Assert.IsTrue(serverDisconnected);
@@ -340,12 +340,12 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool serverDisconnected = false;
             bool clientDisconnected = false;
             ulong serverDisconnectedId = 0;
-            serverManager.ClientDisconnected += (clientId) =>
+            serverManager.ClientDisconnected += (netMgr, clientId) =>
             {
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            clientManager.Disconnected += () =>
+            clientManager.Disconnected += (netMgr) =>
             {
                 clientDisconnected = true;
             };
@@ -367,10 +367,10 @@ namespace Yanmonet.NetSync.Editor.Tests
 
                 Update(clientManager, serverManager);
 
-                serverManager.DisconnectClient(serverManager.ConnnectedClientIds[0]);
+                serverManager.DisconnectClient(serverManager.ConnectedClientIds[0]);
                 Update(clientManager, serverManager);
 
-                Assert.AreEqual(0, serverManager.ConnnectedClientIds.Count);
+                Assert.AreEqual(0, serverManager.ConnectedClientIds.Count);
                 Assert.IsFalse(clientManager.IsClient);
 
 
@@ -397,12 +397,12 @@ namespace Yanmonet.NetSync.Editor.Tests
             bool serverDisconnected = false;
             bool clientDisconnected = false;
             ulong serverDisconnectedId = 0;
-            host.ClientDisconnected += (clientId) =>
+            host.ClientDisconnected += (netMgr, clientId) =>
             {
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            host.Disconnected += () =>
+            host.Disconnected += (netMgr) =>
             {
                 clientDisconnected = true;
             };
