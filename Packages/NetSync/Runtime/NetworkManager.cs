@@ -77,6 +77,7 @@ namespace Yanmonet.NetSync
         public event Action<NetworkManager> Connected;
         public event Action<NetworkManager> Disconnected;
 
+        public event Action<NetworkObject> ObjectCreated;
         public event Action<NetworkObject> ObjectSpawned;
         public event Action<NetworkObject> ObjectDespawned;
 
@@ -422,6 +423,9 @@ namespace Yanmonet.NetSync
 
             //调用 Spawn 需要
             instance.networkManager = this;
+
+            ObjectCreated?.Invoke(instance);
+
             return instance;
         }
 
@@ -1145,7 +1149,7 @@ namespace Yanmonet.NetSync
                 instance.OwnerClientId = msg.ownerClientId;
 
                 netMgr.objects[instanceId] = instance;
-
+                 
                 if (netMgr.LogLevel <= LogLevel.Debug)
                 {
                     netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
