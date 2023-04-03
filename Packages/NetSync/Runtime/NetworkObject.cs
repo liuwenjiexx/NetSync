@@ -114,7 +114,6 @@ namespace Yanmonet.NetSync
             }
 
 
-            //NetworkManager.Log($"Msg Spawn Object Type: {GetType()}, Client: {conn.ConnectionId}");
 
             networkManager.SendMessage(clientId, (ushort)NetworkMsgId.CreateObject, new CreateObjectMessage()
             {
@@ -125,6 +124,8 @@ namespace Yanmonet.NetSync
 
             SyncVariable(client);
 
+
+            //NetworkManager.Log($"Send Spawn Msg, Object Type: {GetType()}, Client: {clientId}");
             networkManager.SendMessage(clientId, (ushort)NetworkMsgId.Spawn, new SpawnMessage()
             {
                 instanceId = InstanceId,
@@ -552,13 +553,6 @@ namespace Yanmonet.NetSync
 
         }
 
-        public override bool Equals(object obj)
-        {
-            NetworkObject netObj = obj as NetworkObject;
-            if (obj == null)
-                return false;
-            return object.Equals(objectId, netObj.objectId);
-        }
 
 
         public override int GetHashCode()

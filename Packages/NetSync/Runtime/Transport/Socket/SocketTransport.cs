@@ -300,7 +300,7 @@ namespace Yanmonet.NetSync.Transport.Socket
         public void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
         {
             SocketClient client;
-            if (isClient && clientId == localClient.ClientId)
+            if (isClient && (clientId == ServerClientId))
             {
                 client = localClient;
             }
@@ -1020,7 +1020,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         public bool logEnabled;
 
-    
+
         public void Log(string msg)
         {
             if (!logEnabled) return;
@@ -1041,7 +1041,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         public override string ToString()
         {
-           return  base.ToString();
+            return $"{address}:{port}";
         }
 
         ~SocketTransport()

@@ -304,7 +304,7 @@ namespace Yanmonet.NetSync
                     Log($"[Client] Send Message: {NetworkMsgId.ConnectRequest}");
                 }
 
-                transport.Send(localClient.transportClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
+                transport.Send(transport.ServerClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
 
                 float timeout = NowTime + 10;
                 while (true)
@@ -423,7 +423,7 @@ namespace Yanmonet.NetSync
 
             //调用 Spawn 需要
             instance.networkManager = this;
-
+            //Debug.Log("Create Object: " + instance + ", " + transport);
             ObjectCreated?.Invoke(instance);
 
             return instance;
@@ -749,11 +749,11 @@ namespace Yanmonet.NetSync
             clients[client.ClientId] = client;
             clientIds.Add(client.ClientId);
 
-            try
-            {
-                ClientConnected?.Invoke(this, clientId);
-            }
-            catch (Exception ex) { LogException(ex); }
+            //try
+            //{
+            //    ClientConnected?.Invoke(this, clientId);
+            //}
+            //catch (Exception ex) { LogException(ex); }
 
             return client;
         }
@@ -894,15 +894,16 @@ namespace Yanmonet.NetSync
                     Disconnected?.Invoke(this);
                 }
                 catch (Exception ex) { LogException(ex); }
-                if (IsServer)
+                if (LocalClientId == ServerClientId)
                 {
                     try
                     {
                         ClientDisconnected?.Invoke(this, LocalClientId);
                     }
                     catch (Exception ex) { LogException(ex); }
+                    LocalClientId = ulong.MaxValue;
                 }
-                LocalClientId = ulong.MaxValue;
+
             }
 
             if (IsServer)
@@ -944,6 +945,7 @@ namespace Yanmonet.NetSync
             }
 
             NetworkClient client = null;
+            ulong transportClientId = 0;
             if (IsServer)
             {
                 if (clientId == ServerClientId)
@@ -953,16 +955,18 @@ namespace Yanmonet.NetSync
                 else
                 {
                     client = GetClient(clientId);
+                    transportClientId = client.ClientId;
                 }
             }
             else
             {
                 client = LocalClient;
+                transportClientId = transport.ServerClientId;
             }
 
             if (client != null)
             {
-                transport.Send(client.transportClientId, new ArraySegment<byte>(packet), delivery);
+                transport.Send(transportClientId, new ArraySegment<byte>(packet), delivery);
             }
 
         }
@@ -1149,7 +1153,7 @@ namespace Yanmonet.NetSync
                 instance.OwnerClientId = msg.ownerClientId;
 
                 netMgr.objects[instanceId] = instance;
-                 
+
                 if (netMgr.LogLevel <= LogLevel.Debug)
                 {
                     netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
@@ -1356,6 +1360,11 @@ namespace Yanmonet.NetSync
         //{
         //    return $"{address}:{port}";
         //}
+
+        public override string ToString()
+        {
+            return transport?.ToString();
+        }
 
     }
 }

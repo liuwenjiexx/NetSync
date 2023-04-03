@@ -444,7 +444,7 @@ namespace Yanmonet.NetSync.Editor.CodeGen
                 builder.Load(isReturnVar);
                 builder.IfTrueBreakBlock();
                 var returnPoint = builder.Body.Instructions.First(o => o.OpCode == OpCodes.Ret);
-                builder.Emit(OpCodes.Br_S, returnPoint);
+                builder.Emit(OpCodes.Br, returnPoint);
             }
             builder.EndBlock();
 

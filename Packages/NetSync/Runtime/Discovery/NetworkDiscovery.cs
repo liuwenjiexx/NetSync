@@ -29,6 +29,9 @@ namespace Yanmonet.NetSync
         private int portMax;
         private List<IPEndPoint> broadcastAddressList;
         private bool initalized;
+        private object lockObj = new object();
+        private Queue<MsgPacket> receiveMsgQueue = new Queue<MsgPacket>();
+
 
 
         public NetworkDiscovery()
@@ -259,6 +262,28 @@ namespace Yanmonet.NetSync
             {
 
             }
+            if (receiveMsgQueue.Count > 0)
+            {
+                MsgPacket packet;
+                while (true)
+                {
+                    lock (lockObj)
+                    {
+                        if (receiveMsgQueue.Count == 0)
+                            break;
+                        packet = receiveMsgQueue.Dequeue();
+                    }
+
+                    if (msgHandlers.TryGetValue(packet.MsgId, out var handler))
+                    {
+                        NetworkReader reader = new NetworkReader(packet.Data);
+                        handler(reader, packet.RemoteEndPoint);
+                    }
+
+
+                }
+
+            }
         }
 
         async void ReceiveWorker()
@@ -299,13 +324,27 @@ namespace Yanmonet.NetSync
                         int packetSize = 0;
                         ushort msgId = 0;
                         int packCount = 0;
+                        int offset = 0;
                         while (reader.ReadPackage(out msgId, out packetSize))
                         {
                             packCount++;
-                            if (msgHandlers.TryGetValue(msgId, out var handler))
+
+                            byte[] data = new byte[packetSize];
+                            Array.Copy(buffer, stream.Position - packetSize, data, 0, packetSize);
+
+                            offset += packetSize;
+                            MsgPacket packet = new MsgPacket()
                             {
-                                handler(reader, result.RemoteEndPoint);
+                                MsgId = msgId,
+                                Data = data,
+                                RemoteEndPoint = result.RemoteEndPoint
+                            };
+
+                            lock (lockObj)
+                            {
+                                receiveMsgQueue.Enqueue(packet);
                             }
+
                             //if (packCount > 1)
                             //NetworkManager.Singleton?.Log("Read Package count: " + packCount + ", farme:" + result.RemoteEndPoint);
                         }
@@ -319,6 +358,7 @@ namespace Yanmonet.NetSync
                 }
             }
         }
+
 
         private async Task Broadcast(byte[] data)
         {
@@ -438,6 +478,13 @@ namespace Yanmonet.NetSync
             DiscoveryResponse,
             Max
         }
+        struct MsgPacket
+        {
+            public ushort MsgId;
+            public ArraySegment<byte> Data;
+            public IPEndPoint RemoteEndPoint;
+        }
+
     }
 
 
