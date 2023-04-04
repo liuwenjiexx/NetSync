@@ -68,8 +68,6 @@ namespace Yanmonet.NetSync
         public event Action<NetworkManager, ulong> ClientConnected;
         public event Action<NetworkManager, ulong> ClientDisconnected;
 
-        public event Action<NetworkManager> Connected;
-        public event Action<NetworkManager> Disconnected;
 
         public event Action<NetworkObject> ObjectCreated;
         public event Action<NetworkObject> ObjectSpawned;
@@ -227,9 +225,10 @@ namespace Yanmonet.NetSync
                     }
                 }
 
-                ClientConnected?.Invoke(this, ServerClientId);
-
-                Connected?.Invoke(this);
+                OnServerTransportConnect(transport.ServerClientId);
+                var client = clients[ServerClientId];
+                client.isConnected = true;
+                ClientConnected?.Invoke(this, client.ClientId);
             }
             catch
             {
@@ -280,49 +279,38 @@ namespace Yanmonet.NetSync
                     return;
                 }
 
-                NetworkEvent @event;
-                transport.PollEvent(out @event);
+                //NetworkEvent @event;
+                //transport.PollEvent(out @event);
 
-                if (@event.Type != NetworkEventType.Connect)
-                    throw new Exception($"Not Connect Network Event, Event: {@event.Type}");
+                //if (@event.Type != NetworkEventType.Connect)
+                //    throw new Exception($"Not Connect Network Event, Event: {@event.Type}");
 
-                localClient = new NetworkClient(this);
-                localClient.transportClientId = @event.ClientId;
-                var connectRequest = new ConnectRequestMessage()
-                {
-                    Payload = ConnectionData,
-                };
+                //localClient = new NetworkClient(this);
+                //localClient.transportClientId = @event.ClientId;
+     
+                //float timeout = NowTime + 10;
+                //while (true)
+                //{
+                //    Update();
 
-                if (LogLevel <= LogLevel.Debug)
-                {
-                    Log($"[Client] Send Message: {NetworkMsgId.ConnectRequest}");
-                }
+                //    if (!IsClient)
+                //        return;
+                //    if (localClient.isConnected)
+                //    {
+                //        break;
+                //    }
 
-                transport.Send(transport.ServerClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
+                //    if (NowTime > timeout)
+                //    {
+                //        throw new TimeoutException();
+                //    }
 
-                float timeout = NowTime + 10;
-                while (true)
-                {
-                    Update();
+                //    Thread.Sleep(5);
+                //}
 
-                    if (!IsClient)
-                        return;
-                    if (localClient.isConnected)
-                    {
-                        break;
-                    }
+                //localClient.ClientId = LocalClientId;
 
-                    if (NowTime > timeout)
-                    {
-                        throw new TimeoutException();
-                    }
-
-                    Thread.Sleep(5);
-                }
-
-                localClient.ClientId = LocalClientId;
-
-                Connected?.Invoke(this);
+                //Connected?.Invoke(this);
 
             }
             catch
@@ -624,6 +612,7 @@ namespace Yanmonet.NetSync
             {
                 clientId = null;
                 client = null;
+
                 if (evt.ClientId == transport.ServerClientId)
                 {
                     clientId = ServerClientId;
@@ -638,15 +627,17 @@ namespace Yanmonet.NetSync
                     if (transportToClients.TryGetValue(evt.ClientId, out client))
                     {
                         clientId = client.ClientId;
-
                     }
+                    //else if (IsClient && !IsServer)
+                    //{
+                    //    clientId = ulong.MaxValue;
+                    //}
                 }
 
                 if (client != null)
                 {
                     client.LastReceiveTime = evt.ReceiveTime;
                 }
-
 
                 switch (evt.Type)
                 {
@@ -679,7 +670,14 @@ namespace Yanmonet.NetSync
                         }
                         break;
                     case NetworkEventType.Connect:
-                        OnServerTransportConnect(evt.ClientId);
+                        if (IsServer)
+                        {
+                            OnServerTransportConnect(evt.ClientId);
+                        }
+                        else
+                        {
+                            OnClientTransportConnect(evt.ClientId);
+                        }
                         break;
                     case NetworkEventType.Disconnect:
                         if (IsServer)
@@ -718,10 +716,12 @@ namespace Yanmonet.NetSync
 
 
 
-        private NetworkClient OnServerTransportConnect(ulong transportClientId)
+        private void OnServerTransportConnect(ulong transportClientId)
         {
             NetworkClient client;
-            OnServerTransportDisconnect(transportClientId);
+            if (transportToClients.ContainsKey(transportClientId))
+                return;
+
             client = new NetworkClient(this);
             ulong clientId;
             if (transportClientId == transport.ServerClientId)
@@ -736,7 +736,7 @@ namespace Yanmonet.NetSync
 
             client.transportClientId = transportClientId;
             client.ClientId = clientId;
-
+            client.isConnected = false;
             //NetworkManager.Log($"Accept Client {connId}, IsConnecting: {client.Connection.IsConnecting}, IsRunning: {client.IsRunning}");
 
             transportToClients[transportClientId] = client;
@@ -749,7 +749,35 @@ namespace Yanmonet.NetSync
             //}
             //catch (Exception ex) { LogException(ex); }
 
-            return client;
+        }
+        private void OnClientTransportConnect(ulong transportClientId)
+        {
+            NetworkClient client;
+            if (localClient != null && localClient.transportClientId == transportClientId)
+                return;
+
+            client = new NetworkClient(this);
+
+            client.transportClientId = transportClientId;
+            client.ClientId = ulong.MaxValue;
+            client.isConnected = false;
+
+            transportToClients[transportClientId] = client;
+            localClient = client;
+
+            var connectRequest = new ConnectRequestMessage()
+            {
+                Payload = ConnectionData,
+            };
+
+            if (LogLevel <= LogLevel.Debug)
+            {
+                Log($"[Client] Send Message: {NetworkMsgId.ConnectRequest}");
+            }
+
+            transport.Send(transport.ServerClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
+
+
         }
 
         private void OnServerTransportDisconnect(ulong transportClientId)
@@ -790,25 +818,28 @@ namespace Yanmonet.NetSync
             clientIds.Remove(clientId);
             clients.Remove(clientId);
 
-
-
-            try
+            if (client.isConnected)
             {
-                ClientDisconnected?.Invoke(this, clientId);
+                try
+                {
+                    ClientDisconnected?.Invoke(this, clientId);
+                }
+                catch (Exception ex) { LogException(ex); }
+                client.isConnected = false;
             }
-            catch (Exception ex) { LogException(ex); }
+
         }
 
         private void OnClientTransportDisconnect(ulong transportClientId)
         {
             ulong clientId;
-
+            NetworkClient client = LocalClient;
             if (!IsClient)
                 return;
-            if (LocalClient == null || LocalClient.transportClientId != transportClientId)
+            if (client == null || client.transportClientId != transportClientId)
                 return;
 
-            clientId = localClient.clientId;
+            clientId = client.clientId;
 
 
             var objNode = spawnedObjects.First;
@@ -830,12 +861,15 @@ namespace Yanmonet.NetSync
                 objNode = next;
             }
 
-
-            try
+            if (client.isConnected)
             {
-                Disconnected?.Invoke(this);
+                try
+                {
+                    ClientDisconnected?.Invoke(this, clientId);
+                }
+                catch (Exception ex) { LogException(ex); }
+                client.isConnected = false;
             }
-            catch (Exception ex) { LogException(ex); }
 
             Shutdown();
         }
@@ -883,21 +917,16 @@ namespace Yanmonet.NetSync
                 {
                     transport.DisconnectLocalClient();
                 }
-                try
-                {
-                    Disconnected?.Invoke(this);
-                }
-                catch (Exception ex) { LogException(ex); }
-                if (LocalClientId == ServerClientId)
+
+                if ((localClient != null && localClient.isConnected) || (LocalClientId == ServerClientId))
                 {
                     try
                     {
                         ClientDisconnected?.Invoke(this, LocalClientId);
                     }
                     catch (Exception ex) { LogException(ex); }
-                    LocalClientId = ulong.MaxValue;
                 }
-
+                LocalClientId = ulong.MaxValue;
             }
 
             if (IsServer)
@@ -1085,12 +1114,18 @@ namespace Yanmonet.NetSync
 
             if (netMgr.IsClient && netMgr.LocalClient != null)
             {
+                NetworkClient client = netMgr.LocalClient;
                 netMgr.LocalClientId = msg.clientId;
-                netMgr.localClient.clientId = msg.clientId;
+                client.clientId = msg.clientId;
 
                 if (msg.Success)
                 {
-                    netMgr.localClient.isConnected = true;
+                    client.isConnected = true;
+                    try
+                    {
+                        netMgr.ClientConnected?.Invoke(netMgr, client.clientId);
+                    }
+                    catch (Exception ex) { netMgr.LogException(ex); }
                 }
                 else
                 {

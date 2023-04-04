@@ -115,46 +115,46 @@ namespace Yanmonet.NetSync.Editor.Tests
             {
                 serverManager.StartServer();
             }
-            cancellationTokenSource = new CancellationTokenSource();
-            serverTask = Task.Run(() =>
-            {
-                try
-                {
-                    while (serverManager.IsServer)
-                    {
-                        if (cancellationTokenSource.IsCancellationRequested)
-                            break;
-                        try
-                        {
-                            serverManager.Update();
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogException(ex);
-                            break;
-                        }
-                        Thread.Sleep(5);
-                    }
-                    serverManager.Shutdown();
-                }
-                catch (Exception ex)
-                {
-                    if (cancellationTokenSource.IsCancellationRequested)
-                        return;
-                    throw ex;
-                }
+            /*   cancellationTokenSource = new CancellationTokenSource();
+               serverTask = Task.Run(() =>
+               {
+                   try
+                   {
+                       while (serverManager.IsServer)
+                       {
+                           if (cancellationTokenSource.IsCancellationRequested)
+                               break;
+                           try
+                           {
+                               serverManager.Update();
+                           }
+                           catch (Exception ex)
+                           {
+                               Debug.LogException(ex);
+                               break;
+                           }
+                           Thread.Sleep(5);
+                       }
+                       serverManager.Shutdown();
+                   }
+                   catch (Exception ex)
+                   {
+                       if (cancellationTokenSource.IsCancellationRequested)
+                           return;
+                       throw ex;
+                   }
 
-            }, cancellationTokenSource.Token);
-
+               }, cancellationTokenSource.Token);
+               */
 
 
             clientManager.StartClient();
             server = serverManager;
             client = clientManager;
-            Update(serverManager, clientManager);
+            Update(server, client);
 
             CollectionAssert.IsNotEmpty(serverManager.ConnectedClientIds, "ConnnectedClientList empty");
-            serverClientId = serverManager.ConnectedClientIds.First();
+            serverClientId = serverManager.ConnectedClientIds[0];
 
         }
 
@@ -200,16 +200,17 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             if (serverManager != null)
             {
-                cancellationTokenSource.Cancel();
-                try
-                {
-                    serverTask.Wait();
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex.InnerException);
-                }
-                serverTask = null;
+                // cancellationTokenSource.Cancel();
+                //try
+                //{
+                //    serverTask.Wait();
+                //}
+                //catch (Exception ex)
+                //{
+                //    Debug.LogException(ex.InnerException);
+                //}
+                //serverTask = null;
+                serverManager.Shutdown();
                 serverManager = null;
             }
         }
@@ -225,8 +226,6 @@ namespace Yanmonet.NetSync.Editor.Tests
             {
                 foreach (var mgr in manager)
                 {
-                    if (mgr == serverManager)
-                        continue;
                     mgr.Update();
                 }
                 Thread.Sleep(5);

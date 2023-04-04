@@ -84,7 +84,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -103,7 +103,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void ServerRpc_OnClient()
         {
             var serverData = serverManager.CreateObject<RpcTest>();
-            serverData.SpawnWithOwnership(serverClientId);
+            serverData.SpawnWithOwnership(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -123,7 +123,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -143,7 +143,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -166,7 +166,7 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -188,7 +188,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsTrue(server.IsHost);
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
@@ -207,12 +207,13 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void HostToClient()
         {
             Assert.IsTrue(server.IsHost);
-            var serverData = serverManager.CreateObject<RpcTest>();
+            var serverData = server.CreateObject<RpcTest>();
             serverData.Spawn();
-            serverData.AddObserver(serverClientId);
+            serverData.AddObserver(client.LocalClientId);
             Update();
 
             var clientData = (RpcTest)client.SpawnedObjects.FirstOrDefault();
+            Assert.IsNotNull(clientData);
 
             serverData.result = 0;
             clientData.result = 0;
@@ -229,7 +230,7 @@ namespace Yanmonet.NetSync.Editor.Tests
         public void ServerToClient_Immediate()
         {
             var serverData = serverManager.CreateObject<RpcTestObject>();
-            serverData.SpawnWithOwnership(serverClientId);
+            serverData.SpawnWithOwnership(client.LocalClientId);
             serverData.ClientRpc(1, 2);
             Update();
 

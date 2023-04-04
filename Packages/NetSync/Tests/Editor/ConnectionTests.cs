@@ -143,6 +143,25 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         }
 
+        [Test]
+        public void Server_ClientConnected()
+        {
+            int port = NextPort();
+            NetworkManager server = CreateNetworkManager(port);
+            bool clientConnected = false;
+            server.ClientConnected += (n, clientId) =>
+            {
+                clientConnected = false;
+            };
+
+            server.StartServer();
+            Update(server);
+
+            Assert.IsFalse(clientConnected);
+
+            server.Shutdown();
+
+        }
 
         [Test]
         public void StartClient()
@@ -152,21 +171,16 @@ namespace Yanmonet.NetSync.Editor.Tests
             NetworkManager client = CreateNetworkManager(port);
 
 
+
             server.StartServer();
-            var serverTask = Task.Run(() =>
-            {
-                while (server.IsServer)
-                {
-                    server.Update();
-                    Thread.Sleep(5);
-                }
-            });
 
             try
             {
                 client.StartClient();
 
-                Update(client);
+                Update(server, client);
+                Update(server, client);
+                Update(server, client);
 
                 Assert.IsFalse(client.IsServer);
                 Assert.IsTrue(client.IsClient);
@@ -181,47 +195,91 @@ namespace Yanmonet.NetSync.Editor.Tests
                 client.Shutdown();
                 server.Shutdown();
             }
-            serverTask.Wait();
         }
 
+        [Test]
+        public void ClientConnected()
+        {
+            int port = NextPort();
+            NetworkManager server = CreateNetworkManager(port);
+            NetworkManager client = CreateNetworkManager(port);
 
+            List<ulong> serverClientIds = new();
+            List<ulong> clientClientIds = new();
+            server.ClientConnected += (n, clientId) =>
+            {
+                serverClientIds.Add(clientId);
+            };
+            client.ClientConnected += (n, clientId) =>
+            {
+                clientClientIds.Add(clientId);
+            };
+
+            server.StartServer();
+            client.StartClient();
+
+            Update(server, client);
+
+            Assert.AreEqual(1, serverClientIds.Count);
+            Assert.AreEqual(1, serverClientIds[0]);
+
+            Assert.AreEqual(1, clientClientIds.Count);
+            Assert.AreEqual(1, clientClientIds[0]);
+
+        }
         [Test]
         public void StartHost()
         {
             int port = NextPort();
             NetworkManager host = CreateNetworkManager(port);
-            bool serverConnected = false;
-            bool clientConnected = false;
-            ulong serverConnectedId = 0;
-            host.ClientConnected += (netMgr, clientId) =>
-            {
-                serverConnected = true;
-                serverConnectedId = clientId;
-            };
-            host.Connected += (netMgr) =>
-            {
-                clientConnected = true;
-            };
-
 
             Assert.IsFalse(host.IsServer);
             Assert.IsFalse(host.IsClient);
 
             host.StartHost();
 
+            Update(host);
+            Update(host);
+
             Assert.IsTrue(host.IsServer);
             Assert.IsTrue(host.IsClient);
             Assert.AreEqual(NetworkManager.ServerClientId, host.LocalClientId);
 
-            Assert.IsTrue(clientConnected);
-            Assert.IsTrue(serverConnected);
-            Assert.AreEqual(NetworkManager.ServerClientId, serverConnectedId);
+            Assert.AreEqual(1, host.ConnectedClientIds.Count);
+            Assert.AreEqual(NetworkManager.ServerClientId, host.ConnectedClientIds[0]);
 
             host.Shutdown();
             Assert.IsFalse(host.IsServer);
             Assert.IsFalse(host.IsClient);
         }
 
+
+        [Test]
+        public void Host_ClientConnected()
+        {
+            int port = NextPort();
+            NetworkManager host = CreateNetworkManager(port);
+
+            List<ulong> hostConnectedIds = new List<ulong>();
+            host.ClientConnected += (netMgr, clientId) =>
+            {
+                hostConnectedIds.Add(clientId);
+            };
+
+            host.StartHost();
+
+            Update(host);
+
+            Assert.IsTrue(host.IsServer);
+            Assert.IsTrue(host.IsClient);
+
+            Assert.AreEqual(1, hostConnectedIds.Count);
+            Assert.AreEqual(NetworkManager.ServerClientId, hostConnectedIds[0]);
+
+            host.Shutdown();
+            Assert.IsFalse(host.IsServer);
+            Assert.IsFalse(host.IsClient);
+        }
 
 
         [Test]
@@ -229,49 +287,28 @@ namespace Yanmonet.NetSync.Editor.Tests
         {
             int port = NextPort();
             NetworkManager host = CreateNetworkManager(port);
-            bool serverConnected = false;
-            bool clientConnected = false;
-            ulong serverConnectedId = 0;
-            host.ClientConnected += (netMgr, clientId) =>
-            {
-                serverConnected = true;
-                serverConnectedId = clientId;
-            };
-            host.Connected += (netMgr) =>
-            {
-                clientConnected = true;
-            };
-
-
+              
             Assert.IsFalse(host.IsServer);
             Assert.IsFalse(host.IsClient);
 
             host.StartHost();
-            var hostTask = Task.Run(() =>
-            {
-                while (host.IsServer)
-                {
-                    host.Update();
-                    Thread.Sleep(1);
-                }
-            });
+
             Assert.IsTrue(host.IsServer);
             Assert.IsTrue(host.IsClient);
 
             NetworkManager client = CreateNetworkManager(port);
-
+             
             client.StartClient();
-
+            Update(host, client);
 
             Assert.AreEqual(1, client.LocalClientId);
-
-            Assert.IsTrue(clientConnected);
-            Assert.IsTrue(serverConnected);
-            Assert.AreEqual(1, serverConnectedId);
+             
+            Assert.AreEqual(2, host.ConnectedClientIds.Count);
+            Assert.AreEqual(0, host.ConnectedClientIds[0]);
+            Assert.AreEqual(1, host.ConnectedClientIds[1]);
 
             client.Shutdown();
             host.Shutdown();
-            hostTask.Wait();
         }
 
 
@@ -290,7 +327,7 @@ namespace Yanmonet.NetSync.Editor.Tests
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            client.Disconnected += (netMgr) =>
+            client.ClientDisconnected += (netMgr, clientId) =>
             {
                 clientDisconnected = true;
             };
@@ -345,7 +382,7 @@ namespace Yanmonet.NetSync.Editor.Tests
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            clientManager.Disconnected += (netMgr) =>
+            clientManager.ClientDisconnected += (netMgr, clientId) =>
             {
                 clientDisconnected = true;
             };
@@ -402,7 +439,7 @@ namespace Yanmonet.NetSync.Editor.Tests
                 serverDisconnected = true;
                 serverDisconnectedId = clientId;
             };
-            host.Disconnected += (netMgr) =>
+            host.ClientDisconnected += (netMgr, clientId) =>
             {
                 clientDisconnected = true;
             };
