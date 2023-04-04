@@ -11,7 +11,7 @@ namespace Yanmonet.NetSync
 
         ulong ServerClientId { get; }
 
-        abstract void Initialize(NetworkManager networkManager);
+        abstract void Initialize(NetworkManager networkManager = null);
 
         abstract bool StartServer();
 

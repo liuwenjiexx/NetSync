@@ -7,6 +7,7 @@ using System.Reflection;
 using static Yanmonet.NetSync.NetworkObject;
 using System.Linq;
 using System.Data;
+using System.Diagnostics;
 #if UNITY_ENGINE
 using UnityEngine;
 #endif
@@ -451,7 +452,7 @@ namespace Yanmonet.NetSync
             __BeginServerRpc__(methodName, default, args);
         }
 
-
+        [DebuggerHidden]
         public void __BeginServerRpc__(string methodName, ServerRpcParams rpcParams, params object[] args)
         {
             serverRpc = new ServerRpcInfo();
@@ -460,6 +461,7 @@ namespace Yanmonet.NetSync
             serverRpc.args = args;
         }
 
+        [DebuggerHidden]
         protected void __EndServerRpc__()
         {
             if (!IsServer)
@@ -468,6 +470,7 @@ namespace Yanmonet.NetSync
                 networkManager.SendMessage(NetworkManager.ServerClientId, (ushort)NetworkMsgId.Rpc, msg);
             }
         }
+        [DebuggerHidden]
         protected bool __ReturnServerRpc__()
         {
             return !IsServer;
@@ -486,12 +489,12 @@ namespace Yanmonet.NetSync
             public object[] args;
             public ClientRpcParams clientParams;
         }
-
+        [DebuggerHidden]
         protected void BeginClientRpc(string methodName, params object[] args)
         {
             __BeginClientRpc__(methodName, default, args);
         }
-
+        [DebuggerHidden]
         protected void __BeginClientRpc__(string methodName, ClientRpcParams rpcParams, params object[] args)
         {
             clientRpc = new ClientRpcInfo();
@@ -499,7 +502,7 @@ namespace Yanmonet.NetSync
             clientRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
             clientRpc.args = args;
         }
-
+        [DebuggerHidden]
         protected void __EndClientRpc__()
         {
             if (IsServer)

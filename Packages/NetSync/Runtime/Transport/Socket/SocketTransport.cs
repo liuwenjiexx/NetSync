@@ -5,12 +5,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEditor.PackageManager;
-using UnityEngine;
 
 namespace Yanmonet.NetSync.Transport.Socket
 {
-    using static UnityEngine.Application;
     using Socket = System.Net.Sockets.Socket;
 
     public class SocketTransport : INetworkTransport

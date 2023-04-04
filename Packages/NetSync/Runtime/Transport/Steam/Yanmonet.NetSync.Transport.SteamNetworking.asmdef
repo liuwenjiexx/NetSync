@@ -1,22 +1,22 @@
 {
-    "name": "Yanmonet.NetSync",
+    "name": "Yanmonet.NetSync.Transport.SteamNetworking",
     "rootNamespace": "",
     "references": [
-        "GUID:ed7ff784cc9e87f4eb2f0a49af3e97a9",
-        "GUID:1491147abca9d7d4bb7105af628b223e"
+        "GUID:2d4baef5f226f0d4ca7bef190cec85f2",
+        "GUID:68bd7fdb68ef2684e982e8a9825b18a5"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
         {
-            "name": "Unity",
+            "name": "com.rlabrecque.steamworks.net",
             "expression": "",
-            "define": "UNITY_ENGINE"
+            "define": "STEAMWORKSNET"
         }
     ],
     "noEngineReferences": false
