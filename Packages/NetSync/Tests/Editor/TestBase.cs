@@ -18,7 +18,6 @@ namespace Yanmonet.NetSync.Editor.Tests
         protected string localAddress = "127.0.0.1";
         static int port = 7777;
         protected NetworkManager server;
-        protected ulong serverClientId;
         protected NetworkManager client;
 
         protected NetworkManager serverManager;
