@@ -153,7 +153,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Update(server, client);
 
             CollectionAssert.IsNotEmpty(serverManager.ConnectedClientIds, "ConnnectedClientList empty");
-            serverClientId = serverManager.ConnectedClientIds[0];
+
 
         }
 
