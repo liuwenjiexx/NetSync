@@ -567,7 +567,7 @@ namespace Yanmonet.NetSync
             if (msgHandlers == null || !msgHandlers.TryGetValue(netMsg.MsgId, out handler))
             {
                 if (LogLevel <= LogLevel.Error)
-                    LogError(netMsg.ClientId, "Unknown msgId: " + netMsg.MsgId);
+                    LogError(netMsg.SenderId, "Unknown msgId: " + netMsg.MsgId);
                 return;
             }
             try
@@ -578,7 +578,7 @@ namespace Yanmonet.NetSync
             catch (Exception ex)
             {
                 if (LogLevel <= LogLevel.Error)
-                    LogError(netMsg.ClientId, "Handle message error, msgId: " + netMsg.MsgId);
+                    LogError(netMsg.SenderId, "Handle message error, msgId: " + netMsg.MsgId);
                 LogException(ex);
             }
         }
@@ -596,7 +596,7 @@ namespace Yanmonet.NetSync
             NetworkMessage netMsg = new NetworkMessage();
             netMsg.MsgId = msgId;
             netMsg.NetworkManager = this;
-            netMsg.ClientId = clientId;
+            netMsg.ReceiverId = clientId;
             netMsg.Reader = reader;
             netMsg.rawPacket = packet;
             InvokeHandler(netMsg);
@@ -606,27 +606,27 @@ namespace Yanmonet.NetSync
         {
 
             NetworkEvent evt;
-            ulong? clientId = null;
+            ulong? senderId = null;
             NetworkClient client;
             while (transport.PollEvent(out evt))
             {
-                clientId = null;
+                senderId = null;
                 client = null;
 
-                if (evt.ClientId == transport.ServerClientId)
+                if (evt.SenderId == transport.ServerClientId)
                 {
-                    clientId = ServerClientId;
+                    senderId = ServerClientId;
                 }
-                else if (IsClient && localClient != null && localClient.transportClientId == evt.ClientId)
-                {
-                    clientId = localClient.clientId;
-                    client = localClient;
-                }
+                //else if (IsClient && localClient != null && localClient.transportClientId == evt.SenderId)
+                //{
+                //    senderId = localClient.clientId;
+                //    client = localClient;
+                //}
                 else
                 {
-                    if (transportToClients.TryGetValue(evt.ClientId, out client))
+                    if (transportToClients.TryGetValue(evt.SenderId, out client))
                     {
-                        clientId = client.ClientId;
+                        senderId = client.ClientId;
                     }
                     //else if (IsClient && !IsServer)
                     //{
@@ -643,7 +643,7 @@ namespace Yanmonet.NetSync
                 {
                     case NetworkEventType.Data:
                         {
-                            if (clientId.HasValue)
+                            if (senderId.HasValue)
                             {
                                 NetworkMessage netMsg = new NetworkMessage();
                                 netMsg.NetworkManager = this;
@@ -657,12 +657,12 @@ namespace Yanmonet.NetSync
                                 ushort msgId = reader.ReadUInt16();
 
                                 netMsg.MsgId = msgId;
-                                netMsg.ClientId = clientId.Value;
+                                netMsg.SenderId = senderId.Value;
                                 netMsg.Reader = reader;
 
                                 if (LogLevel <= LogLevel.Debug)
                                 {
-                                    Log(clientId.Value, $"Receive Message [{(NetworkMsgId)msgId}]");
+                                    Log(senderId.Value, $"Receive Message [{(NetworkMsgId)msgId}]");
                                 }
 
                                 InvokeHandler(netMsg);
@@ -672,26 +672,26 @@ namespace Yanmonet.NetSync
                     case NetworkEventType.Connect:
                         if (IsServer)
                         {
-                            OnServerTransportConnect(evt.ClientId);
+                            OnServerTransportConnect(evt.SenderId);
                         }
                         else
                         {
-                            OnClientTransportConnect(evt.ClientId);
+                            OnClientTransportConnect(evt.SenderId);
                         }
                         break;
                     case NetworkEventType.Disconnect:
                         if (IsServer)
                         {
-                            OnServerTransportDisconnect(evt.ClientId);
+                            OnServerTransportDisconnect(evt.SenderId);
                         }
                         else
                         {
-                            OnClientTransportDisconnect(evt.ClientId);
+                            OnClientTransportDisconnect(evt.SenderId);
                         }
                         break;
                     case NetworkEventType.Error:
                         {
-                            LogError(clientId.Value, "Network Transport error");
+                            LogError(senderId.Value, "Network Transport error");
                             Shutdown();
                         }
                         break;
@@ -775,7 +775,7 @@ namespace Yanmonet.NetSync
                 Log($"[Client] Send Message: {NetworkMsgId.ConnectRequest}");
             }
 
-            transport.Send(transport.ServerClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
+            transport.SendMessage(transport.ServerClientId, new ArraySegment<byte>(PackMessage((ushort)NetworkMsgId.ConnectRequest, connectRequest)), NetworkDelivery.ReliableSequenced);
 
 
         }
@@ -989,7 +989,7 @@ namespace Yanmonet.NetSync
 
             if (client != null)
             {
-                transport.Send(transportClientId, new ArraySegment<byte>(packet), delivery);
+                transport.SendMessage(transportClientId, new ArraySegment<byte>(packet), delivery);
             }
 
         }
@@ -1042,7 +1042,7 @@ namespace Yanmonet.NetSync
             if (!netMgr.IsServer) throw new NotServerException("Connect To Server Msg only server");
             var msg = netMsg.ReadMessage<ConnectRequestMessage>();
 
-            ulong clientId = netMsg.ClientId;
+            ulong clientId = netMsg.SenderId;
             NetworkClient client = null;
             var resp = new ConnectResponseMessage();
             try
@@ -1185,7 +1185,7 @@ namespace Yanmonet.NetSync
 
                 if (netMgr.LogLevel <= LogLevel.Debug)
                 {
-                    netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
+                    netMgr.Log(netMsg.SenderId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
                 }
             }
             //}
@@ -1211,7 +1211,7 @@ namespace Yanmonet.NetSync
 
             if (netMgr.LogLevel <= LogLevel.Debug)
             {
-                netMgr.Log(netMsg.ClientId, $"Receive Message: Spawn Object [{netObj.GetType().Name}] instanceId: {netObj.InstanceId}, owner: {netObj.OwnerClientId}");
+                netMgr.Log(netMsg.SenderId, $"Receive Message: Spawn Object [{netObj.GetType().Name}] instanceId: {netObj.InstanceId}, owner: {netObj.OwnerClientId}");
             }
 
             netMgr.SpawnObject(netObj);
@@ -1237,7 +1237,7 @@ namespace Yanmonet.NetSync
 
             if (netMgr.LogLevel <= LogLevel.Debug)
             {
-                netMgr.Log(netMsg.ClientId, $"Receive Message: Despawn Object [{instance.GetType().Name}] instanceId: {instance.InstanceId}, destroy: {msg.isDestroy}");
+                netMgr.Log(netMsg.SenderId, $"Receive Message: Despawn Object [{instance.GetType().Name}] instanceId: {instance.InstanceId}, destroy: {msg.isDestroy}");
             }
 
             netMgr.DespawnObject(instance);
@@ -1264,7 +1264,7 @@ namespace Yanmonet.NetSync
                         continue;
                     SendPacket(clientId, netMsg.MsgId, netMsg.rawPacket);
                     if (LogLevel <= LogLevel.Debug)
-                        Log(netMsg.ClientId, "Redirect Sync Variable");
+                        Log(netMsg.SenderId, "Redirect Sync Variable");
                 }
             }
 
@@ -1288,7 +1288,7 @@ namespace Yanmonet.NetSync
         private static void OnMessage_Ping(NetworkMessage netMsg)
         {
             var netMgr = netMsg.NetworkManager;
-            var client = netMgr.GetClient(netMsg.ClientId);
+            var client = netMgr.GetClient(netMsg.SenderId);
             var pingMsg = netMsg.ReadMessage<PingMessage>();
             switch (pingMsg.Action)
             {

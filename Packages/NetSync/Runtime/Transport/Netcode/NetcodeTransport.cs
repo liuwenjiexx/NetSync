@@ -1,36 +1,33 @@
 #if NETCODE
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Unity.Netcode;
-using UnityEditor.PackageManager;
-using System.Management;
-using System.Linq;
 using System.Diagnostics;
-using System.Security.Policy;
+using System.Linq;
+using Unity.Collections;
+using Unity.Netcode;
 
 namespace Yanmonet.NetSync.Transport.Netcode
 {
     using NetMgr = Unity.Netcode.NetworkManager;
 
 
-    public class NetcodeTransport : NetworkBehaviour, INetworkTransport
+    public class NetcodeTransport : INetworkTransport
     {
         private NetworkManager networkManager;
         private NetMgr netMgr;
         private ulong localClientId;
         private Dictionary<ulong, ulong> mapNetIds;
         private Dictionary<ulong, ulong> mapClientIds;
-
+        public NetcodeTransport Server;
         private Queue<NetworkEvent> eventQueue;
         private ulong NextClientId;
         private bool initalized;
         private Stopwatch time;
         private bool isServer;
-
+        private string MessageName = "NetSync";
         public bool IsSupported => true;
+        private Dictionary<ushort, Action<ulong, ArraySegment<byte>>> handlers;
 
         public ulong ServerClientId => 0;
 
@@ -67,20 +64,39 @@ namespace Yanmonet.NetSync.Transport.Netcode
             mapClientIds = new();
             NextClientId = 0;
             time = Stopwatch.StartNew();
-            netMgr.OnClientConnectedCallback += NetMgr_OnClientConnectedCallback;
+            //netMgr.OnClientConnectedCallback += NetMgr_OnClientConnectedCallback;
+            netMgr.CustomMessagingManager.RegisterNamedMessageHandler(MessageName, ReceiveMessage);
             isServer = false;
             initalized = true;
-
+            handlers = new();
+            handlers[(ushort)MsgId.ConnectResponse] = ConnectResponseHandle;
+            handlers[(ushort)MsgId.Data] = DataHandle;
         }
 
-        private void NetMgr_OnClientConnectedCallback(ulong netId)
-        {
-            if (mapClientIds.ContainsKey(netId))
-                return;
-            ulong clientId;
-            clientId = ++NextClientId;
-            OnClientConnect(clientId, netId);
-        }
+
+
+        public static readonly List<NetcodeTransport> transports = new();
+
+        //public override void OnNetworkSpawn()
+        //{
+        //    transports.Add(this);
+        //    base.OnNetworkSpawn();
+        //}
+
+        //public override void OnNetworkDespawn()
+        //{
+        //    transports.Remove(this);
+        //    base.OnNetworkDespawn();
+        //}
+
+        //private void NetMgr_OnClientConnectedCallback(ulong netId)
+        //{
+        //    if (mapClientIds.ContainsKey(netId))
+        //        return;
+        //    ulong clientId;
+        //    clientId = ++NextClientId;
+        //    OnClientConnect(clientId, netId);
+        //}
 
 
 
@@ -102,14 +118,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
             localClientId = ServerClientId;
             OnClientConnect(localClientId, netMgr.LocalClientId);
 
-            foreach (var netId in netMgr.ConnectedClientsIds)
-            {
-                if (netId != netMgr.LocalClientId)
-                {
-                    ulong clientId = ++NextClientId;
-                    OnClientConnect(clientId, netId);
-                }
-            }
+
             isServer = true;
             return true;
         }
@@ -129,11 +138,11 @@ namespace Yanmonet.NetSync.Transport.Netcode
                 }
             }
 
-            mapNetIds[0] = 0;
-            mapClientIds[0] = 0;
+            localClientId = ulong.MaxValue;
 
-            localClientId = ++NextClientId;
-            OnClientConnect(localClientId, netMgr.LocalClientId);
+            var writer = CreateWriter(MsgId.ConnectRequest, 0, new ArraySegment<byte>());
+            SendNetMessage(0, writer);
+
             return true;
         }
 
@@ -150,10 +159,11 @@ namespace Yanmonet.NetSync.Transport.Netcode
             NetworkEvent @event = new NetworkEvent()
             {
                 Type = NetworkEventType.Connect,
-                ClientId = clientId,
+                SenderId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
+
         }
 
 
@@ -165,13 +175,15 @@ namespace Yanmonet.NetSync.Transport.Netcode
             NetworkEvent @event = new NetworkEvent()
             {
                 Type = NetworkEventType.Disconnect,
-                ClientId = localClientId,
+                SenderId = localClientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
 
             mapNetIds.Remove(localClientId);
             mapClientIds.Remove(netId);
+
+
 
         }
 
@@ -183,7 +195,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
             NetworkEvent @event = new NetworkEvent()
             {
                 Type = NetworkEventType.Disconnect,
-                ClientId = clientId,
+                SenderId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
@@ -202,87 +214,147 @@ namespace Yanmonet.NetSync.Transport.Netcode
             @event = default;
             return false;
         }
-
-        public void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
+        FastBufferWriter CreateWriter(MsgId msgId, ulong clientId, Unity.Netcode.INetworkSerializable serializable)
         {
-            if (!mapNetIds.TryGetValue(clientId, out var netId))
-                return;
+            FastBufferWriter writer = new FastBufferWriter(1000, Allocator.Temp);
+            writer.WriteNetworkSerializable(serializable);
+            return CreateWriter(msgId, clientId, writer.ToArray());
+        }
+        FastBufferWriter CreateWriter(MsgId msgId, ulong clientId, ArraySegment<byte> data)
+        {
+            var writer = new FastBufferWriter(1100, Allocator.Temp);
 
-            if (IsServer)
+            writer.WriteValueSafe((ushort)msgId);
+            //writer.WriteValueSafe(localClientId);
+            writer.WriteValueSafe(clientId);
+            writer.WriteValueSafe(data);
+            return writer;
+        }
+
+
+        void SendNetMessage(ulong clientNetId, FastBufferWriter writer)
+        {
+            if (netMgr.IsServer)
             {
-                Unity.Netcode.ClientRpcParams clientRpcParams = new();
-                clientRpcParams.Send.TargetClientIds = new List<ulong>() { netId };
-                SendClientRpc(clientId, payload, clientRpcParams);
+                netMgr.CustomMessagingManager.SendNamedMessage(MessageName, clientNetId, writer);
             }
             else
             {
-                SendServerRpc(clientId, payload);
+                netMgr.CustomMessagingManager.SendNamedMessage(MessageName, NetMgr.ServerClientId, writer);
             }
-
-
         }
 
-
-        [Unity.Netcode.ServerRpc]
-        void SendServerRpc(ulong targetClientId, ArraySegment<byte> data, Unity.Netcode.ServerRpcParams serverRpcParams = default)
+        public void SendMessage(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
         {
-            if (!mapNetIds.TryGetValue(targetClientId, out var netId))
-                return;
-
-
-            if (targetClientId == localClientId)
+            ulong netId;
+            if (clientId == ServerClientId)
             {
-                byte[] data2 = new byte[data.Count];
-                if (data.Count > 0)
-                {
-                    Array.Copy(data.Array, data.Offset, data2, 0, data.Count);
-                }
-
-                eventQueue.Enqueue(new NetworkEvent()
-                {
-                    Type = NetworkEventType.Data,
-                    ClientId = targetClientId,
-                    ReceiveTime = NowTime,
-                    Payload = data2
-                });
-                return;
+                netId = NetMgr.ServerClientId;
             }
-
-
-            //转发消息
-            Unity.Netcode.ClientRpcParams clientRpcParams = new();
-            clientRpcParams.Send.TargetClientIds = new List<ulong>() { netId };
-            SendClientRpc(targetClientId, data, clientRpcParams);
-
+            else
+            {
+                if (!mapNetIds.TryGetValue(clientId, out netId))
+                {
+                    if (networkManager?.LogLevel <= LogLevel.Debug)
+                        networkManager.LogError("NetcodeTransport send message fail, not clientId: " + clientId);
+                    return;
+                }
+            }
+            var writer = CreateWriter(MsgId.Data, clientId, payload);
+            SendNetMessage(netId, writer);
         }
 
 
-        [Unity.Netcode.ClientRpc]
-        void SendClientRpc(ulong targetClientId, ArraySegment<byte> data, Unity.Netcode.ClientRpcParams clientRpcParams = default)
+        private void ReceiveMessage(ulong senderId, FastBufferReader messagePayload)
         {
-            if (!mapNetIds.TryGetValue(targetClientId, out var netId))
-                return;
+            ulong targetClientId;
+            ArraySegment<byte> data;
+            ushort msgId;
+            messagePayload.ReadValueSafe(out msgId);
+            messagePayload.ReadValueSafe(out targetClientId);
+            messagePayload.ReadValueSafe(out data);
+
+            switch ((MsgId)msgId)
+            {
+                case MsgId.ConnectRequest:
+                    {
+                        if (!isServer)
+                            return;
+                        if (!mapClientIds.TryGetValue(senderId, out var clientId))
+                        {
+                            clientId = ++NextClientId;
+                            OnClientConnect(clientId, senderId);
+                        }
+
+                        ConnectResponse response = new ConnectResponse();
+                        response.clientId = clientId;
+
+                        FastBufferWriter writer = CreateWriter(MsgId.ConnectResponse, clientId, response);
+
+                        SendNetMessage(senderId, writer);
+                        networkManager.Log("======== ConnectRequest ");
+                        return;
+                    }
+                case MsgId.ConnectResponse:
+                    {
+                        if (isServer) return;
+                        FastBufferReader reader = new FastBufferReader(data, Allocator.Temp);
+                        ConnectResponse response;
+                        reader.ReadNetworkSerializable(out response);
+                        if (localClientId != response.clientId)
+                        {
+                            localClientId = response.clientId;
+                            OnClientConnect(localClientId, netMgr.LocalClientId);
+                        }
+                        networkManager.Log("======== ConnectResponse " + senderId + ", " + localClientId);
+                        return;
+                    }
+                    break;
+            }
+
 
             if (targetClientId != localClientId)
-                return;
-
-            byte[] data2 = new byte[data.Count];
-            if (data.Count > 0)
             {
-                Array.Copy(data.Array, data.Offset, data2, 0, data.Count);
+                if (netMgr.IsServer)
+                {
+                    if (!mapNetIds.TryGetValue(targetClientId, out var netId))
+                        return;
+
+                    //转发消息
+                    SendMessage(targetClientId, data, NetworkDelivery.ReliableSequenced);
+                }
+                return;
             }
 
-            eventQueue.Enqueue(new NetworkEvent()
+
+            ulong senderClientId;
+
+            if (senderId == NetMgr.ServerClientId)
             {
-                Type = NetworkEventType.Data,
-                ClientId = targetClientId,
-                ReceiveTime = NowTime,
-                Payload = data2
-            });
+                senderClientId = ServerClientId;
+            }
+            else
+            {
+                if (isServer)
+                {
+                    if (!mapClientIds.TryGetValue(senderId, out senderClientId))
+                        return;
+                }
+                else
+                {
+                    senderClientId = ServerClientId;
+                }
+            }
+
+
+            if (!handlers.TryGetValue(msgId, out var handler))
+                return;
+            handler(senderClientId, data);
         }
 
         public void Shutdown()
         {
+            netMgr.CustomMessagingManager.UnregisterNamedMessageHandler(MessageName);
             if (mapNetIds != null)
             {
                 foreach (var clientId in mapNetIds.Keys.ToArray())
@@ -313,7 +385,44 @@ namespace Yanmonet.NetSync.Transport.Netcode
             initalized = false;
         }
 
+        void ConnectRequestHandle(ulong clientId, ArraySegment<byte> data)
+        {
 
+        }
+
+        void ConnectResponseHandle(ulong clientId, ArraySegment<byte> data)
+        {
+
+        }
+
+        void DataHandle(ulong clientId, ArraySegment<byte> data)
+        {
+            eventQueue.Enqueue(new NetworkEvent()
+            {
+                Type = NetworkEventType.Data,
+                SenderId = clientId,
+                ReceiveTime = NowTime,
+                Payload = data
+            });
+        }
+
+        enum MsgId
+        {
+            Data,
+            ConnectRequest,
+            ConnectResponse,
+
+        }
+
+        class ConnectResponse : Unity.Netcode.INetworkSerializable
+        {
+            public ulong clientId;
+
+            public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : Unity.Netcode.IReaderWriter
+            {
+                serializer.SerializeValue(ref clientId);
+            }
+        }
     }
 
     static class SerializationExtensions

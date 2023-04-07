@@ -295,7 +295,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
 
 
-        public void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
+        public void SendMessage(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
         {
             SocketClient client;
             if (isClient && (clientId == ServerClientId))
@@ -684,7 +684,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                         {
                             Type = NetworkEventType.Connect,
                             ReceiveTime = NowTime,
-                            ClientId = client.ClientId,
+                            SenderId = client.ClientId,
                         };
 
                         lock (lockObj)
@@ -706,7 +706,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                                 NetworkEvent eventData = new NetworkEvent()
                                 {
                                     Type = NetworkEventType.Connect,
-                                    ClientId = client.ClientId,
+                                    SenderId = client.ClientId,
                                     ReceiveTime = NowTime,
                                 };
                                 lock (lockObj)
@@ -747,7 +747,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                         NetworkEvent eventData = new NetworkEvent()
                         {
                             Type = NetworkEventType.Data,
-                            ClientId = packet.SenderClientId,
+                            SenderId = packet.SenderClientId,
                             Payload = new ArraySegment<byte>(bytes),
                             ReceiveTime = NowTime,
                         };
@@ -929,7 +929,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                 eventQueue.Enqueue(new NetworkEvent()
                 {
                     Type = NetworkEventType.Disconnect,
-                    ClientId = client.ClientId,
+                    SenderId = client.ClientId,
                     ReceiveTime = NowTime
                 });
 

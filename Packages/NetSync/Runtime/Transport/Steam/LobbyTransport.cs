@@ -139,7 +139,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
                         @event = new NetworkEvent()
                         {
                             Type = NetworkEventType.Connect,
-                            ClientId = msg.SteamIDClient.m_SteamID,
+                            SenderId = msg.SteamIDClient.m_SteamID,
                             Payload = msg.Payload,
                             ReceiveTime = 0,
                         };
@@ -150,7 +150,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
                         @event = new NetworkEvent()
                         {
                             Type = NetworkEventType.Connect,
-                            ClientId = msg.SteamIDClient.m_SteamID,
+                            SenderId = msg.SteamIDClient.m_SteamID,
                             Payload = msg.Payload,
                             ReceiveTime = 0,
                         };
@@ -168,7 +168,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
                         @event = new NetworkEvent()
                         {
                             Type = NetworkEventType.Disconnect,
-                            ClientId = msg.SteamIDClient.m_SteamID,
+                            SenderId = msg.SteamIDClient.m_SteamID,
                             Payload = msg.Payload,
                             ReceiveTime = msg.ReceiveTime,
                         };
@@ -181,7 +181,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
                             @event = new NetworkEvent()
                             {
                                 Type = NetworkEventType.Disconnect,
-                                ClientId = msg.SteamIDClient.m_SteamID,
+                                SenderId = msg.SteamIDClient.m_SteamID,
                                 Payload = msg.Payload,
                                 ReceiveTime = msg.ReceiveTime,
                             };
@@ -194,7 +194,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
                         @event = new NetworkEvent()
                         {
                             Type = NetworkEventType.Data,
-                            ClientId = msg.SteamIDClient.m_SteamID,
+                            SenderId = msg.SteamIDClient.m_SteamID,
                             Payload = msg.Payload,
                             ReceiveTime = msg.ReceiveTime,
                         };
@@ -208,7 +208,7 @@ namespace Yanmonet.NetSync.Transport.SteamNetworking
             return false;
         }
 
-        public void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
+        public void SendMessage(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery)
         {
             if (clientId == 0)
                 clientId = serverClient.SteamIDClient.m_SteamID;

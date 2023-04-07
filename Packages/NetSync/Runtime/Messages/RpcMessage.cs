@@ -54,10 +54,10 @@ namespace Yanmonet.NetSync
                     {
                         ParameterInfo pInfo = null;
 
-                        if (rpcInfo.paramCount != args.Length)
-                        {
-                            throw new Exception($"Rpc '{rpcInfo.method}' parameter count: {rpcInfo.paramCount},  args count: {args.Length}");
-                        }
+                        //if (rpcInfo.paramCount != args.Length)
+                        //{
+                        //    throw new Exception($"Rpc '{rpcInfo.method}' parameter count: {rpcInfo.paramCount},  args count: {args.Length}");
+                        //}
                         try
                         {
                             for (int i = 0, j = 0, len = rpcInfo.paramCount; i < len; i++)
