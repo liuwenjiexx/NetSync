@@ -18,7 +18,7 @@ namespace Yanmonet.NetSync
         abstract bool StartClient();
 
 
-        abstract void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery);
+        abstract void SendMessage(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery);
 
         abstract bool PollEvent(out NetworkEvent @event);
 

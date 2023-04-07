@@ -98,11 +98,11 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             Assert.IsTrue(server.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
-            Assert.AreEqual(1, @event.ClientId);
+            Assert.AreEqual(1, @event.SenderId);
 
             Assert.IsTrue(client.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
-            Assert.AreEqual(1, @event.ClientId);
+            Assert.AreEqual(1, @event.SenderId);
 
             client.Shutdown();
             server.Shutdown();
@@ -128,7 +128,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsTrue(client.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
 
-            server.DisconnectRemoteClient(@event.ClientId);
+            server.DisconnectRemoteClient(@event.SenderId);
 
             @event = await server.PollEventAsync(1f);
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
