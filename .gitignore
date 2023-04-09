@@ -13,3 +13,5 @@ Logs/
 boot.config
 src/packages
 Build/
+/Assets/Tests.meta
+/UserSettings/Search.settings
