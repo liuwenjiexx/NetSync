@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -41,6 +42,7 @@ namespace Yanmonet.NetSync
             return info;
         }
 
+        [DebuggerHidden]
         public static RpcInfo[] GetRpcInfos(Type type)
         {
             if (type == null)

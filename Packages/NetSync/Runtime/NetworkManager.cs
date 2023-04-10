@@ -53,6 +53,8 @@ namespace Yanmonet.NetSync
 
         public bool IsClient { get; private set; }
 
+        public bool IsConnectedClient { get; internal set; }
+
         internal NetworkClient LocalClient => localClient;
 
 
@@ -228,6 +230,7 @@ namespace Yanmonet.NetSync
                 OnServerTransportConnect(transport.ServerClientId);
                 var client = clients[ServerClientId];
                 client.isConnected = true;
+                IsConnectedClient = true;
                 ClientConnected?.Invoke(this, client.ClientId);
             }
             catch
@@ -287,7 +290,7 @@ namespace Yanmonet.NetSync
 
                 //localClient = new NetworkClient(this);
                 //localClient.transportClientId = @event.ClientId;
-     
+
                 //float timeout = NowTime + 10;
                 //while (true)
                 //{
@@ -1123,6 +1126,10 @@ namespace Yanmonet.NetSync
                     client.isConnected = true;
                     try
                     {
+                        if (netMgr.IsClient)
+                        {
+                            netMgr.IsConnectedClient = true;
+                        }
                         netMgr.ClientConnected?.Invoke(netMgr, client.clientId);
                     }
                     catch (Exception ex) { netMgr.LogException(ex); }
