@@ -67,16 +67,19 @@ namespace Yanmonet.NetSync
                 return true;
 
             TypeCode typeCode = Type.GetTypeCode(type);
-         
+
             if (type == typeof(byte[]))
                 return true;
             switch (typeCode)
             {
                 case TypeCode.String:
                 case TypeCode.Int32:
+                case TypeCode.UInt32:
                 case TypeCode.Single:
+                case TypeCode.Double:
                 case TypeCode.Boolean:
                 case TypeCode.Byte:
+                case TypeCode.Int64:
                 case TypeCode.UInt64:
                     return true;
             }
@@ -110,7 +113,7 @@ namespace Yanmonet.NetSync
 
 
             TypeCode typeCode = Type.GetTypeCode(valueType);
-        
+
             int int32;
             if (valueType == typeof(byte[]))
             {
@@ -134,9 +137,17 @@ namespace Yanmonet.NetSync
                     int32 = (int)value;
                     writer.SerializeValue(ref int32);
                     break;
+                case TypeCode.UInt32:
+                    uint uint32 = (uint)value;
+                    writer.SerializeValue(ref uint32);
+                    break;
                 case TypeCode.Single:
                     float float32 = (float)value;
                     writer.SerializeValue(ref float32);
+                    break;
+                case TypeCode.Double:
+                    double float64 = (double)value;
+                    writer.SerializeValue(ref float64);
                     break;
                 case TypeCode.String:
                     string str = value as string;
@@ -150,9 +161,13 @@ namespace Yanmonet.NetSync
                     var b1 = (byte)value;
                     writer.SerializeValue(ref b1);
                     break;
+                case TypeCode.Int64:
+                    var int64 = (long)value;
+                    writer.SerializeValue(ref int64);
+                    break;
                 case TypeCode.UInt64:
-                    var ul = (ulong)value;
-                    writer.SerializeValue(ref ul);
+                    var uint64 = (ulong)value;
+                    writer.SerializeValue(ref uint64);
                     break;
             }
         }
@@ -176,7 +191,7 @@ namespace Yanmonet.NetSync
                 messageBase.Deserialize(reader);
                 return messageBase;
             }
- 
+
 
             if (valueType == typeof(byte[]))
             {
@@ -189,14 +204,24 @@ namespace Yanmonet.NetSync
             switch (typeCode)
             {
                 case TypeCode.Int32:
-                    int i32 = 0;
-                    reader.SerializeValue(ref i32);
-                    value = i32;
+                    int int32 = 0;
+                    reader.SerializeValue(ref int32);
+                    value = int32;
+                    break;
+                case TypeCode.UInt32:
+                    uint uint32 = 0;
+                    reader.SerializeValue(ref uint32);
+                    value = uint32;
                     break;
                 case TypeCode.Single:
-                    float f32 = 0;
-                    reader.SerializeValue(ref f32);
-                    value = f32;
+                    float float32 = 0;
+                    reader.SerializeValue(ref float32);
+                    value = float32;
+                    break;
+                case TypeCode.Double:
+                    double float64 = 0;
+                    reader.SerializeValue(ref float64);
+                    value = float64;
                     break;
                 case TypeCode.String:
                     string str = null;
@@ -209,14 +234,19 @@ namespace Yanmonet.NetSync
                     value = b;
                     break;
                 case TypeCode.Byte:
-                    byte i8 = 0;
-                    reader.SerializeValue(ref i8);
-                    value = i8;
+                    byte uint8 = 0;
+                    reader.SerializeValue(ref uint8);
+                    value = uint8;
+                    break;
+                case TypeCode.Int64:
+                    long int64 = 0;
+                    reader.SerializeValue(ref int64);
+                    value = int64;
                     break;
                 case TypeCode.UInt64:
-                    ulong ulong64 = 0;
-                    reader.SerializeValue(ref ulong64);
-                    value = ulong64;
+                    ulong uint64 = 0;
+                    reader.SerializeValue(ref uint64);
+                    value = uint64;
                     break;
             }
             return value;

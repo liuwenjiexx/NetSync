@@ -8,6 +8,7 @@ using static Yanmonet.NetSync.NetworkObject;
 using System.Linq;
 using System.Data;
 using System.Diagnostics;
+using UnityEditor.PackageManager;
 #if UNITY_ENGINE
 using UnityEngine;
 #endif
@@ -58,6 +59,7 @@ namespace Yanmonet.NetSync
 
         public bool IsServer => NetworkManager.IsServer;
         public bool IsClient => NetworkManager.IsClient;
+
 
         public void Spawn()
         {
@@ -531,7 +533,12 @@ namespace Yanmonet.NetSync
 
         protected bool __ReturnClientRpc__()
         {
-            return !IsClient;
+            if (!IsClient)
+                return true;
+            var clientParams = clientRpc.clientParams;
+            if (clientParams.clients != null && !clientParams.clients.Contains(NetworkManager.LocalClientId))
+                return true;
+            return false;
         }
 
         #endregion
