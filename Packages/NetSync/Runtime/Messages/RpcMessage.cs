@@ -190,5 +190,24 @@ namespace Yanmonet.NetSync
     public struct ClientRpcParams
     {
         public List<ulong> clients;
+
+        public static ClientRpcParams FromReceiver(ulong clientId)
+        {
+            ClientRpcParams clientRpcParams = new ClientRpcParams();
+            var receiver = new List<ulong>
+            {
+                clientId
+            };
+            clientRpcParams.clients = receiver;
+            return clientRpcParams;
+        }
+
+        public static ClientRpcParams FromReceiver(List<ulong> clientIds)
+        {
+            ClientRpcParams clientRpcParams = new ClientRpcParams();
+            clientRpcParams.clients = clientIds;
+            return clientRpcParams;
+        }
+
     }
 }

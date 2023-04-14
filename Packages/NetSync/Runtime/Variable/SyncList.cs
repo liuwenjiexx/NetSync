@@ -179,14 +179,15 @@ namespace Yanmonet.NetSync
         {
             CheckWrite();
 
+            var removed = list[index];
             list.RemoveAt(index);
 
             var listEvent = new SyncListEvent<T>()
             {
                 Type = SyncListEvent<T>.EventType.RemoveAt,
-                Index = index
+                Index = index,
+                Value = removed
             };
-
             HandleAddListEvent(listEvent);
         }
         private void HandleAddListEvent(SyncListEvent<T> listEvent)
@@ -249,7 +250,7 @@ namespace Yanmonet.NetSync
                 {
                     case SyncListEvent<T>.EventType.Add:
                         {
-                              value = default;
+                            value = default;
                             reader.SerializeValue(ref value);
                             list.Add(value);
 
@@ -279,7 +280,7 @@ namespace Yanmonet.NetSync
                         {
                             int index = 0;
                             reader.SerializeValue(ref index);
-                             value = default;
+                            value = default;
                             reader.SerializeValue(ref value);
 
                             if (index < list.Count)
@@ -351,7 +352,7 @@ namespace Yanmonet.NetSync
                         {
                             int index = 0;
                             reader.SerializeValue(ref index);
-                              value = list[index];
+                            value = list[index];
                             list.RemoveAt(index);
 
                             if (OnListChanged != null)
