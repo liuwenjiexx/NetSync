@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
@@ -27,7 +28,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
             {
                 var props = adapter.GetIPProperties();
-                
+
                 if (props.UnicastAddresses.Count == 0)
                     continue;
                 IPAddress gateway = null;
@@ -98,5 +99,47 @@ namespace Yanmonet.NetSync.Editor.Tests
                 }
             }
         }
+
+        [Test]
+        public void ParseIP()
+        {
+            string serverType;
+            string ipString;
+            string address;
+            int port;
+
+            ipString = "127.0.0.1";
+            Assert.IsTrue(NetworkUtility.TryParseIPAddress(ipString, out serverType, out address, out port));
+            Debug.Log($"{ipString} => IP: {address}, Port: {port}");
+            Assert.AreEqual("127.0.0.1", address);
+            Assert.AreEqual(0, port);
+
+            ipString = "127.0.0.1:7777";
+            Assert.IsTrue(NetworkUtility.TryParseIPAddress(ipString, out serverType, out address, out port));
+            Debug.Log($"{ipString} => IP: {address}, Port: {port}");
+            Assert.AreEqual("127.0.0.1", address);
+            Assert.AreEqual(7777, port);
+
+
+            ipString = "ip://127.0.0.1:7777";
+            Assert.IsTrue(NetworkUtility.TryParseIPAddress(ipString, out serverType, out address, out port));
+            Debug.Log($"{ipString} => IP: {address}, Port: {port}");
+            Assert.AreEqual("127.0.0.1", address);
+            Assert.AreEqual(7777, port);
+
+            Uri uri;
+            ipString = "steam://123456789";
+            Assert.IsTrue(Uri.TryCreate(ipString, UriKind.RelativeOrAbsolute, out uri));
+            Debug.Log($"{ipString} => Scheme: {uri.Scheme}, Authority: {uri.Authority}, Port: {uri.Port}, HostType: {uri.HostNameType}");
+
+            ipString = "http://a.b.c.d:7777";
+            Uri.TryCreate(ipString, UriKind.RelativeOrAbsolute, out uri);
+            Assert.AreEqual("a.b.c.d", uri.Host);
+            Assert.AreEqual(7777, uri.Port);
+
+        }
+
     }
+
+
 }

@@ -7,11 +7,38 @@ using System.Runtime.CompilerServices;
 using System.Reflection;
 using System.IO;
 using System.Net.NetworkInformation;
+using System.Net;
 
 namespace Yanmonet.NetSync
 {
     public static class NetworkUtility
     {
+        public static readonly DateTime InitializeUtcTime = new DateTime(1970, 1, 1, 0, 0, 0);
+
+        public static long ToUtcTimestamp(DateTime time)
+        {
+            return (long)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalMilliseconds;
+        }
+
+        public static DateTime FromTimestamp(long milliseconds)
+        {
+            DateTime time = InitializeUtcTime;
+            time.AddMilliseconds(milliseconds);
+            return time;
+        }
+
+        public static int ToUtcTimestampSeconds(DateTime time)
+        {
+            return (int)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalSeconds;
+        }
+
+        public static DateTime FromTimestampSeconds(int seconds)
+        {
+            DateTime time = InitializeUtcTime;
+            time.AddSeconds(seconds);
+            return time;
+        }
+
         internal static T CreateInstance<T>()
         {
             if (typeof(T).IsValueType)
@@ -239,5 +266,32 @@ namespace Yanmonet.NetSync
             }
         }
 
+
+        public static bool TryParseIPAddress(string ipString, out string serverType, out string address, out int port)
+        {
+            serverType = null;
+            address = null;
+            port = 0;
+
+            if (string.IsNullOrEmpty(ipString))
+            {
+                return false;
+            }
+
+            if (ipString.IndexOf("://") < 0)
+            {
+                ipString = "local://" + ipString;
+            }
+            if (!Uri.TryCreate(ipString, UriKind.RelativeOrAbsolute, out var uri))
+            {
+                return false;
+            }
+            serverType = uri.Scheme.ToLower();
+            address = uri.Host;
+            port = uri.Port;
+            if (port < 0)
+                port = 0;
+            return true;
+        }
     }
 }
