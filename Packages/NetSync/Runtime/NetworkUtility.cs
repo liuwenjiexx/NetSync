@@ -15,28 +15,24 @@ namespace Yanmonet.NetSync
     {
         public static readonly DateTime InitializeUtcTime = new DateTime(1970, 1, 1, 0, 0, 0);
 
-        public static long ToUtcTimestamp(DateTime time)
+        public static long ToTimestamp(DateTime time)
         {
             return (long)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalMilliseconds;
         }
 
         public static DateTime FromTimestamp(long milliseconds)
         {
-            DateTime time = InitializeUtcTime;
-            time.AddMilliseconds(milliseconds);
-            return time;
+            return InitializeUtcTime.AddMilliseconds(milliseconds);
         }
 
-        public static int ToUtcTimestampSeconds(DateTime time)
+        public static int ToTimestampSeconds(DateTime time)
         {
             return (int)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalSeconds;
         }
 
         public static DateTime FromTimestampSeconds(int seconds)
         {
-            DateTime time = InitializeUtcTime;
-            time.AddSeconds(seconds);
-            return time;
+            return InitializeUtcTime.AddSeconds(seconds);
         }
 
         internal static T CreateInstance<T>()
