@@ -13,7 +13,7 @@ namespace Yanmonet.NetSync
 {
     public static class NetworkUtility
     {
-        public static readonly DateTime InitializeUtcTime = new DateTime(1970, 1, 1, 0, 0, 0);
+        private static readonly DateTime InitializeUtcTime = new DateTime(1970, 1, 1, 0, 0, 0);
 
         public static long ToTimestamp(DateTime time)
         {
@@ -25,12 +25,17 @@ namespace Yanmonet.NetSync
             return InitializeUtcTime.AddMilliseconds(milliseconds);
         }
 
-        public static int ToTimestampSeconds(DateTime time)
+        public static uint ToTimestampSeconds(DateTime time)
         {
-            return (int)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalSeconds;
+            return (uint)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalSeconds;
         }
 
-        public static DateTime FromTimestampSeconds(int seconds)
+        public static DateTime FromTimestampSeconds(long seconds)
+        {
+            return InitializeUtcTime.AddSeconds(seconds);
+        }
+
+        public static DateTime FromTimestampSeconds(uint seconds)
         {
             return InitializeUtcTime.AddSeconds(seconds);
         }
@@ -276,7 +281,7 @@ namespace Yanmonet.NetSync
 
             if (ipString.IndexOf("://") < 0)
             {
-                ipString = "local://" + ipString;
+                ipString = "multiplayer://" + ipString;
             }
             if (!Uri.TryCreate(ipString, UriKind.RelativeOrAbsolute, out var uri))
             {

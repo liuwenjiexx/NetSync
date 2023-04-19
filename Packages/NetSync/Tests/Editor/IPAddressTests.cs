@@ -139,6 +139,18 @@ namespace Yanmonet.NetSync.Editor.Tests
 
         }
 
+        [Test]
+        public void Timestamp()
+        {
+            Debug.Log("Timestamp int.MaxValue, " + NetworkUtility.FromTimestamp(int.MaxValue));
+            Debug.Log("TimestampSeconds int.MaxValue, " + NetworkUtility.FromTimestampSeconds(int.MaxValue));
+
+            Debug.Log("Timestamp uint.MaxValue, " + NetworkUtility.FromTimestamp(uint.MaxValue));
+            Debug.Log("TimestampSeconds uint.MaxValue, " + NetworkUtility.FromTimestampSeconds(uint.MaxValue));
+
+            Debug.Log("Timestamp long.MaxValue, " + NetworkUtility.FromTimestamp(int.MaxValue*10_000L));
+            Debug.Log("TimestampSeconds long.MaxValue, " + NetworkUtility.FromTimestampSeconds(int.MaxValue*10L));
+        }
     }
 
 
