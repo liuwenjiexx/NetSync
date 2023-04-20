@@ -20,6 +20,10 @@ namespace Yanmonet.NetSync
             return (long)time.ToUniversalTime().Subtract(InitializeUtcTime).TotalMilliseconds;
         }
 
+        /// <summary>
+        /// int.MaxValue:   1970/1/25 20:31:23
+        /// uint.MaxValue:  1970/2/19 17:02:47
+        /// </summary>
         public static DateTime FromTimestamp(long milliseconds)
         {
             return InitializeUtcTime.AddMilliseconds(milliseconds);
@@ -35,6 +39,10 @@ namespace Yanmonet.NetSync
             return InitializeUtcTime.AddSeconds(seconds);
         }
 
+        /// <summary>
+        /// uint.MaxValue:  2106/2/7 6:28:15
+        /// int.MaxValue:   2038/1/19 3:14:07
+        /// </summary>
         public static DateTime FromTimestampSeconds(uint seconds)
         {
             return InitializeUtcTime.AddSeconds(seconds);
