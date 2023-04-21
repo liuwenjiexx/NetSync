@@ -25,8 +25,8 @@ namespace Yanmonet.NetSync
         protected DateTime? nextBroadcastTime;
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
-        private int portMin;
-        private int portMax;
+        private int startPort;
+        private int endPort;
         private List<IPEndPoint> broadcastAddressList;
         private bool initalized;
         private object lockObj = new object();
@@ -105,27 +105,27 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public int PortMin
+        public int StartPort
         {
-            get => portMin;
+            get => startPort;
             set
             {
-                if (portMin != value)
+                if (startPort != value)
                 {
-                    portMin = value;
+                    startPort = value;
                     broadcastAddressList = null;
                 }
             }
         }
 
-        public int PortMax
+        public int EndPort
         {
-            get => portMax;
+            get => endPort;
             set
             {
-                if (portMax != value)
+                if (endPort != value)
                 {
-                    portMax = value;
+                    endPort = value;
                     broadcastAddressList = null;
                 }
             }
@@ -182,7 +182,7 @@ namespace Yanmonet.NetSync
             //多播地址: 224.0.0.0-239.255.255.255
             //局部多播地址: 224.0.0.0～224.0.0.255
             //局部广播地址: 255.255.255.255
-            for (int i = PortMin; i <= PortMax; i++)
+            for (int i = StartPort; i <= EndPort; i++)
             {
                 broadcastAddressList.Add(new IPEndPoint(IPAddress.Broadcast, i));
             }
@@ -224,7 +224,7 @@ namespace Yanmonet.NetSync
             DateTime startTime = DateTime.Now;
             //Initalize();
             int port = 0;
-            for (int i = PortMin; i <= PortMax; i++)
+            for (int i = StartPort; i <= EndPort; i++)
             {
                 if (!NetworkUtility.IsPortUsed(i))
                 {
