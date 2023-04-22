@@ -98,15 +98,51 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             Assert.IsTrue(server.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
-            Assert.AreEqual(1, @event.SenderId);
+            Assert.AreEqual(1, @event.ClientId);
 
             Assert.IsTrue(client.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
-            Assert.AreEqual(1, @event.SenderId);
+            Assert.AreEqual(1, @event.ClientId);
 
             client.Shutdown();
             server.Shutdown();
         }
+        [Test]
+        public void Connect3()
+        {
+            SocketTransport server = new SocketTransport();
+            SocketTransport client = new SocketTransport();
+            SocketTransport client2 = new SocketTransport();
+            client2.port = client.port = server.port = TestBase.NextPort();
+            server.Initialize();
+            Assert.IsTrue(server.StartServer());
+
+
+            client.Initialize();
+            Assert.IsTrue(client.StartClient());
+
+            client2.Initialize();
+            Assert.IsTrue(client2.StartClient());
+
+            NetworkEvent @event;
+
+            Assert.IsTrue(server.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Connect, @event.Type);
+            Assert.AreEqual(1, @event.ClientId);
+
+            Assert.IsTrue(client.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Connect, @event.Type);
+            Assert.AreEqual(1, @event.ClientId);
+
+            Assert.IsTrue(client2.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Connect, @event.Type);
+            Assert.AreEqual(2, @event.ClientId);
+
+            client.Shutdown();
+            client2.Shutdown();
+            server.Shutdown();
+        }
+
 
         [Test]
         public async void DisconnectRemoteClient()
@@ -128,7 +164,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.IsTrue(client.PollEvent(out @event));
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
 
-            server.DisconnectRemoteClient(@event.SenderId);
+            server.DisconnectRemoteClient(@event.ClientId);
 
             @event = await server.PollEventAsync(1f);
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
@@ -226,6 +262,157 @@ namespace Yanmonet.NetSync.Editor.Tests
 
             Debug.Log("Shutdown");
             client.Shutdown();
+            server.Shutdown();
+        }
+
+
+        [Test]
+        public void ClientSocket_Close()
+        {
+            SocketTransport server = new SocketTransport();
+            SocketTransport client = new SocketTransport();
+            client.port = server.port = TestBase.NextPort();
+            server.Initialize();
+            server.StartServer();
+
+            client.Initialize();
+            client.StartClient();
+
+            NetworkEvent @event;
+
+            server.PollEvent(out @event);
+            client.PollEvent(out @event);
+
+
+            client.Socket.Disconnect(false);
+
+
+            DateTime startTime = DateTime.Now;
+            while (true)
+            {
+                if (server.PollEvent(out @event))
+                {
+                    Debug.Log("Event: " + @event.Type + ", ClientId: " + @event.ClientId + ", time: " + DateTime.Now.Subtract(startTime).TotalSeconds);
+                    Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+                    Assert.AreEqual(1, @event.ClientId);
+                    break;
+                }
+                if (DateTime.Now.Subtract(startTime).TotalSeconds > 5)
+                    throw new TimeoutException();
+                Thread.Sleep(100);
+            }
+
+            Assert.IsFalse(server.PollEvent(out @event));
+            Assert.IsTrue(client.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+
+
+            client.Shutdown();
+            server.Shutdown();
+        }
+
+
+        [Test]
+        public void ClientSocket_Close2()
+        {
+            SocketTransport server = new SocketTransport();
+            SocketTransport client = new SocketTransport();
+            SocketTransport client2 = new SocketTransport();
+            client2.port = client.port = server.port = TestBase.NextPort();
+            server.Initialize();
+            server.StartServer();
+
+            client.Initialize();
+            client.StartClient();
+
+            client2.Initialize();
+            client2.StartClient();
+
+            NetworkEvent @event;
+
+            server.PollEvent(out @event);
+            server.PollEvent(out @event);
+            client.PollEvent(out @event);
+            client2.PollEvent(out @event);
+
+
+            client.Socket.Disconnect(false);
+
+
+            DateTime startTime = DateTime.Now;
+            while (true)
+            {
+                if (server.PollEvent(out @event))
+                {
+                    Debug.Log("Event: " + @event.Type + ", ClientId: " + @event.ClientId + ", time: " + DateTime.Now.Subtract(startTime).TotalSeconds);
+                    Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+                    Assert.AreEqual(1, @event.ClientId);
+                    break;
+                }
+                if (DateTime.Now.Subtract(startTime).TotalSeconds > 5)
+                    throw new TimeoutException();
+                Thread.Sleep(100);
+            }
+
+            Assert.IsFalse(server.PollEvent(out @event));
+            Assert.IsTrue(client.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+            Assert.IsFalse(client2.PollEvent(out @event));
+
+            client.Shutdown();
+            client2.Shutdown();
+            server.Shutdown();
+        }
+
+
+        [Test]
+        public void ClientSocket_Close3()
+        {
+            SocketTransport server = new SocketTransport();
+            SocketTransport client = new SocketTransport();
+            SocketTransport client2 = new SocketTransport();
+            client2.port = client.port = server.port = TestBase.NextPort();
+            server.Initialize();
+            server.StartServer();
+
+            client.Initialize();
+            client.StartClient();
+
+            client2.Initialize();
+            client2.StartClient();
+
+            NetworkEvent @event;
+
+            server.PollEvent(out @event);
+            server.PollEvent(out @event);
+            client.PollEvent(out @event);
+            client2.PollEvent(out @event);
+
+            client2.Socket.Disconnect(false);
+
+            DateTime startTime = DateTime.Now;
+            while (true)
+            {
+                if (server.PollEvent(out @event))
+                {
+                    Debug.Log("Event: " + @event.Type + ", ClientId: " + @event.ClientId + ", time: " + DateTime.Now.Subtract(startTime).TotalSeconds);
+                    Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+                    Assert.AreEqual(2, @event.ClientId);
+                    break;
+                }
+                if (DateTime.Now.Subtract(startTime).TotalSeconds > 5)
+                    throw new TimeoutException();
+                Thread.Sleep(100);
+            }
+
+            Assert.IsFalse(server.PollEvent(out @event));
+            Assert.IsFalse(client.PollEvent(out @event));
+            Assert.IsTrue(client2.PollEvent(out @event));
+            Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
+
+
+            client.Shutdown();
+            client2.Shutdown();
             server.Shutdown();
         }
     }

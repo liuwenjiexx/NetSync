@@ -158,8 +158,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Connect,
-                SenderId = clientId,
+                Type = NetworkEventType.Connect, 
+                ClientId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
@@ -174,8 +174,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Disconnect,
-                SenderId = localClientId,
+                Type = NetworkEventType.Disconnect, 
+                ClientId = localClientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
@@ -194,8 +194,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Disconnect,
-                SenderId = clientId,
+                Type = NetworkEventType.Disconnect, 
+                ClientId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
@@ -399,8 +399,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
         {
             eventQueue.Enqueue(new NetworkEvent()
             {
-                Type = NetworkEventType.Data,
-                SenderId = clientId,
+                Type = NetworkEventType.Data, 
+                ClientId = clientId,
                 ReceiveTime = NowTime,
                 Payload = data
             });

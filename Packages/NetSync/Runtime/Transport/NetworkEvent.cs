@@ -7,7 +7,7 @@ namespace Yanmonet.NetSync
     {
         public NetworkEventType Type;
 
-        public ulong SenderId;
+        public ulong ClientId;
         public ArraySegment<byte> Payload;
         public float ReceiveTime;
     }

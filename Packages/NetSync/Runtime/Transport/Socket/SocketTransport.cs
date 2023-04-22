@@ -23,8 +23,8 @@ namespace Yanmonet.NetSync.Transport.Socket
         private bool isServer;
         private bool isClient;
         private ulong nextClientId;
-        private Dictionary<ulong, SocketClient> clients;
-        private LinkedList<SocketClient> clientList;
+        internal Dictionary<ulong, SocketClient> clients;
+        internal LinkedList<SocketClient> clientList;
 
         private Queue<NetworkEvent> eventQueue;
 
@@ -50,6 +50,8 @@ namespace Yanmonet.NetSync.Transport.Socket
         public bool IsSupported => true;
 
         public ulong ServerClientId => NetworkManager.ServerClientId;
+
+        public Socket Socket => socket;
 
         private bool initialized;
         private SocketClient localClient;
@@ -232,41 +234,24 @@ namespace Yanmonet.NetSync.Transport.Socket
                 while (clientNode != null)
                 {
                     client = clientNode.Value;
-                    if (client.socket != null && !client.socketDisposed)
+                    if (client.socket != null)
                     {
-                        Log($"{client.ClientId} Socket Connected {client.socket.Connected}");
-
-
-                        if (!client.socket.Connected)
+                        if (!client.socket.Connected || client.connectTick > 3)
                         {
+                            Log($"Disconnect clientId: {client.ClientId}, Socket.Connected {client.socket.Connected}, connect tick: {client.connectTick}");
 
                             if (client.IsLocalClient)
                             {
-                                Log("DisconnectLocalClient Socket Connected false");
                                 DisconnectLocalClient();
                             }
                             else
                             {
-                                Log($"DisconnectRemoteClient Socket Connected false, {client.ClientId}");
-                                DisconnectRemoteClient(client.ClientId);
-                            }
-                        }
-                        else if (client.pingCount > 3)
-                        {
-                            if (client.IsLocalClient)
-                            {
-                                Log("DisconnectLocalClient pingCount");
-                                DisconnectLocalClient();
-                            }
-                            else
-                            {
-                                Log($"DisconnectRemoteClient pingCount  , {client.ClientId}");
                                 DisconnectRemoteClient(client.ClientId);
                             }
                         }
                         else
                         {
-                            client.pingCount++;
+                            client.connectTick++;
                             Log("Send Empty: " + client.ClientId);
                             _SendMsg(client, MsgId.ConnectRequest, new EmptyMessage()
                             {
@@ -313,7 +298,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
                             clients[client.ClientId] = client;
                             clientList.AddLast(client);
-                        
+
                             client.sendWorkerTask = Task.Run(() => SendWorker(client), client.cancellationTokenSource.Token);
                             client.receiveWorkerTask = Task.Run(() => ReceiveWorker(client), client.cancellationTokenSource.Token);
                             if (networkManager?.LogLevel <= LogLevel.Debug)
@@ -445,7 +430,6 @@ namespace Yanmonet.NetSync.Transport.Socket
                             {
 
                                 n = socket.Send(payload.Array, payload.Offset + sendCount, payload.Count - sendCount, SocketFlags.None);
-                                Debug.Log(client.ClientId + " xxx Send: " + n);
                             }
                             catch
                             {
@@ -729,7 +713,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                     }
                     else
                     {
-                        client.pingCount = 0;
+                        client.connectTick = 0;
                     }
                     break;
                 case MsgId.ConnectRequest:
@@ -760,8 +744,9 @@ namespace Yanmonet.NetSync.Transport.Socket
                         {
                             Type = NetworkEventType.Connect,
                             ReceiveTime = NowTime,
-                            SenderId = client.ClientId,
+                            ClientId = client.ClientId,
                         };
+
 
                         lock (lockObj)
                         {
@@ -782,7 +767,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                                 NetworkEvent eventData = new NetworkEvent()
                                 {
                                     Type = NetworkEventType.Connect,
-                                    SenderId = client.ClientId,
+                                    ClientId = client.ClientId,
                                     ReceiveTime = NowTime,
                                 };
                                 lock (lockObj)
@@ -812,7 +797,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                         }
                         else
                         {
-                            DisconnectRemoteClient(packet.SenderClientId, false);
+                            DisconnectRemoteClient(client.ClientId, false);
                         }
                     }
                     break;
@@ -823,7 +808,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                         NetworkEvent eventData = new NetworkEvent()
                         {
                             Type = NetworkEventType.Data,
-                            SenderId = packet.SenderClientId,
+                            ClientId = client.ClientId,
                             Payload = new ArraySegment<byte>(bytes),
                             ReceiveTime = NowTime,
                         };
@@ -1007,7 +992,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                 eventQueue.Enqueue(new NetworkEvent()
                 {
                     Type = NetworkEventType.Disconnect,
-                    SenderId = client.ClientId,
+                    ClientId = client.ClientId,
                     ReceiveTime = NowTime
                 });
 

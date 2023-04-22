@@ -17,8 +17,7 @@ namespace Yanmonet.NetSync
         public ushort MsgId { get => msgId; set => msgId = value; }
 
         public NetworkManager NetworkManager;
-
-        public ulong SenderId;
+        public ulong ClientId; 
         public ulong ReceiverId;
         public NetworkReader Reader { get => reader; set => reader = value; }
 
