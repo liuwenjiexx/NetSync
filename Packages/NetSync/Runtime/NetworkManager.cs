@@ -786,6 +786,8 @@ namespace Yanmonet.NetSync
         private void OnServerTransportDisconnect(ulong transportClientId)
         {
             NetworkClient client;
+            if (LogLevel <= LogLevel.Debug)
+                Log($"OnServerTransportDisconnect  transportClientId: {transportClientId}");
             if (!transportToClients.TryGetValue(transportClientId, out client))
             {
                 return;
@@ -825,6 +827,8 @@ namespace Yanmonet.NetSync
             {
                 try
                 {
+                    if (LogLevel <= LogLevel.Debug)
+                        Log($"OnServerTransportDisconnect ClientDisconnected {clientId}");
                     ClientDisconnected?.Invoke(this, clientId);
                 }
                 catch (Exception ex) { LogException(ex); }
@@ -837,6 +841,8 @@ namespace Yanmonet.NetSync
         {
             ulong clientId;
             NetworkClient client = LocalClient;
+            if (LogLevel <= LogLevel.Debug)
+                Log($"OnClientTransportDisconnect  transportClientId: {transportClientId}");
             if (!IsClient)
                 return;
             if (client == null || client.transportClientId != transportClientId)
@@ -868,6 +874,8 @@ namespace Yanmonet.NetSync
             {
                 try
                 {
+                    if (LogLevel <= LogLevel.Debug)
+                        Log($"OnClientTransportDisconnect ClientDisconnected {clientId}");
                     ClientDisconnected?.Invoke(this, clientId);
                 }
                 catch (Exception ex) { LogException(ex); }
@@ -925,6 +933,8 @@ namespace Yanmonet.NetSync
                 {
                     try
                     {
+                        if (LogLevel <= LogLevel.Debug)
+                            Log($"Shutdown ClientDisconnected {LocalClientId}");
                         ClientDisconnected?.Invoke(this, LocalClientId);
                     }
                     catch (Exception ex) { LogException(ex); }

@@ -3,7 +3,14 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync.Transport.Socket
 {
-
+    class EmptyMessage : INetworkSerializable
+    {
+        public bool isRequest;
+        public void NetworkSerialize(IReaderWriter readerWriter)
+        {
+            readerWriter.SerializeValue(ref isRequest);
+        }
+    }
 
     class ConnectRequestMessage : INetworkSerializable
     {

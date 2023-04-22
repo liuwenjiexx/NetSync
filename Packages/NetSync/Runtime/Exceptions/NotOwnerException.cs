@@ -8,6 +8,7 @@ namespace Yanmonet.NetSync
 {
     public class NotOwnerException : Exception
     {
+        public NotOwnerException() : this(null) { }
         public NotOwnerException(string message) : base(message) { }
 
         public NotOwnerException(string message, Exception innerException) : base(message, innerException) { }

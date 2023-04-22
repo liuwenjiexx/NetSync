@@ -21,7 +21,7 @@ namespace Yanmonet.NetSync.Transport.Socket
         public bool processConnectEvent;
         public bool socketDisposed;
         public CancellationTokenSource cancellationTokenSource;
-
+        public int pingCount;
 
         public AutoResetEvent sendEvent;
         public AutoResetEvent receiveEvent;

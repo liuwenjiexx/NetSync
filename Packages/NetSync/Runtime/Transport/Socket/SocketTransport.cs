@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -202,6 +203,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         }
 
+        private float nextCheckConnTime;
 
         public bool PollEvent(out NetworkEvent @event)
         {
@@ -214,6 +216,65 @@ namespace Yanmonet.NetSync.Transport.Socket
                         @event = eventQueue.Dequeue();
                         return true;
                     }
+                }
+            }
+
+
+            if (NowTime > nextCheckConnTime)
+            {
+                nextCheckConnTime = NowTime + 1f;
+
+                SocketClient client = null;
+                LinkedListNode<SocketClient> clientNode = null;
+
+                clientNode = clientList.First;
+
+                while (clientNode != null)
+                {
+                    client = clientNode.Value;
+                    if (client.socket != null && !client.socketDisposed)
+                    {
+                        Log($"{client.ClientId} Socket Connected {client.socket.Connected}");
+
+
+                        if (!client.socket.Connected)
+                        {
+
+                            if (client.IsLocalClient)
+                            {
+                                Log("DisconnectLocalClient Socket Connected false");
+                                DisconnectLocalClient();
+                            }
+                            else
+                            {
+                                Log($"DisconnectRemoteClient Socket Connected false, {client.ClientId}");
+                                DisconnectRemoteClient(client.ClientId);
+                            }
+                        }
+                        else if (client.pingCount > 3)
+                        {
+                            if (client.IsLocalClient)
+                            {
+                                Log("DisconnectLocalClient pingCount");
+                                DisconnectLocalClient();
+                            }
+                            else
+                            {
+                                Log($"DisconnectRemoteClient pingCount  , {client.ClientId}");
+                                DisconnectRemoteClient(client.ClientId);
+                            }
+                        }
+                        else
+                        {
+                            client.pingCount++;
+                            Log("Send Empty: " + client.ClientId);
+                            _SendMsg(client, MsgId.ConnectRequest, new EmptyMessage()
+                            {
+                                isRequest = true,
+                            });
+                        }
+                    }
+                    clientNode = clientNode.Next;
                 }
             }
 
@@ -252,7 +313,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
                             clients[client.ClientId] = client;
                             clientList.AddLast(client);
-
+                        
                             client.sendWorkerTask = Task.Run(() => SendWorker(client), client.cancellationTokenSource.Token);
                             client.receiveWorkerTask = Task.Run(() => ReceiveWorker(client), client.cancellationTokenSource.Token);
                             if (networkManager?.LogLevel <= LogLevel.Debug)
@@ -328,7 +389,7 @@ namespace Yanmonet.NetSync.Transport.Socket
             bool hasPacket = false;
             int sendCount = 0;
             Socket socket = client.socket;
-
+            socket.Blocking = false;
             while (true)
             {
                 if (hasPacket)
@@ -382,7 +443,9 @@ namespace Yanmonet.NetSync.Transport.Socket
                             int n;
                             try
                             {
+
                                 n = socket.Send(payload.Array, payload.Offset + sendCount, payload.Count - sendCount, SocketFlags.None);
+                                Debug.Log(client.ClientId + " xxx Send: " + n);
                             }
                             catch
                             {
@@ -656,6 +719,19 @@ namespace Yanmonet.NetSync.Transport.Socket
 
             switch (packet.MsgId)
             {
+                case MsgId.Empty:
+
+                    EmptyMessage msg = new EmptyMessage();
+                    msg.NetworkSerialize(reader);
+                    if (msg.isRequest)
+                    {
+                        _SendMsg(client, MsgId.Empty, new EmptyMessage() { isRequest = false });
+                    }
+                    else
+                    {
+                        client.pingCount = 0;
+                    }
+                    break;
                 case MsgId.ConnectRequest:
                     {
                         if (!isServer)
@@ -912,6 +988,8 @@ namespace Yanmonet.NetSync.Transport.Socket
                 client.WillDisconnect = true;
             }
 
+            Log($"{nameof(SocketTransport)} DisconnectClient " + client.ClientId);
+
             //断开超时时间
             client.cancellationTokenSource.CancelAfter(100);
 
@@ -1016,7 +1094,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         #region Log
 
-        public bool logEnabled;
+        public bool logEnabled = true;
 
 
         public void Log(string msg)
@@ -1065,6 +1143,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
     enum MsgId
     {
+        Empty = 0,
         ConnectRequest = 1,
         ConnectResponse,
         Disconnect,
