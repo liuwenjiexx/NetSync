@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Yanmonet.NetSync.Transport.Socket
 {
-    class EmptyMessage : INetworkSerializable
+    class HeartbeatMessage : INetworkSerializable
     {
         public bool isRequest;
         public void NetworkSerialize(IReaderWriter readerWriter)

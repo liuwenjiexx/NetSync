@@ -21,7 +21,9 @@ namespace Yanmonet.NetSync.Transport.Socket
         public bool processConnectEvent;
         public bool socketDisposed;
         public CancellationTokenSource cancellationTokenSource;
-        public int connectTick;
+        public int HeartbeatTick;
+        public float NextHeartbeatTime;
+        public float LastReceiveTime;
 
         public AutoResetEvent sendEvent;
         public AutoResetEvent receiveEvent;

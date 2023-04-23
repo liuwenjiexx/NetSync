@@ -73,7 +73,7 @@ namespace Yanmonet.NetSync
             {
                 NetworkManager.Log("Server Stop");
 
-                transport.Shutdown();
+                transport.DisconnectLocalClient();
             }
             catch { }
             try

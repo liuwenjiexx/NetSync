@@ -38,6 +38,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         private DateTime startTime;
 
+        static float HeartbeatTickInterval = 3f;
 
         private float NowTime
         {
@@ -70,6 +71,8 @@ namespace Yanmonet.NetSync.Transport.Socket
             eventQueue = new();
             startTime = DateTime.Now;
 
+            HeartbeatTickInterval = 0;
+
         }
 
         public bool StartServer()
@@ -99,7 +102,7 @@ namespace Yanmonet.NetSync.Transport.Socket
             catch (Exception ex)
             {
                 LogException(ex);
-                Shutdown();
+                DisconnectLocalClient();
 
                 return false;
             }
@@ -160,7 +163,7 @@ namespace Yanmonet.NetSync.Transport.Socket
 
                 if (!localClient.IsConnected)
                 {
-                    Shutdown();
+                    DisconnectLocalClient();
                     return false;
                 }
 
@@ -168,7 +171,7 @@ namespace Yanmonet.NetSync.Transport.Socket
             catch (Exception ex)
             {
                 LogException(ex);
-                Shutdown();
+                DisconnectLocalClient();
                 return false;
             }
 
@@ -205,7 +208,6 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         }
 
-        private float nextCheckConnTime;
 
         public bool PollEvent(out NetworkEvent @event)
         {
@@ -222,45 +224,43 @@ namespace Yanmonet.NetSync.Transport.Socket
             }
 
 
-            if (NowTime > nextCheckConnTime)
+            SocketClient client = null;
+            LinkedListNode<SocketClient> clientNode = null;
+
+            clientNode = clientList.First;
+
+            while (clientNode != null)
             {
-                nextCheckConnTime = NowTime + 1f;
+                client = clientNode.Value;
 
-                SocketClient client = null;
-                LinkedListNode<SocketClient> clientNode = null;
 
-                clientNode = clientList.First;
-
-                while (clientNode != null)
+                if (HeartbeatTickInterval > 0 && NowTime > client.NextHeartbeatTime)
                 {
-                    client = clientNode.Value;
-                    if (client.socket != null)
+                    if (!client.socket.Connected || client.HeartbeatTick > 3)
                     {
-                        if (!client.socket.Connected || client.connectTick > 3)
-                        {
-                            Log($"Disconnect clientId: {client.ClientId}, Socket.Connected {client.socket.Connected}, connect tick: {client.connectTick}");
+                        Log($"Heartbeat Disconnect clientId: {client.ClientId}, Socket.Connected {client.socket.Connected}, Heartbeat tick: {client.HeartbeatTick}");
 
-                            if (client.IsLocalClient)
-                            {
-                                DisconnectLocalClient();
-                            }
-                            else
-                            {
-                                DisconnectRemoteClient(client.ClientId);
-                            }
+                        if (client.IsLocalClient)
+                        {
+                            DisconnectLocalClient();
                         }
                         else
                         {
-                            client.connectTick++;
-                            Log("Send Empty: " + client.ClientId);
-                            _SendMsg(client, MsgId.ConnectRequest, new EmptyMessage()
-                            {
-                                isRequest = true,
-                            });
+                            DisconnectRemoteClient(client.ClientId);
                         }
                     }
-                    clientNode = clientNode.Next;
+                    else
+                    {
+                        client.HeartbeatTick++;
+                        client.NextHeartbeatTime = NowTime + HeartbeatTickInterval;
+                        //Log("Send Heartbeat: " + client.ClientId);
+                        _SendMsg(client, MsgId.Heartbeat, new HeartbeatMessage()
+                        {
+                            isRequest = true,
+                        });
+                    }
                 }
+                clientNode = clientNode.Next;
             }
 
             @event = default;
@@ -374,7 +374,7 @@ namespace Yanmonet.NetSync.Transport.Socket
             bool hasPacket = false;
             int sendCount = 0;
             Socket socket = client.socket;
-            socket.Blocking = false;
+
             while (true)
             {
                 if (hasPacket)
@@ -420,9 +420,9 @@ namespace Yanmonet.NetSync.Transport.Socket
                         {
                             var payload = packet.Payload;
 
-                            if (networkManager?.LogLevel <= LogLevel.Debug)
+                            if (logEnabled)
                             {
-                                Log($"[{client.ClientId}] Send [{packet.MsgId}] Msg, bytes: {payload.Count}");
+                                Log($"[{client.ClientId}] [{client.socket.RemoteEndPoint}] Send [{packet.MsgId}] Msg, size: {payload.Count}");
                             }
 
                             int n;
@@ -435,7 +435,8 @@ namespace Yanmonet.NetSync.Transport.Socket
                             {
                                 try
                                 {
-                                    socket.Dispose();
+                                    socket.Disconnect(false);
+                                    socket.Close();
                                 }
                                 catch { }
                                 client.socket = null;
@@ -498,7 +499,7 @@ namespace Yanmonet.NetSync.Transport.Socket
             var socket = client.socket;
             ArraySegment<byte> arrayBuffer = new ArraySegment<byte>(buffer);
             //networkManager?.Log($"Start ReceiveWorker: Local: {client.IsLocalClient}, {client.ClientId}, Time: {NowTime:0.#}");
-            socket.Blocking = true;
+
             while (true)
             {
                 try
@@ -523,7 +524,8 @@ namespace Yanmonet.NetSync.Transport.Socket
                     {
                         try
                         {
-                            socket.Dispose();
+                            socket.Disconnect(false);
+                            socket.Close();
                         }
                         catch { }
                         client.socket = null;
@@ -637,9 +639,9 @@ namespace Yanmonet.NetSync.Transport.Socket
                                 packet.SenderClientId = client.ClientId;
                                 try
                                 {
-                                    if (networkManager?.LogLevel <= LogLevel.Debug)
+                                    if (logEnabled)
                                     {
-                                        Log($"[{client.ClientId}] Receive [{packet.MsgId}] Msg");
+                                        Log($"[{client.ClientId}] [{client.socket.RemoteEndPoint}] Receive [{packet.MsgId}] Msg, size: {packageSize}");
                                     }
 
                                     HandleReceiveMsg(client, packet);
@@ -701,19 +703,26 @@ namespace Yanmonet.NetSync.Transport.Socket
             NetworkReader reader;
             reader = new NetworkReader(packet.Payload);
 
+            client.LastReceiveTime = NowTime;
+
+
             switch (packet.MsgId)
             {
-                case MsgId.Empty:
+                case MsgId.Heartbeat:
 
-                    EmptyMessage msg = new EmptyMessage();
+                    HeartbeatMessage msg = new HeartbeatMessage();
                     msg.NetworkSerialize(reader);
+
+
                     if (msg.isRequest)
                     {
-                        _SendMsg(client, MsgId.Empty, new EmptyMessage() { isRequest = false });
+                        //Log($"[{client.ClientId}] Receive Heartbeat Request");
+                        _SendMsg(client, MsgId.Heartbeat, new HeartbeatMessage() { isRequest = false });
                     }
                     else
                     {
-                        client.connectTick = 0;
+                        //Log($"[{client.ClientId}] Receive Heartbeat Response");
+                        client.HeartbeatTick = 0;
                     }
                     break;
                 case MsgId.ConnectRequest:
@@ -791,6 +800,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                     break;
                 case MsgId.Disconnect:
                     {
+                        Log($"[{client.ClientId}] Receive Disconnect Msg");
                         if (client.IsLocalClient)
                         {
                             DisconnectLocalClient(false);
@@ -936,13 +946,13 @@ namespace Yanmonet.NetSync.Transport.Socket
             lock (lockObj)
             {
                 client = this.localClient;
-                if (client == null)
-                    return;
                 this.localClient = null;
             }
-
-            DisconnectClient(client, sendMsg);
-
+            if (client != null)
+            {
+                DisconnectClient(client, sendMsg);
+            }
+            Shutdown();
         }
 
         public void DisconnectRemoteClient(ulong clientId)
@@ -973,7 +983,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                 client.WillDisconnect = true;
             }
 
-            Log($"{nameof(SocketTransport)} DisconnectClient " + client.ClientId);
+            Log($"{client.socket?.RemoteEndPoint} DisconnectClient [{client.ClientId}]");
 
             //断开超时时间
             client.cancellationTokenSource.CancelAfter(100);
@@ -1015,9 +1025,11 @@ namespace Yanmonet.NetSync.Transport.Socket
             {
                 try
                 {
-                    client.socket.Dispose();
+                    client.socket.Disconnect(false);
+                    client.socket.Close();
                 }
                 catch { }
+                client.socket = null;
             }
 
             client.receiveEvent.Set();
@@ -1025,6 +1037,11 @@ namespace Yanmonet.NetSync.Transport.Socket
             client.receiveEvent.Dispose();
 
             client.IsConnected = false;
+
+            if (client.ClientId == ServerClientId)
+            {
+                Shutdown();
+            }
         }
 
         public void Shutdown()
@@ -1035,7 +1052,6 @@ namespace Yanmonet.NetSync.Transport.Socket
             if (isClient)
             {
                 isClient = false;
-                DisconnectLocalClient();
             }
 
             cancellationTokenSource.Cancel();
@@ -1079,18 +1095,18 @@ namespace Yanmonet.NetSync.Transport.Socket
 
         #region Log
 
-        public bool logEnabled = true;
+        public bool logEnabled = false;
 
 
         public void Log(string msg)
         {
             if (!logEnabled) return;
-            networkManager?.Log($"[{(isServer ? "Server" : "Client")}] {msg}");
+            networkManager?.Log($"[{nameof(SocketTransport)}] [{(isServer ? "Server" : "Client")}] {msg}");
         }
         public void LogError(string error)
         {
             if (!logEnabled) return;
-            networkManager?.LogError($"[{(isServer ? "Server" : "Client")}] {error}");
+            networkManager?.LogError($"[{nameof(SocketTransport)}] [{(isServer ? "Server" : "Client")}] {error}");
         }
         public void LogException(Exception ex)
         {
@@ -1128,11 +1144,11 @@ namespace Yanmonet.NetSync.Transport.Socket
 
     enum MsgId
     {
-        Empty = 0,
+        Data = 0,
         ConnectRequest = 1,
         ConnectResponse,
         Disconnect,
-        Data
+        Heartbeat,
     }
 
 

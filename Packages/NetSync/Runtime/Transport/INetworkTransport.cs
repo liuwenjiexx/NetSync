@@ -25,8 +25,7 @@ namespace Yanmonet.NetSync
         abstract void DisconnectRemoteClient(ulong clientId);
 
         abstract void DisconnectLocalClient();
-
-        abstract void Shutdown();
+         
 
     }
 

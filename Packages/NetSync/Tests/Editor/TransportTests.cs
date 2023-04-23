@@ -104,8 +104,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(1, @event.ClientId);
 
-            client.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
         [Test]
         public void Connect3()
@@ -138,9 +138,9 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(2, @event.ClientId);
 
-            client.Shutdown();
-            client2.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            client2.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
 
 
@@ -172,8 +172,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             @event = await client.PollEventAsync(1f);
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
 
-            client.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
 
 
@@ -220,8 +220,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             finally
             {
                 Debug.Log("Shutdown");
-                client.Shutdown();
-                server.Shutdown();
+                client.DisconnectLocalClient();
+                server.DisconnectLocalClient();
             }
         }
 
@@ -238,7 +238,7 @@ namespace Yanmonet.NetSync.Editor.Tests
             Thread.Sleep(100);
 
             Debug.Log("Shutdown");
-            server.Shutdown();
+            server.DisconnectLocalClient();
 
         }
 
@@ -261,8 +261,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             Thread.Sleep(100);
 
             Debug.Log("Shutdown");
-            client.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
 
 
@@ -307,8 +307,8 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
 
 
-            client.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
 
 
@@ -359,9 +359,9 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
             Assert.IsFalse(client2.PollEvent(out @event));
 
-            client.Shutdown();
-            client2.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            client2.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
 
 
@@ -411,9 +411,9 @@ namespace Yanmonet.NetSync.Editor.Tests
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
 
 
-            client.Shutdown();
-            client2.Shutdown();
-            server.Shutdown();
+            client.DisconnectLocalClient();
+            client2.DisconnectLocalClient();
+            server.DisconnectLocalClient();
         }
     }
 

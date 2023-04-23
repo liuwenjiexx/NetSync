@@ -13,12 +13,12 @@ namespace Yanmonet.NetSync
         private string identifier;
         private string serverName;
         private int version;
-        private T userData;
+        private T data;
 
         public string Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
         public int Version { get => version; set => version = value; }
-        public T UserData { get => userData; set => userData = value; }
+        public T Data { get => data; set => data = value; }
 
         public IPEndPoint Remote { get; set; }
 
@@ -31,14 +31,14 @@ namespace Yanmonet.NetSync
 
             if (readerWriter.IsReader)
             {
-                UserData = new T();
+                Data = new T();
             }
             else
             {
-                if (UserData == null)
-                    UserData = new T();
+                if (Data == null)
+                    Data = new T();
             }
-            UserData.NetworkSerialize(readerWriter);
+            Data.NetworkSerialize(readerWriter);
         }
     }
 
@@ -49,14 +49,14 @@ namespace Yanmonet.NetSync
         private string serverName;
         private int version;
 
-        private T userData;
+        private T data;
         private IPEndPoint remote;
 
         public string Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
         public int Version { get => version; set => version = value; }
 
-        public T UserData { get => userData; set => userData = value; }
+        public T Data { get => data; set => data = value; }
         public IPEndPoint Remote { get => remote; set => remote = value; }
 
         public void NetworkSerialize(IReaderWriter readerWriter)
@@ -67,14 +67,14 @@ namespace Yanmonet.NetSync
 
             if (readerWriter.IsReader)
             {
-                userData = new();
+                data = new();
             }
             else
             {
-                if (userData == null)
-                    userData = new T();
+                if (data == null)
+                    data = new T();
             }
-            userData.NetworkSerialize(readerWriter);
+            data.NetworkSerialize(readerWriter);
         }
 
     }

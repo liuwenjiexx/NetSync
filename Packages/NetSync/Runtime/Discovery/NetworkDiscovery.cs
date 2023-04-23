@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 namespace Yanmonet.NetSync
@@ -131,9 +132,10 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public float BroadcastInterval { get; set; } = 3f;
+        public float BroadcastInterval { get; set; }
 
         public List<IPEndPoint> BroadcastAddressList => broadcastAddressList;
+
 
         public void RegisterHandler(ushort msgId, Action<IReaderWriter, IPEndPoint> handler)
         {
@@ -150,6 +152,7 @@ namespace Yanmonet.NetSync
 
             request.Remote = remote;
 
+            //Debug.Log($"[NetworkDiscovery] Receive Request [{remote}]");
             OnDiscoveryRequest(request);
 
         }
@@ -163,6 +166,7 @@ namespace Yanmonet.NetSync
                 return;
             response.Remote = remote;
 
+            //Debug.Log($"[NetworkDiscovery] Receive Response [{remote}]");
             OnDiscoveryResponse(response);
 
 
@@ -251,11 +255,32 @@ namespace Yanmonet.NetSync
             Task.Run(ReceiveWorker, cancellationTokenSource.Token);
 
 
+
+            if (sendClient != null)
+            {
+                SendDiscoveryRequest();
+
+                SendDiscoveryResponse();
+            }
+
             //NetworkManager.Singleton?.Log($"Stop Discovery Client");
         }
 
+        protected DateTime NowTime => DateTime.Now;
+
         public virtual void Update()
         {
+
+            if (sendClient != null)
+            {
+                if (nextBroadcastTime.HasValue)
+                {
+                    if (nextBroadcastTime.HasValue && NowTime > nextBroadcastTime)
+                    {
+                        SendDiscoveryRequest();
+                    }
+                }
+            }
 
 
             if (receiveClient != null)
@@ -377,10 +402,22 @@ namespace Yanmonet.NetSync
         protected abstract void OnDiscoveryRequest(DiscoveryRequest<TRequest> request);
         protected abstract void OnDiscoveryResponse(DiscoveryResponse<TResponse> response);
 
+        protected abstract TRequest GetRequestData();
 
-        public async Task SendDiscoveryRequest(TRequest requestData)
+        protected abstract TResponse GetResponseData();
+
+        public async Task SendDiscoveryRequest()
         {
-            nextBroadcastTime = DateTime.Now.AddSeconds(BroadcastInterval);
+            TRequest requestData = GetRequestData();
+
+            if (BroadcastInterval > 0)
+            {
+                nextBroadcastTime = NowTime.AddSeconds(BroadcastInterval);
+            }
+            else
+            {
+                nextBroadcastTime = null;
+            }
 
             if (sendClient == null)
                 return;
@@ -394,7 +431,7 @@ namespace Yanmonet.NetSync
                 data.Identifier = Identifier;
                 data.ServerName = serverName;
                 data.Version = version;
-                data.UserData = requestData;
+                data.Data = requestData;
 
                 byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryRequest, data);
 
@@ -408,7 +445,51 @@ namespace Yanmonet.NetSync
             }
         }
 
+        public async Task SendDiscoveryResponse()
+        {
+            var respData = GetResponseData();
+            foreach (var address in BroadcastAddressList)
+            {
+                await SendDiscoveryResponse(respData, address);
+            }
+        }
+
+        public Task SendDiscoveryResponse(IPEndPoint remote)
+        {
+            return SendDiscoveryResponse(GetResponseData(), remote);
+        }
+
         public async Task SendDiscoveryResponse(TResponse responseData, IPEndPoint remote)
+        {
+
+            if (sendClient == null)
+                return;
+            try
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                var data = new DiscoveryResponse<TResponse>();
+                data.Identifier = identifier;
+                data.ServerName = serverName;
+                data.Version = version;
+                data.Data = responseData;
+
+                byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryResponse, data);
+
+                await sendClient.SendAsync(bytes, bytes.Length, remote);
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                //NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+        /*
+        public async Task BroadcastDiscoveryResponse(TResponse responseData, IPEndPoint remote)
         {
 
             if (sendClient == null)
@@ -426,19 +507,17 @@ namespace Yanmonet.NetSync
 
                 byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryResponse, data);
 
-                await sendClient.SendAsync(bytes, bytes.Length, remote);
+
+                await Broadcast(bytes); 
                 if (cancellationToken.IsCancellationRequested)
                     return;
-
-                //NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
+                 
             }
             catch (Exception ex)
             {
                 Debug.LogException(ex);
             }
-        }
-
-
+        }*/
 
 
         public virtual void Stop()
