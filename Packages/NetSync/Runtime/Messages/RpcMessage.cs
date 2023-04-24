@@ -209,5 +209,11 @@ namespace Yanmonet.NetSync
             return clientRpcParams;
         }
 
+
+
+        public static implicit operator ClientRpcParams(ulong receiverClientId) => FromReceiver(receiverClientId);
+
+        public static implicit operator ClientRpcParams(List<ulong> receiverClientIds) => FromReceiver(receiverClientIds);
+
     }
 }

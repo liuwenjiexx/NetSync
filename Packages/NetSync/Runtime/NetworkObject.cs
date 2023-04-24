@@ -526,11 +526,21 @@ namespace Yanmonet.NetSync
 
         protected bool __ReturnClientRpc__()
         {
-            if (!IsClient)
-                return true;
             var clientParams = clientRpc.clientParams;
             if (clientParams.clients != null && !clientParams.clients.Contains(NetworkManager.LocalClientId))
                 return true;
+
+
+            //if (NetworkManager.LocalClientId == NetworkManager.ServerClientId)
+            //{
+            //    return false;
+            //}
+
+            //if (!IsClient)
+            //{
+            //    return true;
+            //}
+
             return false;
         }
 
