@@ -6,9 +6,11 @@ using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace Yanmonet.NetSync.Transport.Netcode
 {
+    using Debug = UnityEngine.Debug;
     using NetMgr = Unity.Netcode.NetworkManager;
 
 
@@ -17,8 +19,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
         private NetworkManager networkManager;
         private NetMgr netMgr;
         private ulong localClientId;
-        private Dictionary<ulong, ulong> mapNetIds;
-        private Dictionary<ulong, ulong> mapClientIds;
+        private Dictionary<ulong, ulong> clientToBaseNetIds;
+        private Dictionary<ulong, ulong> baseNetToClientIds;
         public NetcodeTransport Server;
         private Queue<NetworkEvent> eventQueue;
         private ulong NextClientId;
@@ -27,9 +29,11 @@ namespace Yanmonet.NetSync.Transport.Netcode
         private bool isServer;
         private string MessageName = "NetSync";
         public bool IsSupported => true;
-        private Dictionary<ushort, Action<ulong, ArraySegment<byte>>> handlers;
+        private Dictionary<ushort, MessageDelegate> handlers;
 
         public ulong ServerClientId => 0;
+
+        public delegate void MessageDelegate(ulong senderClientId, ArraySegment<byte> payload);
 
         private float NowTime
         {
@@ -60,8 +64,8 @@ namespace Yanmonet.NetSync.Transport.Netcode
             }
 
             eventQueue = new();
-            mapNetIds = new();
-            mapClientIds = new();
+            clientToBaseNetIds = new();
+            baseNetToClientIds = new();
             NextClientId = 0;
             time = Stopwatch.StartNew();
             //netMgr.OnClientConnectedCallback += NetMgr_OnClientConnectedCallback;
@@ -146,19 +150,19 @@ namespace Yanmonet.NetSync.Transport.Netcode
             return true;
         }
 
-        void OnClientConnect(ulong clientId, ulong netId)
+        void OnClientConnect(ulong clientId, ulong baseNetId)
         {
-            if (mapNetIds.ContainsKey(clientId))
+            if (clientToBaseNetIds.ContainsKey(clientId))
                 return;
-            if (mapClientIds.ContainsKey(netId))
+            if (baseNetToClientIds.ContainsKey(baseNetId))
                 return;
 
-            mapNetIds[clientId] = netId;
-            mapClientIds[netId] = clientId;
+            clientToBaseNetIds[clientId] = baseNetId;
+            baseNetToClientIds[baseNetId] = clientId;
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Connect, 
+                Type = NetworkEventType.Connect,
                 ClientId = clientId,
                 ReceiveTime = NowTime
             };
@@ -169,19 +173,19 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
         public void DisconnectLocalClient()
         {
-            if (!mapNetIds.TryGetValue(localClientId, out var netId))
+            if (!clientToBaseNetIds.TryGetValue(localClientId, out var netId))
                 return;
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Disconnect, 
+                Type = NetworkEventType.Disconnect,
                 ClientId = localClientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
 
-            mapNetIds.Remove(localClientId);
-            mapClientIds.Remove(netId);
+            clientToBaseNetIds.Remove(localClientId);
+            baseNetToClientIds.Remove(netId);
 
 
 
@@ -189,19 +193,19 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
         public void DisconnectRemoteClient(ulong clientId)
         {
-            if (mapNetIds.TryGetValue(clientId, out var netId))
+            if (clientToBaseNetIds.TryGetValue(clientId, out var netId))
                 return;
 
             NetworkEvent @event = new NetworkEvent()
             {
-                Type = NetworkEventType.Disconnect, 
+                Type = NetworkEventType.Disconnect,
                 ClientId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
 
-            mapNetIds.Remove(clientId);
-            mapClientIds.Remove(netId);
+            clientToBaseNetIds.Remove(clientId);
+            baseNetToClientIds.Remove(netId);
         }
         public bool PollEvent(out NetworkEvent @event)
         {
@@ -253,7 +257,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
             }
             else
             {
-                if (!mapNetIds.TryGetValue(clientId, out netId))
+                if (!clientToBaseNetIds.TryGetValue(clientId, out netId))
                 {
                     if (networkManager?.LogLevel <= LogLevel.Debug)
                         networkManager.LogError("NetcodeTransport send message fail, not clientId: " + clientId);
@@ -265,7 +269,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
         }
 
 
-        private void ReceiveMessage(ulong senderId, FastBufferReader messagePayload)
+        private void ReceiveMessage(ulong senderClientId, FastBufferReader messagePayload)
         {
             ulong targetClientId;
             ArraySegment<byte> data;
@@ -280,10 +284,10 @@ namespace Yanmonet.NetSync.Transport.Netcode
                     {
                         if (!isServer)
                             return;
-                        if (!mapClientIds.TryGetValue(senderId, out var clientId))
+                        if (!baseNetToClientIds.TryGetValue(senderClientId, out var clientId))
                         {
                             clientId = ++NextClientId;
-                            OnClientConnect(clientId, senderId);
+                            OnClientConnect(clientId, senderClientId);
                         }
 
                         ConnectResponse response = new ConnectResponse();
@@ -291,7 +295,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
                         FastBufferWriter writer = CreateWriter(MsgId.ConnectResponse, clientId, response);
 
-                        SendNetMessage(senderId, writer);
+                        SendNetMessage(senderClientId, writer);
                         networkManager.Log("======== ConnectRequest ");
                         return;
                     }
@@ -306,7 +310,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
                             localClientId = response.clientId;
                             OnClientConnect(localClientId, netMgr.LocalClientId);
                         }
-                        networkManager.Log("======== ConnectResponse " + senderId + ", " + localClientId);
+                        networkManager.Log("======== ConnectResponse senderId: " + senderClientId + ", localClientId: " + localClientId);
                         return;
                     }
                     break;
@@ -317,7 +321,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
             {
                 if (netMgr.IsServer)
                 {
-                    if (!mapNetIds.TryGetValue(targetClientId, out var netId))
+                    if (!clientToBaseNetIds.TryGetValue(targetClientId, out var netId))
                         return;
 
                     //转发消息
@@ -327,37 +331,45 @@ namespace Yanmonet.NetSync.Transport.Netcode
             }
 
 
-            ulong senderClientId;
+            ulong senderClientId2;
 
-            if (senderId == NetMgr.ServerClientId)
+            if (senderClientId == NetMgr.ServerClientId)
             {
-                senderClientId = ServerClientId;
+                senderClientId2 = ServerClientId;
             }
             else
             {
                 if (isServer)
                 {
-                    if (!mapClientIds.TryGetValue(senderId, out senderClientId))
+                    if (!baseNetToClientIds.TryGetValue(senderClientId, out senderClientId2))
+                    {
+                        Debug.Log($"{(isServer ? "Server" : "Client")} Unknow senderClientId: {senderClientId}");
                         return;
+                    }
                 }
                 else
                 {
-                    senderClientId = ServerClientId;
+                    Debug.Log($"{(isServer ? "Server" : "Client")} Unknow senderClientId: {senderClientId}");
+                    return;
                 }
             }
 
 
             if (!handlers.TryGetValue(msgId, out var handler))
+            {
+                Debug.Log($"Unknow Msg Id: {msgId}");
                 return;
-            handler(senderClientId, data);
+            }
+            Debug.Log("Receive Msg, senderClientId: " + senderClientId + " > " + senderClientId2);
+            handler(senderClientId2, data);
         }
 
         public void Shutdown()
         {
             netMgr.CustomMessagingManager.UnregisterNamedMessageHandler(MessageName);
-            if (mapNetIds != null)
+            if (clientToBaseNetIds != null)
             {
-                foreach (var clientId in mapNetIds.Keys.ToArray())
+                foreach (var clientId in clientToBaseNetIds.Keys.ToArray())
                 {
                     if (clientId == localClientId)
                     {
@@ -376,31 +388,32 @@ namespace Yanmonet.NetSync.Transport.Netcode
                 time = null;
             }
 
-            if (mapNetIds != null)
+            if (clientToBaseNetIds != null)
             {
-                mapNetIds.Clear();
+                clientToBaseNetIds.Clear();
                 eventQueue.Clear();
             }
 
             initalized = false;
         }
 
-        void ConnectRequestHandle(ulong clientId, ArraySegment<byte> data)
+        void ConnectRequestHandle(ulong senderClientId, ArraySegment<byte> data)
         {
 
         }
 
-        void ConnectResponseHandle(ulong clientId, ArraySegment<byte> data)
+        void ConnectResponseHandle(ulong senderClientId, ArraySegment<byte> data)
         {
 
         }
 
-        void DataHandle(ulong clientId, ArraySegment<byte> data)
+        void DataHandle(ulong senderClientId, ArraySegment<byte> data)
         {
             eventQueue.Enqueue(new NetworkEvent()
             {
-                Type = NetworkEventType.Data, 
-                ClientId = clientId,
+                Type = NetworkEventType.Data,
+                ClientId = senderClientId,
+                SenderClientId = senderClientId,
                 ReceiveTime = NowTime,
                 Payload = data
             });

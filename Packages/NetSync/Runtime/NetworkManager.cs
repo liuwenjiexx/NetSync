@@ -609,16 +609,16 @@ namespace Yanmonet.NetSync
         {
 
             NetworkEvent evt;
-            ulong? senderId = null;
+            ulong? clientId = null;
             NetworkClient client;
             while (transport.PollEvent(out evt))
             {
-                senderId = null;
+                clientId = null;
                 client = null;
 
                 if (evt.ClientId == transport.ServerClientId)
                 {
-                    senderId = ServerClientId;
+                    clientId = ServerClientId;
                 }
                 //else if (IsClient && localClient != null && localClient.transportClientId == evt.SenderId)
                 //{
@@ -629,7 +629,7 @@ namespace Yanmonet.NetSync
                 {
                     if (transportToClients.TryGetValue(evt.ClientId, out client))
                     {
-                        senderId = client.ClientId;
+                        clientId = client.ClientId;
                     }
                     //else if (IsClient && !IsServer)
                     //{
@@ -646,17 +646,22 @@ namespace Yanmonet.NetSync
                 {
                     case NetworkEventType.Data:
                         {
-                            if (client == null)
-                            {
-                                if (LogLevel <= LogLevel.Debug)
-                                    Log($"Ignore receive msg, TransportClient [{evt.ClientId}] client null, ThreadId: {Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else /*if (!client.isConnected)
-                            {
-                                if (LogLevel <= LogLevel.Debug)
-                                    Log($"Ignore receive msg, [{client?.clientId}] client.isConnected false, ThreadId: {Thread.CurrentThread.ManagedThreadId}");
-                            }
-                            else*/ if (senderId.HasValue)
+                            /*  if (client == null)
+                              {
+                                  if (LogLevel <= LogLevel.Debug)
+                                      Log($"Ignore receive msg, TransportClient [{evt.ClientId}] client null, ThreadId: {Thread.CurrentThread.ManagedThreadId}");
+                              }
+                              else*/ /*if (!client.isConnected)
+                              {
+                                  if (LogLevel <= LogLevel.Debug)
+                                      Log($"Ignore receive msg, [{client?.clientId}] client.isConnected false, ThreadId: {Thread.CurrentThread.ManagedThreadId}");
+                              }
+                              else*/
+
+                            //Unity 网络一开始会同步一些数据
+
+
+                            if (clientId.HasValue)
                             {
                                 NetworkMessage netMsg = new NetworkMessage();
                                 netMsg.NetworkManager = this;
@@ -670,15 +675,28 @@ namespace Yanmonet.NetSync
                                 ushort msgId = reader.ReadUInt16();
 
                                 netMsg.MsgId = msgId;
-                                netMsg.ClientId = senderId.Value;
+                                netMsg.ClientId = clientId.Value;
                                 netMsg.Reader = reader;
 
                                 if (LogLevel <= LogLevel.Debug)
                                 {
                                     //Log(senderId.Value, $"Receive Message [{(NetworkMsgId)msgId}]");
                                 }
-
+                                //if (client == null)
+                                //{
+                                //    if (LogLevel <= LogLevel.Debug)
+                                //    {
+                                //        Log($"msg [{msgId},{(NetworkMsgId)msgId}],  client null clientId: {evt.ClientId} has senderId: {senderId.HasValue}, {senderId}");
+                                //    }
+                                //}
                                 InvokeHandler(netMsg);
+                            }
+                            else
+                            {
+                                if (LogLevel <= LogLevel.Debug)
+                                {
+                                    Log("not senderId value");
+                                }
                             }
                         }
                         break;
@@ -705,7 +723,7 @@ namespace Yanmonet.NetSync
                         break;
                     case NetworkEventType.Error:
                         {
-                            LogError(senderId.Value, "Network Transport error");
+                            LogError(clientId.Value, "Network Transport error");
                             Shutdown();
                         }
                         break;
@@ -1223,7 +1241,7 @@ namespace Yanmonet.NetSync
 
                 if (netMgr.LogLevel <= LogLevel.Debug)
                 {
-                    //netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
+                    netMgr.Log(netMsg.ClientId, $"Receive Message: Create Object [{info.type.Name}], instanceId: {instanceId}, owner: {instance.OwnerClientId}");
                 }
             }
             //}
