@@ -119,11 +119,11 @@ namespace Yanmonet.NetSync.Transport.Netcode
                 }
             }
 
+            isServer = true;
             localClientId = ServerClientId;
             OnClientConnect(localClientId, netMgr.LocalClientId);
 
 
-            isServer = true;
             return true;
         }
 
@@ -166,6 +166,14 @@ namespace Yanmonet.NetSync.Transport.Netcode
                 ClientId = clientId,
                 ReceiveTime = NowTime
             };
+            if (isServer)
+            {
+                @event.SenderClientId = clientId;
+            }
+            else
+            {
+                @event.SenderClientId = ServerClientId;
+            }
             eventQueue.Enqueue(@event);
 
         }
@@ -200,6 +208,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
             {
                 Type = NetworkEventType.Disconnect,
                 ClientId = clientId,
+                SenderClientId = clientId,
                 ReceiveTime = NowTime
             };
             eventQueue.Enqueue(@event);
@@ -360,7 +369,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
                 Debug.Log($"Unknow Msg Id: {msgId}");
                 return;
             }
-            Debug.Log("Receive Msg, senderClientId: " + senderClientId + " > " + senderClientId2);
+            //Debug.Log("Receive Msg, senderClientId: " + senderClientId + " > " + senderClientId2);
             handler(senderClientId2, data);
         }
 
@@ -409,14 +418,24 @@ namespace Yanmonet.NetSync.Transport.Netcode
 
         void DataHandle(ulong senderClientId, ArraySegment<byte> data)
         {
-            eventQueue.Enqueue(new NetworkEvent()
+            var evt = new NetworkEvent()
             {
                 Type = NetworkEventType.Data,
-                ClientId = senderClientId,
                 SenderClientId = senderClientId,
                 ReceiveTime = NowTime,
                 Payload = data
-            });
+            };
+
+            if (isServer)
+            {
+                evt.ClientId = senderClientId;
+            }
+            else
+            {
+                evt.ClientId = localClientId;
+            }
+
+            eventQueue.Enqueue(evt);
         }
 
         enum MsgId

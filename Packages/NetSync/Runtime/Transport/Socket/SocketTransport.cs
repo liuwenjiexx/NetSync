@@ -755,7 +755,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                             ReceiveTime = NowTime,
                             ClientId = client.ClientId,
                         };
-
+                        eventData.SenderClientId = eventData.ClientId;
 
                         lock (lockObj)
                         {
@@ -777,6 +777,7 @@ namespace Yanmonet.NetSync.Transport.Socket
                                 {
                                     Type = NetworkEventType.Connect,
                                     ClientId = client.ClientId,
+                                    SenderClientId = ServerClientId,
                                     ReceiveTime = NowTime,
                                 };
                                 lock (lockObj)
