@@ -302,5 +302,10 @@ namespace Yanmonet.NetSync
                 port = 0;
             return true;
         }
+
+        public static uint Hash32(string text) => XXHash.Hash32(text);
+
+        public static ulong Hash64(string text) => XXHash.Hash64(text);
+
     }
 }
