@@ -305,7 +305,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
                         FastBufferWriter writer = CreateWriter(MsgId.ConnectResponse, clientId, response);
 
                         SendNetMessage(senderClientId, writer);
-                        networkManager.Log("======== ConnectRequest ");
+                        //networkManager.Log("======== ConnectRequest ");
                         return;
                     }
                 case MsgId.ConnectResponse:
@@ -319,7 +319,7 @@ namespace Yanmonet.NetSync.Transport.Netcode
                             localClientId = response.clientId;
                             OnClientConnect(localClientId, netMgr.LocalClientId);
                         }
-                        networkManager.Log("======== ConnectResponse senderId: " + senderClientId + ", localClientId: " + localClientId);
+                        //networkManager.Log("======== ConnectResponse senderId: " + senderClientId + ", localClientId: " + localClientId);
                         return;
                     }
                     break;
