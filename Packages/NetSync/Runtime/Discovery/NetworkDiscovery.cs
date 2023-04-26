@@ -25,8 +25,8 @@ namespace Yanmonet.NetSync
         protected DateTime? nextBroadcastTime;
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
-        private int startPort;
-        private int endPort;
+        private int port;
+        private int portCount;
         private List<IPEndPoint> broadcastAddressList;
         private bool initalized;
         private object lockObj = new object();
@@ -105,27 +105,27 @@ namespace Yanmonet.NetSync
             }
         }
 
-        public int StartPort
+        public int Port
         {
-            get => startPort;
+            get => port;
             set
             {
-                if (startPort != value)
+                if (port != value)
                 {
-                    startPort = value;
+                    port = value;
                     broadcastAddressList = null;
                 }
             }
         }
 
-        public int EndPort
+        public int PortCount
         {
-            get => endPort;
+            get => portCount;
             set
             {
-                if (endPort != value)
+                if (portCount != value)
                 {
-                    endPort = value;
+                    portCount = value;
                     broadcastAddressList = null;
                 }
             }
@@ -185,7 +185,10 @@ namespace Yanmonet.NetSync
             //多播地址: 224.0.0.0-239.255.255.255
             //局部多播地址: 224.0.0.0～224.0.0.255
             //局部广播地址: 255.255.255.255
-            for (int i = StartPort; i <= EndPort; i++)
+            int endPort = Port;
+            if (PortCount > 0)
+                endPort = Port + PortCount;
+            for (int i = Port; i <= endPort; i++)
             {
                 broadcastAddressList.Add(new IPEndPoint(IPAddress.Broadcast, i));
             }
@@ -227,7 +230,7 @@ namespace Yanmonet.NetSync
             DateTime startTime = DateTime.Now;
             //Initalize();
             int port = 0;
-            for (int i = StartPort; i <= EndPort; i++)
+            for (int i = Port; i <= PortCount; i++)
             {
                 if (!NetworkUtility.IsPortUsed(i))
                 {
