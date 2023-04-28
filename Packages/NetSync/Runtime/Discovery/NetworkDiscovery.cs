@@ -230,7 +230,10 @@ namespace Yanmonet.NetSync
             DateTime startTime = DateTime.Now;
             //Initalize();
             int port = 0;
-            for (int i = Port; i <= PortCount; i++)
+            int endPort = Port;
+            if (PortCount > 0)
+                endPort = Port + PortCount;
+            for (int i = Port; i <= endPort; i++)
             {
                 if (!NetworkUtility.IsPortUsed(i))
                 {
