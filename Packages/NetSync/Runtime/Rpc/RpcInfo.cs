@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     internal class RpcInfo
     {

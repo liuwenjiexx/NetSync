@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Yanmonet.NetSync.Messages;
+using Yanmonet.Network.Sync.Messages;
 #if UNITY_ENGINE
 #endif
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public abstract class NetworkObject
     {
@@ -121,7 +121,7 @@ namespace Yanmonet.NetSync
             SyncVariable(client);
 
             if (NetworkManager.LogLevel <= LogLevel.Debug)
-                NetworkManager.Log($"Send Spawn Msg, Object Type: {GetType()}, Client: {clientId}");
+                NetworkManager.Log($"Send Spawn Msg, Object Type: {GetType()}, InstanceId: {InstanceId}, Client: {clientId}");
             networkManager.SendMessage(clientId, (ushort)NetworkMsgId.Spawn, new SpawnMessage()
             {
                 instanceId = InstanceId,

@@ -6,11 +6,11 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using UnityEngine;
-using Yanmonet.NetSync.Transport.Socket;
+using Yanmonet.Network.Sync.Transport.Socket;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace Yanmonet.NetSync.Editor.Tests
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
     public class ConnectionTests : TestBase
     {

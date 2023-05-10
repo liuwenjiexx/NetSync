@@ -1,10 +1,9 @@
 {
-    "name": "Yanmonet.NetSync.Editor.CodeGen",
+    "name": "Yanmonet.NetworkSync.Editor.CodeGen",
     "rootNamespace": "",
     "references": [
-        "Yanmonet.NetSync",
-        "",
-        "Yanmonet.Injection.Assembly.Editor"
+        "GUID:2d4baef5f226f0d4ca7bef190cec85f2",
+        "GUID:7e80d465dde4c9e4895a6fd5a5b5c302"
     ],
     "includePlatforms": [
         "Editor"

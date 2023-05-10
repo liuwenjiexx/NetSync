@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Yanmonet.NetSync.Editor.Tests
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
     public class RpcTests : TestBase
     {

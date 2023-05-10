@@ -3,7 +3,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
 
     public class NetworkReader : IReaderWriter

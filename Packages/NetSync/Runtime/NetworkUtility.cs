@@ -9,7 +9,7 @@ using System.IO;
 using System.Net.NetworkInformation;
 using System.Net;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public static class NetworkUtility
     {

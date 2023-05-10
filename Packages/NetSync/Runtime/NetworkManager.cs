@@ -3,15 +3,14 @@ using UnityEngine;
 #endif
 using System;
 using System.Collections.Generic;
-using Yanmonet.NetSync.Messages;
+using Yanmonet.Network.Sync.Messages;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using ConnectRequestMessage = Yanmonet.NetSync.Messages.ConnectRequestMessage;
-using ConnectResponseMessage = Yanmonet.NetSync.Messages.ConnectResponseMessage;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
+
     public class NetworkManager
     {
         //public string address = "127.0.0.1";
@@ -463,7 +462,7 @@ namespace Yanmonet.NetSync
             }
             catch (Exception ex) { LogException(ex); }
 
-            obj.InstanceId = 0;
+            //  obj.InstanceId = 0;
 
         }
 
@@ -471,6 +470,7 @@ namespace Yanmonet.NetSync
         {
             if (obj.isDestrory)
                 return;
+            ulong objId = obj.InstanceId;
 
             if (obj.IsSpawned)
             {
@@ -478,7 +478,7 @@ namespace Yanmonet.NetSync
             }
 
             obj.isDestrory = true;
-            objects.Remove(obj.InstanceId);
+            objects.Remove(objId);
 
             var info = NetworkObjectInfo.Get(obj.typeId);
 
@@ -1267,7 +1267,7 @@ namespace Yanmonet.NetSync
 
             if (netMgr.LogLevel <= LogLevel.Debug)
             {
-                netMgr.Log(netMsg.ClientId, $"Receive Message: Spawn Object [{netObj.GetType().Name}] instanceId: {netObj.InstanceId}, owner: {netObj.OwnerClientId}");
+                netMgr.Log(netMsg.ClientId, $"Receive Message: Spawn Object [{netObj.GetType().Name}] instanceId: {msg.instanceId}, owner: {netObj.OwnerClientId}");
             }
 
             netMgr.SpawnObject(netObj);

@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public abstract class NetworkDiscovery<TRequest, TResponse>
         where TRequest : INetworkSerializable, new()

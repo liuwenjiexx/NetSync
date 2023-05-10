@@ -1,7 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public enum LogLevel
     { 

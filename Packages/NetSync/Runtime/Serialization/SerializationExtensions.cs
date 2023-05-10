@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using UnityEngine.UIElements;
 using Yanmonet.NetSync;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public static partial class Extensions
     {

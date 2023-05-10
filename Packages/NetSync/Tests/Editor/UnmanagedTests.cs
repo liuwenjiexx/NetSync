@@ -6,7 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 
-namespace Yanmonet.NetSync.Editor.Tests
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
     public class UnmanagedTests
     {

@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Yanmonet.NetSync.Transport.Socket
+namespace Yanmonet.Network.Sync.Transport.Socket
 {
     class HeartbeatMessage : INetworkSerializable
     {

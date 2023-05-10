@@ -1,5 +1,5 @@
 {
-    "name": "Yanmonet.NetSync.Editor.Tests",
+    "name": "Yanmonet.Network.Sync.Editor.Tests",
     "rootNamespace": "",
     "references": [
         "GUID:2d4baef5f226f0d4ca7bef190cec85f2",

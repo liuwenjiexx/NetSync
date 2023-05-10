@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine.UIElements;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
 
     public class NetworkWriter : IReaderWriter

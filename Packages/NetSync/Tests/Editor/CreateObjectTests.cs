@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Yanmonet.NetSync.Editor.Tests;
-namespace Yanmonet.NetSync.Editor.Tests
+using Yanmonet.Network.Sync.Editor.Tests;
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
     public class CreateObjectTests : TestBase
     {

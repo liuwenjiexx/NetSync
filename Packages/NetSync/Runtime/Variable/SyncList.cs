@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public class SyncList<T> : SyncBase, IList<T>, IReadOnlyList<T>
     {

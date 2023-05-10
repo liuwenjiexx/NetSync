@@ -3,7 +3,7 @@
 //using System.IO;
 //using UnityEngine;
 
-//namespace Yanmonet.NetSync
+//namespace Yanmonet.Network.Sync
 //{
 //    public struct Reader : IReaderWriter
 //    {

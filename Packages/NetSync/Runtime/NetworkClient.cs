@@ -1,15 +1,11 @@
-﻿using Yanmonet.NetSync.Messages;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.Net.Sockets;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
+using Yanmonet.Network.Sync.Messages;
 
 
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     internal class NetworkClient : IDisposable
     {

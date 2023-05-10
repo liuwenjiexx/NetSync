@@ -4,7 +4,7 @@ using System.Net;
 using UnityEngine;
 using Yanmonet.NetSync;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
 
     public class DiscoveryRequest<T> : INetworkSerializable

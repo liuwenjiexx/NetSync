@@ -6,7 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Yanmonet.NetSync.Transport.Socket
+namespace Yanmonet.Network.Sync.Transport.Socket
 {
     using Socket = System.Net.Sockets.Socket;
 

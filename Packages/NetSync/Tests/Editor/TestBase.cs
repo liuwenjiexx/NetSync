@@ -1,16 +1,13 @@
 using NUnit.Framework;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel.Composition.Primitives;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
-using Yanmonet.NetSync.Transport.Socket;
+using Yanmonet.Network.Sync.Transport.Socket;
 
-namespace Yanmonet.NetSync.Editor.Tests
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
     public class TestBase
     {

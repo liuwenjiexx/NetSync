@@ -7,8 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using UnityEngine;
-using Yanmonet.NetSync.Transport.Socket;
-namespace Yanmonet.NetSync.Editor.Tests
+using Yanmonet.Network.Sync.Transport.Socket;
+namespace Yanmonet.Network.Sync.Editor.Tests
 {
 
     public class TransportTests

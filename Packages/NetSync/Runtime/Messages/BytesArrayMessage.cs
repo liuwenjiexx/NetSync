@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Yanmonet.NetSync.Messages
+namespace Yanmonet.Network.Sync.Messages
 {
 
     public class BytesArrayMessage : MessageBase

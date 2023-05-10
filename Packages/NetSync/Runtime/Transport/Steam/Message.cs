@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-namespace Yanmonet.NetSync.Transport.SteamNetworking
+namespace Yanmonet.Network.Sync.Transport.SteamNetworking
 {
 
     class LobbyChatMessage : INetworkSerializable

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     internal static class Utils
     {

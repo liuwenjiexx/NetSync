@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public abstract class SyncBase : IDisposable
     {

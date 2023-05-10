@@ -1,5 +1,5 @@
 {
-    "name": "Yanmonet.NetSync.Editor",
+    "name": "Yanmonet.Network.Sync.Editor",
     "rootNamespace": "",
     "references": [],
     "includePlatforms": [

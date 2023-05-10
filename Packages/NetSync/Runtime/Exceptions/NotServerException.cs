@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     public class NotServerException : Exception
     {

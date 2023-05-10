@@ -10,7 +10,7 @@ using UnityEditor;
 using Yanmonet.AssemblyPostprocessing.Editor;
 using Yanmonet.Injection.Assembly.Editor;
 
-namespace Yanmonet.NetSync.Editor.CodeGen
+namespace Yanmonet.Network.Sync.Editor.CodeGen
 {
 
 

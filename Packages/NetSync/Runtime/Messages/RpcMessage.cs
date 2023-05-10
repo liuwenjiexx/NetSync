@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     internal class RpcMessage : MessageBase
     {
@@ -168,12 +168,12 @@ namespace Yanmonet.NetSync
                     }
                     catch (TargetInvocationException ex)
                     {
-                        netObj.NetworkManager.Log($"Rpc invoke error, target: {netObj}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
+                        netObj.NetworkManager.LogError($"Rpc invoke error, target: {netObj.GetType().Name}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
                         netObj.NetworkManager.LogException(ex.InnerException);
                     }
                     catch (Exception ex)
                     {
-                        netObj.NetworkManager.Log($"Rpc invoke error, target: {netObj}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
+                        netObj.NetworkManager.LogError($"Rpc invoke error, target: {netObj.GetType().Name}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
                         netObj.NetworkManager.LogException(ex);
                     }
                     break;

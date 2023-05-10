@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using System.Runtime.CompilerServices;
 
-namespace Yanmonet.NetSync
+namespace Yanmonet.Network.Sync
 {
     internal static class XXHash
     {

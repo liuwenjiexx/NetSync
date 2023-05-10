@@ -6,9 +6,8 @@ using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Netcode;
-using UnityEngine;
 
-namespace Yanmonet.NetSync.Transport.Netcode
+namespace Yanmonet.Network.Sync.Transport.Netcode
 {
     using Debug = UnityEngine.Debug;
     using NetMgr = Unity.Netcode.NetworkManager;

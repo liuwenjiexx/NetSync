@@ -1,5 +1,5 @@
 {
-    "name": "Yanmonet.NetSync",
+    "name": "Yanmonet.Network.Sync",
     "rootNamespace": "",
     "references": [
         "GUID:ed7ff784cc9e87f4eb2f0a49af3e97a9",

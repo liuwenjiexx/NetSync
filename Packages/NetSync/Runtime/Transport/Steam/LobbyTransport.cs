@@ -6,8 +6,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using Yanmonet.Network.Sync.Transport.SteamNetworking;
 
-namespace Yanmonet.NetSync.Transport.SteamNetworking
+namespace Yanmonet.Network.Sync.SteamNetworking
 {
     public class LobbyTransport : INetworkTransport
     {
