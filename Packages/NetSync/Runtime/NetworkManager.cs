@@ -7,6 +7,7 @@ using Yanmonet.Network.Sync.Messages;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Yanmonet.Network.Transport;
 
 namespace Yanmonet.Network.Sync
 {

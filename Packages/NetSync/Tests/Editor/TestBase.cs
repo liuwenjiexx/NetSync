@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Yanmonet.Network.Sync.Transport.Socket;
+using Yanmonet.Network.Transport.Socket;
 
 namespace Yanmonet.Network.Sync.Editor.Tests
 {

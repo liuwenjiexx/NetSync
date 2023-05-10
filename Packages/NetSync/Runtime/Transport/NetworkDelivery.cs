@@ -1,25 +1,25 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Yanmonet.Network.Sync
+namespace Yanmonet.Network
 {
 
     public enum NetworkDelivery
     {
         /// <summary>
-        /// ÎŞĞò²»¿É¿¿ÏûÏ¢
+        /// æ— åºä¸å¯é æ¶ˆæ¯
         /// </summary>
         Unreliable,
         /// <summary>
-        /// ÓĞĞò²»¿É¿¿µÄ
+        /// æœ‰åºä¸å¯é çš„
         /// </summary>
         UnreliableSequenced,
         /// <summary>
-        /// ¿É¿¿µÄÏûÏ¢
+        /// å¯é çš„æ¶ˆæ¯
         /// </summary>
         Reliable,
         /// <summary>
-        /// ¿É¿¿ÓĞĞòµÄ
+        /// å¯é æœ‰åºçš„
         /// </summary>
         ReliableSequenced,
     }

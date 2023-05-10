@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Yanmonet.Network.Sync
+namespace Yanmonet.Network.Transport
 {
     public enum NetworkEventType
     {

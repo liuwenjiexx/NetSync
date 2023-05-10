@@ -6,7 +6,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using UnityEngine;
-using Yanmonet.Network.Sync.Transport.Socket;
+using Yanmonet.Network.Transport.Socket;
 using System.Threading.Tasks;
 using System.Threading;
 

@@ -1,9 +1,9 @@
 {
-    "name": "Yanmonet.NetSync.Transport.SteamNetworking",
+    "name": "Yanmonet.Network.Transport.Netcode",
     "rootNamespace": "",
     "references": [
         "GUID:2d4baef5f226f0d4ca7bef190cec85f2",
-        "GUID:68bd7fdb68ef2684e982e8a9825b18a5"
+        "GUID:1491147abca9d7d4bb7105af628b223e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,9 +14,9 @@
     "defineConstraints": [],
     "versionDefines": [
         {
-            "name": "com.rlabrecque.steamworks.net",
+            "name": "com.unity.netcode.gameobjects",
             "expression": "",
-            "define": "STEAMWORKSNET"
+            "define": "NETCODE"
         }
     ],
     "noEngineReferences": false

@@ -6,12 +6,15 @@ using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Netcode;
+using Yanmonet.Network.Sync;
 
-namespace Yanmonet.Network.Sync.Transport.Netcode
+namespace Yanmonet.Network.Transport.Netcode
 {
     using Debug = UnityEngine.Debug;
+    using LogLevel = Sync.LogLevel;
     using NetMgr = Unity.Netcode.NetworkManager;
-
+    using NetworkEvent = Network.Transport.NetworkEvent;
+    using NetworkManager = Sync.NetworkManager;
 
     public class NetcodeTransport : INetworkTransport
     {

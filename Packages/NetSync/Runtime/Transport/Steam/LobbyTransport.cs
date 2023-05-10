@@ -1,4 +1,11 @@
-#if STEAMWORKSNET
+#if !STEAMWORKSNET
+#define DISABLESTEAMWORKS
+#endif
+#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
+#define DISABLESTEAMWORKS
+#endif
+
+#if !DISABLESTEAMWORKS
 
 using Steamworks;
 using System;
@@ -6,9 +13,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using Yanmonet.Network.Sync.Transport.SteamNetworking;
+using Yanmonet.Network.Sync;
+using Yanmonet.Network.Transport;
+using Yanmonet.Network.Transport.SteamNetworking;
 
-namespace Yanmonet.Network.Sync.SteamNetworking
+namespace Yanmonet.Network.SteamNetworking
 {
     public class LobbyTransport : INetworkTransport
     {

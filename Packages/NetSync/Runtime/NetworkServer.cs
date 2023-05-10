@@ -9,7 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Runtime.Serialization;
-using Yanmonet.Network.Sync.Transport.Socket;
+using Yanmonet.Network.Transport.Socket;
+using Yanmonet.Network.Transport;
 
 namespace Yanmonet.Network.Sync
 {

@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Yanmonet.Network.Sync;
 
-
-namespace Yanmonet.Network.Sync
+namespace Yanmonet.Network.Transport
 {
     public interface INetworkTransport
     {

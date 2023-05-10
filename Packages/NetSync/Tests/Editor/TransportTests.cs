@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using UnityEngine;
-using Yanmonet.Network.Sync.Transport.Socket;
+using Yanmonet.Network.Transport;
+using Yanmonet.Network.Transport.Socket;
+
 namespace Yanmonet.Network.Sync.Editor.Tests
 {
 

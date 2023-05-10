@@ -1,13 +1,20 @@
-#if STEAMWORKSNET
+#if !STEAMWORKSNET
+#define DISABLESTEAMWORKS
+#endif
+#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
+#define DISABLESTEAMWORKS
+#endif
+
+#if !DISABLESTEAMWORKS
 
 using Steamworks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Yanmonet.Network.Sync;
 
-
-namespace Yanmonet.Network.Sync.Transport.SteamNetworking
+namespace Yanmonet.Network.Transport.SteamNetworking
 {
 
     class LobbyChatMessage : INetworkSerializable

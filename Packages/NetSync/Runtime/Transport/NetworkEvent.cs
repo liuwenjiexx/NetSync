@@ -1,6 +1,6 @@
 using System;
 
-namespace Yanmonet.Network.Sync
+namespace Yanmonet.Network.Transport
 {
 
     public struct NetworkEvent
