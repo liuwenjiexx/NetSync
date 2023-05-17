@@ -43,6 +43,7 @@ namespace Yanmonet.Network.Sync
 
         public override void Serialize(IReaderWriter writer)
         {
+           // UnityEngine.Debug.Log("====== Rpc Serialize: " + rpcInfo.method.Name + ", " + methodId);
             writer.SerializeValue(ref methodId);
             writer.SerializeValue(ref action);
             writer.SerializeValue(ref netObj.objectId);
@@ -102,6 +103,7 @@ namespace Yanmonet.Network.Sync
             ulong instanceId = new();
             reader.SerializeValue(ref instanceId);
 
+            //UnityEngine.Debug.Log("====== Rpc Deserialize: " + methodId);
             rpcInfo = RpcInfo.GetRpcInfo(methodId);
 
             netObj = netMgr.GetObject(instanceId);

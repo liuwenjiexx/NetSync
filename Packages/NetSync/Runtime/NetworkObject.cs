@@ -527,7 +527,9 @@ namespace Yanmonet.Network.Sync
         protected bool __ReturnClientRpc__()
         {
             var clientParams = clientRpc.clientParams;
-            if (clientParams.clients != null && !clientParams.clients.Contains(NetworkManager.LocalClientId))
+            var clients = clientParams.clients;
+     
+            if (clients != null && !clients.Contains(NetworkManager.LocalClientId))
                 return true;
 
 

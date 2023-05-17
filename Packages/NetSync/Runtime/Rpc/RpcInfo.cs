@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
+
 namespace Yanmonet.Network.Sync
 {
     internal class RpcInfo
@@ -102,6 +103,11 @@ namespace Yanmonet.Network.Sync
 
                     cachedTypeMapRpcs[type] = infos;
                 }
+                /*
+                foreach(var mehtod in cachedIdMapRpcs.Values.OrderBy(o => o.methodId))
+                {
+                    UnityEngine.Debug.Log(mehtod.methodId + " = " + mehtod.method.Name);
+                }*/
             }
             return infos;
         }

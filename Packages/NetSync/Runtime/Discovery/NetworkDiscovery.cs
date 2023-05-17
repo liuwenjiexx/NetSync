@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -185,13 +187,64 @@ namespace Yanmonet.Network.Sync
             //多播地址: 224.0.0.0-239.255.255.255
             //局部多播地址: 224.0.0.0～224.0.0.255
             //局部广播地址: 255.255.255.255
+
+            IPAddress multiBroadcast = null;
+            /*
+            try
+            {  
+                IPAddress ip = null;
+                foreach (var ipAddr in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+                {
+                    if (ipAddr.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        ip = ipAddr;
+                        break;
+                    }
+                }
+
+                if (ip != null)
+                {
+                    foreach (var item in NetworkInterface.GetAllNetworkInterfaces())
+                    {
+                        var props = item.GetIPProperties();
+
+                        foreach (var prop in props.UnicastAddresses)
+                        {
+                            var address = prop.Address;
+                            if (address.Equals(ip))
+                            {
+                                if (prop.IPv4Mask != null)
+                                { 
+                                    var aa = address.GetAddressBytes();
+                                    uint value = ((uint)address.Address & (uint)prop.IPv4Mask.Address) | (~(uint)prop.IPv4Mask.Address);
+
+                                    multiBroadcast = new IPAddress(value);
+                                }
+                            }
+                        }
+                        if (multiBroadcast != null)
+                            break;
+
+                    }
+                }
+            }
+            catch { }
+            */
+
+            if (multiBroadcast == null)
+            {
+                multiBroadcast = IPAddress.Broadcast;
+            }
+            //Debug.Log("Broadcast address: " + multiBroadcast);
             int endPort = Port;
             if (PortCount > 0)
                 endPort = Port + PortCount;
             for (int i = Port; i <= endPort; i++)
             {
-                broadcastAddressList.Add(new IPEndPoint(IPAddress.Broadcast, i));
+                broadcastAddressList.Add(new IPEndPoint(multiBroadcast, i));
             }
+
+
         }
 
         public virtual void Start()
