@@ -169,8 +169,6 @@ namespace Yanmonet.Network.Sync
 
             //Debug.Log($"[NetworkDiscovery] Receive Response [{remote}]");
             OnDiscoveryResponse(response);
-
-
         }
 
         private void Initalize()
@@ -235,12 +233,13 @@ namespace Yanmonet.Network.Sync
             {
                 multiBroadcast = IPAddress.Broadcast;
             }
-            //Debug.Log("Broadcast address: " + multiBroadcast);
+
             int endPort = Port;
             if (PortCount > 0)
-                endPort = Port + PortCount;
+                endPort = Port + PortCount - 1;
             for (int i = Port; i <= endPort; i++)
             {
+                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {i}");
                 broadcastAddressList.Add(new IPEndPoint(multiBroadcast, i));
             }
 
@@ -359,8 +358,12 @@ namespace Yanmonet.Network.Sync
 
                     if (msgHandlers.TryGetValue(packet.MsgId, out var handler))
                     {
-                        NetworkReader reader = new NetworkReader(packet.Data);
-                        handler(reader, packet.RemoteEndPoint);
+                        try
+                        {
+                            NetworkReader reader = new NetworkReader(packet.Data);
+                            handler(reader, packet.RemoteEndPoint);
+                        }
+                        catch { }
                     }
 
 

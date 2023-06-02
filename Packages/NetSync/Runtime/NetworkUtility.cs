@@ -8,6 +8,8 @@ using System.Reflection;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Net;
+using UnityEngine;
+using System.Net.Sockets;
 
 namespace Yanmonet.Network.Sync
 {
@@ -193,8 +195,31 @@ namespace Yanmonet.Network.Sync
             return bytes;
         }
 
+        private static string localIP;
 
-
+        public static string LocalIP
+        {
+            get
+            {
+                if (localIP == null)
+                {
+                    IPAddress ip = null;
+                    foreach (var ipAddr in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+                    {
+                        if (ipAddr.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            ip = ipAddr;
+                            break;
+                        }
+                    }
+                    if (ip != null)
+                    {
+                        localIP = ip.ToString();
+                    }
+                }
+                return localIP;
+            }
+        }
 
         public static bool IsTcpPortUsed(int port)
         {
@@ -306,6 +331,21 @@ namespace Yanmonet.Network.Sync
         public static uint Hash32(string text) => XXHash.Hash32(text);
 
         public static ulong Hash64(string text) => XXHash.Hash64(text);
+
+        public static Action<string> LogCallback;
+
+        public static void Log(string msg)
+        {
+            if (LogCallback != null)
+            {
+                LogCallback(msg);
+                return;
+            }
+
+#if UNITY_ENGINE
+            Debug.Log(msg);
+#endif
+        }
 
     }
 }

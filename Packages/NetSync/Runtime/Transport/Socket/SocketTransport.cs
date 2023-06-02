@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -113,7 +114,7 @@ namespace Yanmonet.Network.Transport.Socket
             if (!initialized) throw new Exception("Not initailized");
 
             isClient = true;
-
+            Stopwatch sw= Stopwatch.StartNew();
             try
             {
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -173,7 +174,7 @@ namespace Yanmonet.Network.Transport.Socket
                 DisconnectLocalClient();
                 return false;
             }
-
+            UnityEngine.Debug.Log($"start client time: {(int)sw.Elapsed.TotalSeconds}");
             return true;
         }
 
