@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Yanmonet.Network.Transport;
 using Yanmonet.Network.Transport.Socket;
+using static Codice.Client.Common.WebApi.WebApiEndpoints;
 
 namespace Yanmonet.Network.Sync.Editor.Tests
 {
@@ -83,6 +84,36 @@ namespace Yanmonet.Network.Sync.Editor.Tests
              server.Shutdown();
          }*/
 
+
+        NetworkEvent PollEvent(SocketTransport transport, int timeout = 1000)
+        {
+            NetworkEvent @event;
+            DateTime time = DateTime.Now.AddMilliseconds(timeout);
+            while (true)
+            {
+                if (transport.PollEvent(out @event))
+                    break;
+                if (time < DateTime.Now)
+                    throw new TimeoutException();
+                Thread.Sleep(5);
+            }
+            return @event;
+        }
+
+        void WaitConnected(SocketTransport server, int timeout = 1000)
+        {
+            DateTime time = DateTime.Now.AddMilliseconds(timeout);
+            while (true)
+            {
+                if (server.clients.Count > 0)
+                    break;
+                if (time < DateTime.Now)
+                    throw new TimeoutException();
+                Thread.Sleep(5);
+            }
+        }
+
+
         [Test]
         public void Connect()
         {
@@ -94,17 +125,18 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
 
             client.Initialize();
-            Assert.IsTrue(client.StartClient());
+            client.StartClient();
 
             NetworkEvent @event;
 
-            Assert.IsTrue(server.PollEvent(out @event));
+            @event = PollEvent(server);
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(1, @event.ClientId);
 
-            Assert.IsTrue(client.PollEvent(out @event));
+            @event = PollEvent(client);
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(1, @event.ClientId);
+
 
             client.DisconnectLocalClient();
             server.DisconnectLocalClient();
@@ -121,22 +153,23 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
 
             client.Initialize();
-            Assert.IsTrue(client.StartClient());
+            client.StartClient();
 
-            client2.Initialize();
-            Assert.IsTrue(client2.StartClient());
 
             NetworkEvent @event;
 
-            Assert.IsTrue(server.PollEvent(out @event));
+            @event = PollEvent(server);
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(1, @event.ClientId);
 
-            Assert.IsTrue(client.PollEvent(out @event));
+            @event = PollEvent(client);
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(1, @event.ClientId);
 
-            Assert.IsTrue(client2.PollEvent(out @event));
+            client2.Initialize();
+            client2.StartClient();
+
+            @event = PollEvent(client2);
             Assert.AreEqual(NetworkEventType.Connect, @event.Type);
             Assert.AreEqual(2, @event.ClientId);
 
@@ -179,6 +212,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
         }
 
 
+
         [Test]
         public async void DisconnectLocalClient()
         {
@@ -203,7 +237,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
                 NetworkEvent @event;
 
-                Assert.IsTrue(server.PollEvent(out @event));
+                @event = PollEvent(server);
                 Assert.AreEqual(NetworkEventType.Connect, @event.Type);
 
                 Assert.IsTrue(client.PollEvent(out @event));
@@ -260,6 +294,8 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             client.Initialize();
             client.StartClient();
 
+            WaitConnected(server);
+
             Thread.Sleep(100);
 
             Debug.Log("Shutdown");
@@ -282,9 +318,8 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
             NetworkEvent @event;
 
-            server.PollEvent(out @event);
-            client.PollEvent(out @event);
-
+            @event = PollEvent(client);
+            @event = PollEvent(server);
 
             client.Socket.Disconnect(false);
 
@@ -317,6 +352,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
         [Test]
         public void ClientSocket_Close2()
         {
+            NetworkEvent @event;
             SocketTransport server = new SocketTransport();
             SocketTransport client = new SocketTransport();
             SocketTransport client2 = new SocketTransport();
@@ -326,17 +362,16 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
             client.Initialize();
             client.StartClient();
+            @event = PollEvent(client);
 
             client2.Initialize();
             client2.StartClient();
+            @event = PollEvent(client2);
 
-            NetworkEvent @event;
+
 
             server.PollEvent(out @event);
             server.PollEvent(out @event);
-            client.PollEvent(out @event);
-            client2.PollEvent(out @event);
-
 
             client.Socket.Disconnect(false);
 
@@ -385,10 +420,12 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
             NetworkEvent @event;
 
+            @event = PollEvent(client);
+            @event = PollEvent(client2);
+
             server.PollEvent(out @event);
             server.PollEvent(out @event);
-            client.PollEvent(out @event);
-            client2.PollEvent(out @event);
+
 
             client2.Socket.Disconnect(false);
 

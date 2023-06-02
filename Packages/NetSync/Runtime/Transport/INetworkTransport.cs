@@ -15,7 +15,7 @@ namespace Yanmonet.Network.Transport
 
         abstract bool StartServer();
 
-        abstract bool StartClient();
+        abstract void StartClient();
 
 
         abstract void SendMessage(ulong clientId, ArraySegment<byte> payload, NetworkDelivery delivery);

@@ -113,14 +113,13 @@ namespace Yanmonet.Network.SteamNetworking
             return true;
         }
 
-        public bool StartClient()
+        public void StartClient()
         {
             if (!initalized)
             {
                 Initialize(null);
             }
             serverClient = new LobbyClient(SteamIDClient);
-            return true;
 
         }
         public bool PollEvent(out NetworkEvent @event)

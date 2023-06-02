@@ -109,18 +109,46 @@ namespace Yanmonet.Network.Transport.Socket
             return true;
         }
 
-        public bool StartClient()
+        public void StartClient()
         {
             if (!initialized) throw new Exception("Not initailized");
 
+            if (isClient)
+                throw new Exception("Client is connect");
+
             isClient = true;
-            Stopwatch sw= Stopwatch.StartNew();
+
+            Task.Run(() =>
+            {
+                ConnectAsync(address, port);
+            });
+        }
+
+        async Task ConnectAsync(string address, int port)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
             try
             {
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                var timeoutCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token);
+                timeoutCancel.CancelAfter(1000 * 10);
 
-                socket.Connect(address, port);
+                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 socket.Blocking = false;
+
+                try
+                {
+                    await socket.ConnectAsync(address, port);
+                }
+                catch (Exception ex)
+                {
+                    if (socket != null)
+                    {
+                        try { socket.Dispose(); } catch { }
+                        socket = null;
+                    }
+                    throw ex;
+                }
+
                 localClient = new SocketClient(socket)
                 {
                     cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token),
@@ -143,9 +171,7 @@ namespace Yanmonet.Network.Transport.Socket
                 //client.Send(PackMessage(MsgId.ConnectRequest, connRequest));
 
                 _SendMsg(localClient, MsgId.ConnectRequest, connRequest);
-
-                float connTimeout = NowTime + 10f;
-
+ 
                 while (true)
                 {
                     if (!localClient.IsAccept)
@@ -153,30 +179,33 @@ namespace Yanmonet.Network.Transport.Socket
                         break;
                     }
 
-                    if (NowTime > connTimeout)
-                    {
-                        throw new Exception("Connect Timeout");
-                    }
-                    Thread.Sleep(1);
+                    timeoutCancel.Token.ThrowIfCancellationRequested();
+
+                    await Task.Delay(5);
                 }
-
-
                 if (!localClient.IsConnected)
                 {
                     DisconnectLocalClient();
-                    return false;
                 }
-
             }
+
             catch (Exception ex)
             {
+                eventQueue.Enqueue(new NetworkEvent()
+                {
+                    Type = NetworkEventType.Disconnect,
+                    ClientId = 0,
+                    ReceiveTime = NowTime
+                });
                 LogException(ex);
                 DisconnectLocalClient();
-                return false;
             }
-            UnityEngine.Debug.Log($"start client time: {(int)sw.Elapsed.TotalSeconds}");
-            return true;
+            finally
+            {
+                UnityEngine.Debug.Log($"Connect time: {(int)sw.Elapsed.TotalSeconds}");
+            }
         }
+
 
         public void Stop()
         {

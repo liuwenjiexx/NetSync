@@ -275,12 +275,7 @@ namespace Yanmonet.Network.Sync
             try
             {
                 transport.Initialize(this);
-                if (!transport.StartClient())
-                {
-                    transport.DisconnectLocalClient();
-                    IsClient = false;
-                    return;
-                }
+                transport.StartClient();                 
 
                 //NetworkEvent @event;
                 //transport.PollEvent(out @event);

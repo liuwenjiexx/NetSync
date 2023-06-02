@@ -129,7 +129,7 @@ namespace Yanmonet.Network.Transport.Netcode
             return true;
         }
 
-        public bool StartClient()
+        public void StartClient()
         {
             if (!initalized)
             {
@@ -140,7 +140,7 @@ namespace Yanmonet.Network.Transport.Netcode
                 catch (Exception ex)
                 {
                     networkManager?.LogException(ex);
-                    return false;
+                    return;
                 }
             }
 
@@ -149,7 +149,6 @@ namespace Yanmonet.Network.Transport.Netcode
             var writer = CreateWriter(MsgId.ConnectRequest, 0, new ArraySegment<byte>());
             SendNetMessage(0, writer);
 
-            return true;
         }
 
         void OnClientConnect(ulong clientId, ulong baseNetId)
