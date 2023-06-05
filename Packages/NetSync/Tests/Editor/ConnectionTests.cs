@@ -115,7 +115,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
 
         [Test]
-        public void StartServer()
+        public void Server()
         {
             int port = NextPort();
             NetworkManager server = CreateNetworkManager(port);
@@ -164,7 +164,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
         }
 
         [Test]
-        public void StartClient()
+        public void Client()
         {
             int port = NextPort();
             NetworkManager server = CreateNetworkManager(port);
@@ -197,8 +197,9 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             }
         }
 
+
         [Test]
-        public void ClientConnected()
+        public void Connected()
         {
             int port = NextPort();
             NetworkManager server = CreateNetworkManager(port);
@@ -227,8 +228,33 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             Assert.AreEqual(1, clientClientIds[0]);
 
         }
+
+
+
         [Test]
-        public void StartHost()
+        public void NotConnected()
+        {
+            NetworkManager client = CreateNetworkManager(int.MaxValue);
+
+            List<ulong> disconnectClientIds = new();
+
+            client.ClientDisconnected += (n, clientId) =>
+            {
+                disconnectClientIds.Add(clientId);
+            };
+
+            client.StartClient();
+
+            Update(client);
+
+            Assert.AreEqual(1, disconnectClientIds.Count);
+            Assert.AreEqual(ulong.MaxValue, disconnectClientIds[0]);
+
+        }
+
+
+        [Test]
+        public void Host()
         {
             int port = NextPort();
             NetworkManager host = CreateNetworkManager(port);
@@ -287,7 +313,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
         {
             int port = NextPort();
             NetworkManager host = CreateNetworkManager(port);
-              
+
             Assert.IsFalse(host.IsServer);
             Assert.IsFalse(host.IsClient);
 
@@ -297,12 +323,12 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             Assert.IsTrue(host.IsClient);
 
             NetworkManager client = CreateNetworkManager(port);
-             
+
             client.StartClient();
             Update(host, client);
 
             Assert.AreEqual(1, client.LocalClientId);
-             
+
             Assert.AreEqual(2, host.ConnectedClientIds.Count);
             Assert.AreEqual(0, host.ConnectedClientIds[0]);
             Assert.AreEqual(1, host.ConnectedClientIds[1]);

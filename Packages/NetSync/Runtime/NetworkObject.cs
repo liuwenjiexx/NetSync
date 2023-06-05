@@ -440,7 +440,8 @@ namespace Yanmonet.Network.Sync
         #region Rpc
 
 
-        private ServerRpcInfo serverRpc;
+        internal ServerRpcInfo serverRpc;
+ 
 
         protected void BeginServerRpc(string methodName, params object[] args)
         {
@@ -450,6 +451,17 @@ namespace Yanmonet.Network.Sync
         [DebuggerHidden]
         public void __BeginServerRpc__(string methodName, ServerRpcParams rpcParams, params object[] args)
         {
+            if (remoteRpc)
+            {
+                return;
+            }
+
+            if (!IsClient)
+            {
+                NetworkManager.LogError("ServerRpc only client call");
+                return;
+            }
+
             serverRpc = new ServerRpcInfo();
             serverRpc.serverParams = rpcParams;
             serverRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
@@ -459,6 +471,11 @@ namespace Yanmonet.Network.Sync
         [DebuggerHidden]
         protected void __EndServerRpc__()
         {
+            if (remoteRpc)
+            {
+                return;
+            }
+
             if (!IsServer)
             {
                 var msg = RpcMessage.RpcServer(this, serverRpc.rpcInfo, serverRpc.args);
@@ -468,21 +485,25 @@ namespace Yanmonet.Network.Sync
         [DebuggerHidden]
         protected bool __ReturnServerRpc__()
         {
+            remoteRpc = false;
             return !IsServer;
         }
 
-        private ClientRpcInfo clientRpc;
-        struct ServerRpcInfo
+        internal ClientRpcInfo clientRpc;
+        internal bool remoteRpc;
+        internal struct ServerRpcInfo
         {
             public ServerRpcParams serverParams;
             public RpcInfo rpcInfo;
             public object[] args;
+            public bool fromRemote;
         }
-        struct ClientRpcInfo
+        internal struct ClientRpcInfo
         {
             public RpcInfo rpcInfo;
             public object[] args;
             public ClientRpcParams clientParams;
+            public bool fromRemote;
         }
         [DebuggerHidden]
         protected void BeginClientRpc(string methodName, params object[] args)
@@ -492,6 +513,17 @@ namespace Yanmonet.Network.Sync
         [DebuggerHidden]
         protected void __BeginClientRpc__(string methodName, ClientRpcParams rpcParams, params object[] args)
         {
+            if (remoteRpc)
+            {
+                return;
+            }
+
+            if (!this.clientRpc.fromRemote && !IsServer)
+            {
+                NetworkManager.LogError("ClientRpc only server call");
+                return;
+            }
+
             clientRpc = new ClientRpcInfo();
             clientRpc.clientParams = rpcParams;
             clientRpc.rpcInfo = RpcInfo.GetRpcInfo(GetType(), methodName);
@@ -500,6 +532,11 @@ namespace Yanmonet.Network.Sync
         [DebuggerHidden]
         protected void __EndClientRpc__()
         {
+            if (remoteRpc)
+            {
+                return;
+            }
+
             if (IsServer)
             {
                 var rpcInfo = clientRpc.rpcInfo;
@@ -526,22 +563,32 @@ namespace Yanmonet.Network.Sync
 
         protected bool __ReturnClientRpc__()
         {
+            remoteRpc = false;
+            if (!IsClient)
+            {
+                return true;
+            }
+
             var clientParams = clientRpc.clientParams;
             var clients = clientParams.clients;
-     
-            if (clients != null && !clients.Contains(NetworkManager.LocalClientId))
-                return true;
 
+            if (IsServer)
+            {
+                if (clients == null || clients.Contains(NetworkManager.LocalClientId))
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
 
             //if (NetworkManager.LocalClientId == NetworkManager.ServerClientId)
             //{
             //    return false;
             //}
 
-            //if (!IsClient)
-            //{
-            //    return true;
-            //}
 
             return false;
         }

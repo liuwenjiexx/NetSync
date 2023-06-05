@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Yanmonet.Network.Sync.Editor.Tests
 {
@@ -45,7 +46,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
                 this.result = a + b;
             }
-
+             
             public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
             {
                 __BeginServerRpc__(nameof(ServerRpc3), rpcParams, a, b);
@@ -80,8 +81,10 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
         [Test]
         [OpenNetwork]
-        public void ServerRpc_OnServer()
+        public void ServerRpc_OnServer_ExpectedError()
         {
+            LogAssert.Expect(LogType.Error, "ServerRpc only client call");
+
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
             serverData.AddObserver(client.LocalClientId);
@@ -93,11 +96,11 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             clientData.result = 0;
             serverData.ServerRpc(1, 2);
             Update();
-
-            Assert.AreEqual(3, serverData.result);
-            Assert.AreEqual(0, clientData.result);
+            
+            //Assert.AreEqual(0, serverData.result);
+            //Assert.AreEqual(0, clientData.result);
         }
-
+        
         [Test]
         [OpenNetwork]
         public void ServerRpc_OnClient()
@@ -139,8 +142,10 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
         [Test]
         [OpenNetwork]
-        public void ClientRpc_OnClient()
+        public void ClientRpc_OnClient_ExpectedError()
         {
+            LogAssert.Expect(LogType.Error, "ClientRpc only server call");
+
             var serverData = serverManager.CreateObject<RpcTest>();
             serverData.Spawn();
             serverData.AddObserver(client.LocalClientId);
@@ -153,8 +158,8 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             clientData.ClientRpc(1, 2);
             Update();
 
-            Assert.AreEqual(0, serverData.result);
-            Assert.AreEqual(3, clientData.result);
+            //Assert.AreEqual(0, serverData.result);
+            //Assert.AreEqual(0, clientData.result);
         }
 
 

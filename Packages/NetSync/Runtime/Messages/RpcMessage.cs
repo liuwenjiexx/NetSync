@@ -166,6 +166,7 @@ namespace Yanmonet.Network.Sync
                     }
                     try
                     {
+                        netObj.remoteRpc = true;
                         rpcInfo.method.Invoke(netObj, args);
                     }
                     catch (TargetInvocationException ex)
@@ -177,6 +178,10 @@ namespace Yanmonet.Network.Sync
                     {
                         netObj.NetworkManager.LogError($"Rpc invoke error, target: {netObj.GetType().Name}, method: {rpcInfo.method.DeclaringType.Name}.{rpcInfo.method.Name}, args: [{(args == null ? "" : string.Join(", ", args))}]");
                         netObj.NetworkManager.LogException(ex);
+                    }
+                    finally
+                    {
+                        netObj.remoteRpc = false;
                     }
                     break;
             }

@@ -275,7 +275,7 @@ namespace Yanmonet.Network.Sync
             try
             {
                 transport.Initialize(this);
-                transport.StartClient();                 
+                transport.StartClient();
 
                 //NetworkEvent @event;
                 //transport.PollEvent(out @event);
@@ -870,7 +870,13 @@ namespace Yanmonet.Network.Sync
             //    Log($"OnClientTransportDisconnect  transportClientId: {transportClientId}");
             if (!IsClient)
                 return;
-            if (client == null || client.transportClientId != transportClientId)
+            if (client == null)
+            {
+                Shutdown();
+                return;
+            }
+
+            if (client.transportClientId != transportClientId)
                 return;
 
             clientId = client.clientId;
@@ -954,7 +960,7 @@ namespace Yanmonet.Network.Sync
                     transport.DisconnectLocalClient();
                 }
 
-                if ((localClient != null && localClient.isConnected) || (LocalClientId == ServerClientId))
+                if (localClient == null || (localClient != null && localClient.isConnected) || (LocalClientId == ServerClientId))
                 {
                     try
                     {

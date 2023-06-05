@@ -171,7 +171,7 @@ namespace Yanmonet.Network.Transport.Socket
                 //client.Send(PackMessage(MsgId.ConnectRequest, connRequest));
 
                 _SendMsg(localClient, MsgId.ConnectRequest, connRequest);
- 
+
                 while (true)
                 {
                     if (!localClient.IsAccept)
@@ -202,7 +202,7 @@ namespace Yanmonet.Network.Transport.Socket
             }
             finally
             {
-                UnityEngine.Debug.Log($"Connect time: {(int)sw.Elapsed.TotalSeconds}");
+                //UnityEngine.Debug.Log($"Connect time: {(int)sw.Elapsed.TotalSeconds}");
             }
         }
 
@@ -254,42 +254,59 @@ namespace Yanmonet.Network.Transport.Socket
 
 
             SocketClient client = null;
-            LinkedListNode<SocketClient> clientNode = null;
 
-            clientNode = clientList.First;
-
-            while (clientNode != null)
+            if (isServer)
             {
-                client = clientNode.Value;
+                LinkedListNode<SocketClient> clientNode = null;
 
+                clientNode = clientList.First;
 
-                if (HeartbeatTickInterval > 0 && NowTime > client.NextHeartbeatTime)
+                while (clientNode != null)
                 {
-                    if (!client.socket.Connected || client.HeartbeatTick > 3)
-                    {
-                        Log($"Heartbeat Disconnect clientId: {client.ClientId}, Socket.Connected {client.socket.Connected}, Heartbeat tick: {client.HeartbeatTick}");
+                    client = clientNode.Value;
 
-                        if (client.IsLocalClient)
+
+                    if (HeartbeatTickInterval > 0 && NowTime > client.NextHeartbeatTime)
+                    {
+                        if (!client.socket.Connected || client.HeartbeatTick > 3)
                         {
-                            DisconnectLocalClient();
+                            Log($"Heartbeat Disconnect clientId: {client.ClientId}, Socket.Connected {client.socket.Connected}, Heartbeat tick: {client.HeartbeatTick}");
+
+                            if (client.IsLocalClient)
+                            {
+                                DisconnectLocalClient();
+                            }
+                            else
+                            {
+                                DisconnectRemoteClient(client.ClientId);
+                            }
                         }
                         else
                         {
-                            DisconnectRemoteClient(client.ClientId);
+                            client.HeartbeatTick++;
+                            client.NextHeartbeatTime = NowTime + HeartbeatTickInterval;
+                            //Log("Send Heartbeat: " + client.ClientId);
+                            _SendMsg(client, MsgId.Heartbeat, new HeartbeatMessage()
+                            {
+                                isRequest = true,
+                            });
                         }
                     }
-                    else
+                    clientNode = clientNode.Next;
+                }
+            }
+            else
+            {
+                client = localClient;
+                if (client != null)
+                {
+                    if (!client.socket.Connected)
                     {
-                        client.HeartbeatTick++;
-                        client.NextHeartbeatTime = NowTime + HeartbeatTickInterval;
-                        //Log("Send Heartbeat: " + client.ClientId);
-                        _SendMsg(client, MsgId.Heartbeat, new HeartbeatMessage()
-                        {
-                            isRequest = true,
-                        });
+                        Log($"Socket Disconnect clientId: {client.ClientId}");
+
+                        DisconnectLocalClient();
                     }
                 }
-                clientNode = clientNode.Next;
             }
 
             @event = default;
