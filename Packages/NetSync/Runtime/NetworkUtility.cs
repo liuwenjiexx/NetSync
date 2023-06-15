@@ -328,7 +328,11 @@ namespace Yanmonet.Network.Sync
             return true;
         }
 
+        public static uint Hash32(byte[] bytes) => XXHash.Hash32(bytes);
+
         public static uint Hash32(string text) => XXHash.Hash32(text);
+
+        public static ulong Hash64(byte[] bytes) => XXHash.Hash64(bytes);
 
         public static ulong Hash64(string text) => XXHash.Hash64(text);
 

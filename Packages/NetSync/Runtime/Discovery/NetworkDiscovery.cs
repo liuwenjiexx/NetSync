@@ -19,8 +19,7 @@ namespace Yanmonet.Network.Sync
         protected UdpClient sendClient;
         private UdpClient receiveClient;
         private Dictionary<ushort, Action<IReaderWriter, IPEndPoint>> msgHandlers;
-        private string identifier;
-        private int version;
+        private uint identifier;
         private string serverName;
         private string serverAddress;
         private int serverPort;
@@ -45,7 +44,7 @@ namespace Yanmonet.Network.Sync
         }
 
 
-        public string Identifier
+        public uint Identifier
         {
             get => identifier;
             set
@@ -53,19 +52,6 @@ namespace Yanmonet.Network.Sync
                 if (identifier != value)
                 {
                     identifier = value;
-                }
-            }
-        }
-
-
-        public int Version
-        {
-            get => version;
-            set
-            {
-                if (version != value)
-                {
-                    version = value;
                 }
             }
         }
@@ -491,7 +477,6 @@ namespace Yanmonet.Network.Sync
                 var data = new DiscoveryRequest<TRequest>();
                 data.Identifier = Identifier;
                 data.ServerName = serverName;
-                data.Version = version;
                 data.Data = requestData;
 
                 byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryRequest, data);
@@ -533,7 +518,6 @@ namespace Yanmonet.Network.Sync
                 var data = new DiscoveryResponse<TResponse>();
                 data.Identifier = identifier;
                 data.ServerName = serverName;
-                data.Version = version;
                 data.Data = responseData;
 
                 byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryResponse, data);

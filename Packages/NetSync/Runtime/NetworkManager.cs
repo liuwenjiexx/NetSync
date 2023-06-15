@@ -45,6 +45,21 @@ namespace Yanmonet.Network.Sync
 
         public IReadOnlyCollection<NetworkObject> SpawnedObjects => spawnedObjects;
 
+        public const int ProtocalVersion = 1;
+
+        private ulong? configHash;
+
+        public ulong ConfigHash
+        {
+            get
+            {
+                if (!configHash.HasValue)
+                {
+                    UpdateConfigHash(0);
+                }
+                return configHash.Value;
+            }
+        }
 
         public ulong LocalClientId { get; internal set; }
 
@@ -75,7 +90,17 @@ namespace Yanmonet.Network.Sync
         public event Action<NetworkObject> ObjectSpawned;
         public event Action<NetworkObject> ObjectDespawned;
 
-
+        public void UpdateConfigHash(ulong baseHash)
+        {
+            using (var ms = new MemoryStream())
+            {
+                var writer = new NetworkWriter(ms);
+                var v = ProtocalVersion;
+                writer.SerializeValue(ref v);
+                writer.SerializeValue(ref baseHash);
+                configHash = NetworkUtility.Hash64(ms.ToArray());
+            }
+        }
 
         //internal IReadOnlyDictionary<ulong, NetworkClient> ConnnectedClients
         //{
@@ -401,7 +426,7 @@ namespace Yanmonet.Network.Sync
 
             instance.typeId = typeId;
 
-            //µ÷ÓÃ Spawn ĞèÒª
+            //è°ƒç”¨ Spawn éœ€è¦
             instance.networkManager = this;
             //Debug.Log("Create Object: " + instance + ", " + transport);
             ObjectCreated?.Invoke(instance);
@@ -654,7 +679,7 @@ namespace Yanmonet.Network.Sync
                               }
                               else*/
 
-                            //Unity ÍøÂçÒ»¿ªÊ¼»áÍ¬²½Ò»Ğ©Êı¾İ
+                            //Unity ç½‘ç»œä¸€å¼€å§‹ä¼šåŒæ­¥ä¸€äº›æ•°æ®
 
 
                             if (clientId.HasValue)
@@ -795,6 +820,7 @@ namespace Yanmonet.Network.Sync
 
             var connectRequest = new ConnectRequestMessage()
             {
+                ConfigHash = ConfigHash,
                 Payload = ConnectionData,
             };
 
@@ -817,8 +843,8 @@ namespace Yanmonet.Network.Sync
             {
                 return;
             }
-            ulong clientId = client.ClientId;
 
+            ulong clientId = client.ClientId;
 
             var objNode = spawnedObjects.First;
             LinkedListNode<NetworkObject> next;
@@ -1088,6 +1114,21 @@ namespace Yanmonet.Network.Sync
 
             ulong clientId = netMsg.ClientId;
             NetworkClient client = null;
+
+
+            if (msg.ConfigHash != netMgr.ConfigHash)
+            {
+                netMgr.Log($"Config hash different");
+                client = netMgr.GetClient(clientId);
+                if (client != null)
+                {
+                    client.isConnected = false;
+                }
+                netMgr.DisconnectClient(clientId);
+                return;
+            }
+
+
             var resp = new ConnectResponseMessage();
             try
             {
@@ -1315,7 +1356,7 @@ namespace Yanmonet.Network.Sync
 
             if (IsServer)
             {
-                //·şÎñ¶ËÊÕµ½µÄ±äÁ¿×ª·¢¸øÆäËü¶Ë
+                //æœåŠ¡ç«¯æ”¶åˆ°çš„å˜é‡è½¬å‘ç»™å…¶å®ƒç«¯
                 foreach (var clientId in msg.netObj.observers)
                 {
                     if (clientId == msg.netObj.OwnerClientId)

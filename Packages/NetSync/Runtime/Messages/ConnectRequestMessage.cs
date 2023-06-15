@@ -7,12 +7,12 @@ namespace Yanmonet.Network.Sync.Messages
 {
     internal class ConnectRequestMessage : MessageBase
     {
-        public int Version;
+        public ulong ConfigHash;
         public byte[] Payload;
 
         public override void Serialize(IReaderWriter writer)
         {
-            writer.SerializeValue(ref Version);
+            writer.SerializeValue(ref ConfigHash);
             if (Payload == null)
                 Payload = new byte[0];
             int length = Payload.Length;
@@ -20,7 +20,7 @@ namespace Yanmonet.Network.Sync.Messages
         }
         public override void Deserialize(IReaderWriter reader)
         {
-            reader.SerializeValue(ref Version);
+            reader.SerializeValue(ref ConfigHash);
             Payload = null;
             int length = 0;
             reader.SerializeValue(ref Payload, 0, ref length);

@@ -10,12 +10,12 @@ namespace Yanmonet.Network.Sync
     public class DiscoveryRequest<T> : INetworkSerializable
         where T : INetworkSerializable, new()
     {
-        private string identifier;
+        private ulong identifier;
         private string serverName;
         private int version;
         private T data;
 
-        public string Identifier { get => identifier; set => identifier = value; }
+        public ulong Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
         public int Version { get => version; set => version = value; }
         public T Data { get => data; set => data = value; }
@@ -45,14 +45,14 @@ namespace Yanmonet.Network.Sync
     public class DiscoveryResponse<T> : INetworkSerializable
         where T : INetworkSerializable, new()
     {
-        private string identifier;
+        private ulong identifier;
         private string serverName;
         private int version;
 
         private T data;
         private IPEndPoint remote;
 
-        public string Identifier { get => identifier; set => identifier = value; }
+        public ulong Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
         public int Version { get => version; set => version = value; }
 
