@@ -91,6 +91,8 @@ namespace Yanmonet.Network.Sync
             value = (uint)((buffer[offset] << 0x18) | (buffer[offset + 1] << 0x10) | (buffer[offset + 2] << 0x8) | buffer[offset + 3]);
             return 4;
         }
+         
+
         public static void ReadUInt32(byte[] buffer, ref int offset, out uint value)
         {
             offset += ReadUInt32(buffer, offset, out value);
@@ -209,6 +211,7 @@ namespace Yanmonet.Network.Sync
 
         #region Write
 
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteInt8(Stream writer, sbyte value)
         {
@@ -236,6 +239,13 @@ namespace Yanmonet.Network.Sync
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteUInt16(byte[] writer, ref int offset, ushort value)
+        {
+            writer[offset++] = (byte)(value >> 0x8);
+            writer[offset++] = (byte)(value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteChar(Stream writer, char value)
         {
             WriteUInt8(writer, (byte)(value >> 0x8));
@@ -259,6 +269,16 @@ namespace Yanmonet.Network.Sync
             WriteUInt8(writer, (byte)(value >> 0x8));
             WriteUInt8(writer, (byte)(value));
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WriteUInt32(byte[] writer, ref int offset, uint value)
+        {
+            writer[offset++] = (byte)(value >> 0x18);
+            writer[offset++] = (byte)(value >> 0x10);
+            writer[offset++] = (byte)(value >> 0x8);
+            writer[offset++] = (byte)(value);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteInt64(Stream writer, long value)
         {

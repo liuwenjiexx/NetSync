@@ -29,11 +29,11 @@ namespace Yanmonet.Network.Sync
         {
             msReader = ms;
         }
-        internal NetworkReader(byte[] data, int offset, int length)
+        public NetworkReader(byte[] data, int offset, int length)
         {
             msReader = new MemoryStream(data, offset, length, false, true);
         }
-        internal NetworkReader(ArraySegment<byte> data)
+        public NetworkReader(ArraySegment<byte> data)
             : this(data.Array, data.Offset, data.Count)
         {
         }
