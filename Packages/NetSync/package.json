@@ -9,5 +9,8 @@
     "com.yanmonet.injection.assembly": "0.0.3-preview-1"
   },
   "hideInEditor": true,
-  "samples": []
+  "samples": [],
+  "author": {
+    "name": "Yanmonet"
+  }
 }

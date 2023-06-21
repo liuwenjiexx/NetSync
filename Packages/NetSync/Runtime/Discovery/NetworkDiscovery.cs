@@ -32,6 +32,7 @@ namespace Yanmonet.Network.Sync
         private bool initalized;
         private object lockObj = new object();
         private Queue<MsgPacket> receiveMsgQueue = new Queue<MsgPacket>();
+        private Task receiveWorkerTask;
 
 
 
@@ -295,7 +296,7 @@ namespace Yanmonet.Network.Sync
             //NetworkManager.Singleton?.Log($"Start Discovery Server [{ServerName}], Identifier: '{Identifier}', Liststen: {receiveClient.Client.LocalEndPoint}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
 
-            Task.Run(ReceiveWorker, cancellationTokenSource.Token);
+            receiveWorkerTask = Task.Run(ReceiveWorker, cancellationTokenSource.Token);
 
 
 
@@ -574,6 +575,18 @@ namespace Yanmonet.Network.Sync
                 cancellationTokenSource.Cancel();
                 cancellationTokenSource = null;
             }
+
+            if (receiveWorkerTask != null)
+            {
+                try
+                {
+                    receiveWorkerTask.Wait();
+                }
+                catch { }
+                receiveWorkerTask = null;
+            }
+
+            receiveMsgQueue.Clear();
 
             if (sendClient != null)
             {
