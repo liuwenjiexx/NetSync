@@ -75,7 +75,7 @@ namespace Yanmonet.Network.Transport.Socket
 
         }
 
-        public bool StartServer()
+        public void StartServer()
         {
             if (!initialized) throw new Exception("Not initailized");
             isServer = true;
@@ -103,10 +103,8 @@ namespace Yanmonet.Network.Transport.Socket
             {
                 LogException(ex);
                 DisconnectLocalClient();
-
-                return false;
+                throw ex;
             }
-            return true;
         }
 
         public void StartClient()
@@ -412,7 +410,7 @@ namespace Yanmonet.Network.Transport.Socket
             client.sendEvent.Set();
         }
 
-        //SendWorker ºÍ ReceiveWorker ·Ö³ÉÁ½¸ö·½·¨²¢·¢·¢ËÍºÍ½ÓÊÕ
+        //SendWorker å’Œ ReceiveWorker åˆ†æˆä¸¤ä¸ªæ–¹æ³•å¹¶å‘å‘é€å’Œæ¥æ”¶
         private async void SendWorker(SocketClient client)
         {
             var cancelToken = client.cancellationTokenSource.Token;
@@ -1032,7 +1030,7 @@ namespace Yanmonet.Network.Transport.Socket
 
             Log($"{client.socket?.RemoteEndPoint} DisconnectClient [{client.ClientId}]");
 
-            //¶Ï¿ª³¬Ê±Ê±¼ä
+            //æ–­å¼€è¶…æ—¶æ—¶é—´
             client.cancellationTokenSource.CancelAfter(100);
 
             try

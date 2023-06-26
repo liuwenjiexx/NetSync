@@ -106,7 +106,7 @@ namespace Yanmonet.Network.Transport.Netcode
 
 
 
-        public bool StartServer()
+        public void StartServer()
         {
             if (!initalized)
             {
@@ -117,16 +117,14 @@ namespace Yanmonet.Network.Transport.Netcode
                 catch (Exception ex)
                 {
                     networkManager?.LogException(ex);
-                    return false;
+                    throw ex;
                 }
             }
 
             isServer = true;
             localClientId = ServerClientId;
             OnClientConnect(localClientId, netMgr.LocalClientId);
-
-
-            return true;
+             
         }
 
         public void StartClient()

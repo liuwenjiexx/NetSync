@@ -108,7 +108,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             SocketTransport client = new SocketTransport();
             client.port = server.port = TestBase.NextPort();
             server.Initialize();
-            Assert.IsTrue(server.StartServer());
+            server.StartServer();
 
 
             client.Initialize();
@@ -137,7 +137,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             SocketTransport client2 = new SocketTransport();
             client2.port = client.port = server.port = TestBase.NextPort();
             server.Initialize();
-            Assert.IsTrue(server.StartServer());
+            server.StartServer();
 
 
             client.Initialize();
@@ -234,7 +234,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
 
         [Test]
-        public  void DisconnectRemoteClient()
+        public void DisconnectRemoteClient()
         {
             SocketTransport server = new SocketTransport();
             SocketTransport client = new SocketTransport();
@@ -270,7 +270,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             SocketTransport server = new SocketTransport();
             server.port = TestBase.NextPort();
             server.Initialize(networkManager);
-            Assert.IsTrue(server.StartServer());
+            server.StartServer();
 
             Thread.Sleep(100);
 
@@ -323,10 +323,10 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             @event = server.PollEvent();
 
             client.Socket.Disconnect(false);
-             
+
             @event = client.PollEvent();
             Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
-             
+
 
             client.Shutdown();
             server.Shutdown();
@@ -353,11 +353,11 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
         //    @event= client.PollEvent();
         //    Assert.AreEqual(NetworkEventType.Disconnect, @event.Type);
-          
+
         //    DateTime startTime = DateTime.Now;
         //    while (true)
         //    {
-                 
+
         //        if (server.PollEvent(out @event))
         //        {
         //            Debug.Log("Event: " + @event.Type + ", ClientId: " + @event.ClientId + ", time: " + DateTime.Now.Subtract(startTime).TotalSeconds);

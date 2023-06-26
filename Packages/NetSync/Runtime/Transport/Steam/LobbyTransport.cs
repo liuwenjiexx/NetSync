@@ -86,7 +86,7 @@ namespace Yanmonet.Network.SteamNetworking
         }
 
 
-        public bool StartServer()
+        public void StartServer()
         {
             if (!initalized)
             {
@@ -110,7 +110,6 @@ namespace Yanmonet.Network.SteamNetworking
                 });
             }
 
-            return true;
         }
 
         public void StartClient()

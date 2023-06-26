@@ -231,13 +231,7 @@ namespace Yanmonet.Network.Sync
             try
             {
                 transport.Initialize(this);
-                if (!transport.StartServer())
-                {
-                    transport.DisconnectLocalClient();
-                    IsServer = false;
-                    IsClient = false;
-                    return;
-                }
+                transport.StartServer();
 
                 if (ValidateConnect != null)
                 {
@@ -275,13 +269,7 @@ namespace Yanmonet.Network.Sync
             try
             {
                 transport.Initialize(this);
-                if (!transport.StartServer())
-                {
-                    transport.DisconnectLocalClient();
-                    IsServer = false;
-                    return;
-                }
-
+                transport.StartServer();
             }
             catch
             {

@@ -13,7 +13,7 @@ namespace Yanmonet.Network.Transport
 
         abstract void Initialize(NetworkManager networkManager = null);
 
-        abstract bool StartServer();
+        abstract void StartServer();
 
         abstract void StartClient();
 
