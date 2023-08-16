@@ -7,7 +7,6 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace Yanmonet.Network.Sync
 {
@@ -427,7 +426,7 @@ namespace Yanmonet.Network.Sync
                 {
                     if (cancellationToken.IsCancellationRequested)
                         break;
-                    Debug.LogException(ex);
+                   //NetworkUtility.LogException(ex);
                 }
             }
         }
@@ -488,7 +487,7 @@ namespace Yanmonet.Network.Sync
             }
             catch (Exception ex)
             {
-                Debug.LogException(ex);
+                //NetworkUtility.LogException(ex);
             }
         }
 
@@ -531,7 +530,7 @@ namespace Yanmonet.Network.Sync
             }
             catch (Exception ex)
             {
-                Debug.LogException(ex);
+                //NetworkUtility.LogException(ex);
             }
         }
         /*

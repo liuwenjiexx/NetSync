@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="../../Packages\NetSync\Runtime/*.cs" />
     <Compile Include="../../Packages\NetSync\Runtime/*/*.cs" />
+    <Compile Include="../../Packages\NetSync\Runtime/*/Socket/*.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />

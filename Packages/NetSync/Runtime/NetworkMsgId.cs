@@ -36,6 +36,7 @@ namespace Yanmonet.Network.Sync
         /// </summary>
         SyncEvent,
         Rpc,
+        NamedMessage,
         Max,
     }
 }

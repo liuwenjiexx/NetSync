@@ -26,6 +26,9 @@ namespace Yanmonet.Network.Sync
         private HashSet<ulong> destoryObjIds;
         public string ConnectFailReson;
         private LogLevel logLevel = LogLevel.Error;
+        private Dictionary<uint, NamedMessageHandlerDelegate> namedMsgHandles = new();
+        private Dictionary<uint, string> namedMsgHashToNames = new();
+        private Dictionary<string, uint> namedMsgNameToHashs = new();
 
         public NetworkManager()
         {
@@ -134,7 +137,7 @@ namespace Yanmonet.Network.Sync
         public ValidateConnectDelegate ValidateConnect;
         public delegate byte[] ValidateConnectDelegate(byte[] payload);
 
-        public static NetworkManager Singleton { get; private set; }
+        internal static NetworkManager Singleton { get; private set; }
 
         private INetworkTransport transport;
         public INetworkTransport Transport { get => transport; set => transport = value; }
@@ -173,6 +176,7 @@ namespace Yanmonet.Network.Sync
             msgHandlers[(ushort)NetworkMsgId.SyncVar] = OnMessage_SyncVar;
             msgHandlers[(ushort)NetworkMsgId.Rpc] = OnMessage_Rpc;
             msgHandlers[(ushort)NetworkMsgId.Ping] = OnMessage_Ping;
+            msgHandlers[(ushort)NetworkMsgId.NamedMessage] = OnMessage_NamedMessage;
 
         }
 
@@ -1389,7 +1393,46 @@ namespace Yanmonet.Network.Sync
             }
         }
 
+        private static void OnMessage_NamedMessage(NetworkMessage netMsg)
+        {
+            var netMgr = netMsg.NetworkManager;
+            var client = netMgr.GetClient(netMsg.ClientId);
+            var namedMsg = netMsg.ReadMessage<NamedMessage>();
+
+            if (!netMgr.namedMsgHandles.TryGetValue(namedMsg.nameHash, out var handler))
+            {
+                netMgr.LogError($"Missing Named Message '{namedMsg.nameHash}' handler");
+                return;
+            }
+
+            handler(netMsg.ClientId, netMsg.Reader);
+        }
+
         #endregion
+
+
+        public void RegisterNamedMessage(string name, NamedMessageHandlerDelegate handler)
+        {
+            uint nameHash = NetworkUtility.Hash32(name);
+            namedMsgHashToNames[nameHash] = name;
+            namedMsgNameToHashs[name] = nameHash;
+            namedMsgHandles[nameHash] = handler;
+        }
+
+        public void SendNamedMessage(ulong clientId, string msgName, INetworkSerializable data)
+        {
+            uint nameHash;
+            if (!namedMsgNameToHashs.TryGetValue(msgName, out nameHash))
+            {
+                NetworkUtility.Log($"Not register named msg: {msgName}");
+                return;
+            }
+
+            NamedMessage msg = new NamedMessage();
+            msg.nameHash = nameHash;
+            msg.data = data;
+            SendMessage(clientId, (ushort)NetworkMsgId.NamedMessage, msg);
+        }
 
 
         #region Log
@@ -1483,4 +1526,7 @@ namespace Yanmonet.Network.Sync
         }
 
     }
+
+
+    public delegate void NamedMessageHandlerDelegate(ulong clientId, NetworkReader reader);
 }

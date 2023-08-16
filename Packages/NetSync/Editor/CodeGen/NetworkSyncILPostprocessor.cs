@@ -7,25 +7,25 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
-using Yanmonet.AssemblyPostprocessing.Editor;
-using Yanmonet.Injection.Assembly.Editor;
+using Yanmonet.ILPostprocessing.Editor;
+
 
 namespace Yanmonet.Network.Sync.Editor.CodeGen
 {
 
 
     /// <summary>
-    /// ÍøÂç³ÌĞò¼¯×¢ÈëÆ÷
+    /// ç½‘ç»œç¨‹åºé›†æ³¨å…¥å™¨
     /// </summary>
     [InitializeOnLoad]
-    class NetworkAssemblyPostprocessor : IAssemblyPostprocessor
+    class NetworkSyncILPostprocessor : IILPostprocessor
     {
         public int callbackOrder => 0;
 
 
         static HashSet<string> excludeAssemblies;
 
-        #region Rpc ·½·¨
+        #region Rpc æ–¹æ³•
 
         static string BeginServerRpcMethodName = "__BeginServerRpc__";
         static string EndServerRpcMethodName = "__EndServerRpc__";
@@ -72,6 +72,7 @@ namespace Yanmonet.Network.Sync.Editor.CodeGen
 
         public int Order => 0;
 
+        public string Name => "NetworkSync";
 
         static HashSet<string> GetAllNetworkAssemblyNames()
         {
@@ -102,7 +103,7 @@ namespace Yanmonet.Network.Sync.Editor.CodeGen
             {
                 excludeAssemblies = new HashSet<string>
                 {
-                    typeof(NetworkAssemblyPostprocessor).Assembly.GetName().Name,
+                    typeof(NetworkSyncILPostprocessor).Assembly.GetName().Name,
                     typeof(RpcAttribute).Assembly.GetName().Name
                 };
             }
@@ -180,7 +181,7 @@ namespace Yanmonet.Network.Sync.Editor.CodeGen
 
             bool changed = false;
 
-            //assembly.MainModule.Types ²»°üº¬Ç¶Ì×ÀàĞÍ
+            //assembly.MainModule.Types ä¸åŒ…å«åµŒå¥—ç±»å‹
             foreach (var type in assemblyDef.MainModule.GetAllTypes())
             {
                 if (!type.IsClass)
@@ -289,7 +290,7 @@ namespace Yanmonet.Network.Sync.Editor.CodeGen
             if (rpcParamsIndex == -1)
             {
                 var rpcParamsVar = builder.NewVariable(ServerRpcParamsRef);
-                //½á¹¹Ìå±äÁ¿Ê¹ÓÃµØÖ·£ºLdloca_S
+                //ç»“æ„ä½“å˜é‡ä½¿ç”¨åœ°å€ï¼šLdloca_S
                 builder.Emit(OpCodes.Ldloca_S, rpcParamsVar);
                 builder.Emit(OpCodes.Initobj, ServerRpcParamsRef);
 

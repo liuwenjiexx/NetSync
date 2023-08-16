@@ -8,8 +8,10 @@ using System.Reflection;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Net;
-using UnityEngine;
 using System.Net.Sockets;
+#if UNITY_ENGINE
+using UnityEngine;
+#endif
 
 namespace Yanmonet.Network.Sync
 {
