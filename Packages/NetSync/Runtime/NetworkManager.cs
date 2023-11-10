@@ -973,12 +973,12 @@ namespace Yanmonet.Network.Sync
             if (IsClient)
             {
                 IsClient = false;
-                if (LocalClientId != ServerClientId)
+                if (!IsServer)
                 {
                     transport.DisconnectLocalClient();
                 }
 
-                if (localClient == null || (localClient != null && localClient.isConnected) || (LocalClientId == ServerClientId))
+                if (localClient == null || (localClient != null && localClient.isConnected) || IsServer)
                 {
                     try
                     {

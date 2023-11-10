@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -376,7 +377,6 @@ namespace Yanmonet.Network.Sync
 
                     //多网卡会重复收数据
                     result = await receiveClient.ReceiveAsync();
-
                     if (cancellationToken.IsCancellationRequested)
                         break;
 
@@ -426,7 +426,7 @@ namespace Yanmonet.Network.Sync
                 {
                     if (cancellationToken.IsCancellationRequested)
                         break;
-                   //NetworkUtility.LogException(ex);
+                    //NetworkUtility.LogException(ex);
                 }
             }
         }
@@ -569,6 +569,7 @@ namespace Yanmonet.Network.Sync
         {
             initalized = false;
 
+            NetworkUtility.Log("Discovery stoping");
             if (cancellationTokenSource != null)
             {
                 cancellationTokenSource.Cancel();
@@ -579,7 +580,10 @@ namespace Yanmonet.Network.Sync
             {
                 try
                 {
-                    receiveWorkerTask.Wait();
+                    if (!receiveWorkerTask.Wait(100))
+                    {
+                        NetworkUtility.Log("Discovery wait receive worker timeout");
+                    }
                 }
                 catch { }
                 receiveWorkerTask = null;
@@ -591,6 +595,7 @@ namespace Yanmonet.Network.Sync
             {
                 try
                 {
+                    NetworkUtility.Log("Dispose discovery send client");
                     sendClient.Dispose();
                 }
                 catch { }
@@ -601,13 +606,14 @@ namespace Yanmonet.Network.Sync
             {
                 try
                 {
+                    NetworkUtility.Log("Dispose discovery receive client");
                     receiveClient.Dispose();
                 }
                 catch { }
                 receiveClient = null;
             }
 
-            //NetworkManager.Singleton?.Log($"Stop Discovery");
+            NetworkUtility.Log("Discovery stoped");
         }
 
         enum DiscoveryMsgIds

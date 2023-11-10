@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -33,6 +34,7 @@ namespace Yanmonet.Network.Transport.Socket
         private Pool<NetworkWriter> writePool;
         NetworkManager networkManager;
         private Task acceptWorkerTask;
+        private CancellationTokenSource acceptCancellationTokenSource;
         public string ConnectFailReson;
         SemaphoreSlim semaphore;
 
@@ -97,7 +99,8 @@ namespace Yanmonet.Network.Transport.Socket
                 socket.Bind(new IPEndPoint(IPAddress.Parse(listenAddress), port));
                 socket.Listen(port);
 
-                acceptWorkerTask = Task.Run(AcceptWorker, cancellationTokenSource.Token);
+                acceptCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenSource.Token);
+                acceptWorkerTask = Task.Run(AcceptWorker, acceptCancellationTokenSource.Token);
             }
             catch (Exception ex)
             {
@@ -219,13 +222,19 @@ namespace Yanmonet.Network.Transport.Socket
                 localClient.sendEvent.Set();
                 try
                 {
-                    localClient.sendWorkerTask.Wait();
+                    if (!localClient.sendWorkerTask.Wait(100))
+                    {
+                        Log("Wait send task timeout");
+                    }
                 }
                 catch { }
 
                 try
                 {
-                    localClient.receiveWorkerTask.Wait();
+                    if (!localClient.receiveWorkerTask.Wait(100))
+                    {
+                        Log("Wait receive task timeout");
+                    }
                 }
                 catch { }
                 localClient.sendEvent.Dispose();
@@ -313,7 +322,7 @@ namespace Yanmonet.Network.Transport.Socket
 
         void AcceptWorker()
         {
-            var cancelToken = cancellationTokenSource.Token;
+            var cancelToken = acceptCancellationTokenSource.Token;
 
             while (true)
             {
@@ -324,10 +333,18 @@ namespace Yanmonet.Network.Transport.Socket
 
                     SocketClient client = null;
                     Socket socketClient = socket.Accept();
+
                     if (socketClient != null)
                     {
                         try
                         {
+                            if (cancelToken.IsCancellationRequested)
+                            {
+                                socketClient.Disconnect(false);
+                                socketClient.Close();
+                                break;
+                            }
+
                             client = new SocketClient(socketClient)
                             {
                                 ClientId = ++nextClientId,
@@ -373,12 +390,17 @@ namespace Yanmonet.Network.Transport.Socket
                 {
                     if (cancelToken.IsCancellationRequested)
                     {
-                        return;
+                        break;
                     }
                 }
                 finally
                 {
                 }
+            }
+
+            if (networkManager?.LogLevel <= LogLevel.Debug)
+            {
+                Log($"Accept Worker Done");
             }
         }
 
@@ -430,7 +452,14 @@ namespace Yanmonet.Network.Transport.Socket
                     client.sendEvent.WaitOne();
                 }
 
+                if (semaphore == null)
+                {
+                    Log("semaphore null");
+                    break;
+                }
+
                 semaphore.Wait();
+
                 try
                 {
                     if (cancelToken.IsCancellationRequested)
@@ -500,6 +529,7 @@ namespace Yanmonet.Network.Transport.Socket
                         }
 
                     }
+
                 }
                 catch (Exception ex)
                 {
@@ -517,12 +547,15 @@ namespace Yanmonet.Network.Transport.Socket
 
             }
 
+
             if (client.IsLocalClient)
             {
+                Log("DisconnectLocalClient");
                 DisconnectLocalClient();
             }
             else
             {
+                Log($"DisconnectRemoteClient {client.ClientId}");
                 DisconnectRemoteClient(client.ClientId);
             }
 
@@ -1058,13 +1091,17 @@ namespace Yanmonet.Network.Transport.Socket
                         _SendMsg(client, MsgId.Disconnect, null);
                     }
                 }
+                while (eventQueue.Count > 0)
+                {
+                    if (client.cancellationTokenSource.IsCancellationRequested)
+                        break;
+                    Thread.Sleep(3);
+                }
             }
 
-            client.sendEvent.Set();
-            try { client.sendWorkerTask.Wait(); } catch { }
-            client.sendEvent.Dispose();
 
             client.cancellationTokenSource.Cancel();
+
 
             if (client.socket != null)
             {
@@ -1072,14 +1109,40 @@ namespace Yanmonet.Network.Transport.Socket
                 {
                     client.socket.Disconnect(false);
                     client.socket.Close();
+                    client.socket.Dispose();
                 }
                 catch { }
-                client.socket = null;
             }
 
+            client.sendEvent.Set();
             client.receiveEvent.Set();
-            try { client.receiveWorkerTask.Wait(); } catch { }
-            client.receiveEvent.Dispose();
+
+            try
+            {
+                if (!client.sendWorkerTask.Wait(100))
+                {
+                    Log("Wait send task timeout");
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (!client.receiveWorkerTask.Wait(100))
+                {
+                    Log("Wait receive task timeout");
+                }
+            }
+            catch { }
+
+            lock (lockObj)
+            {
+                client.socket = null;
+                client.sendEvent.Dispose();
+                client.sendEvent = null;
+                client.receiveEvent.Dispose();
+                client.receiveEvent = null;
+            }
 
             client.IsConnected = false;
 
@@ -1094,34 +1157,42 @@ namespace Yanmonet.Network.Transport.Socket
             if (!(isServer || isClient))
                 return;
 
+            Log($"Shutdown");
+
             if (isClient)
             {
                 isClient = false;
             }
 
-            cancellationTokenSource.Cancel();
+            cancellationTokenSource.CancelAfter(100);
 
             if (isServer)
             {
                 isServer = false;
+                acceptCancellationTokenSource.Cancel();
 
-                float timeout = NowTime + 1f;
-                while (clients.Count > 0 && NowTime < timeout)
+                foreach (var clientId in clients.Keys.ToArray())
                 {
-                    Thread.Sleep(0);
+                    DisconnectRemoteClient(clientId, true);
                 }
-
             }
+            cancellationTokenSource.Cancel();
 
             if (socket != null)
             {
+                if (networkManager?.LogLevel <= LogLevel.Debug)
+                    Log($"Dispose socket");
                 try { socket.Dispose(); } catch { }
                 socket = null;
             }
 
+
             if (acceptWorkerTask != null)
             {
-                acceptWorkerTask.Wait();
+                if (!acceptWorkerTask.Wait(100))
+                {
+                    Log($"Wait accept task timeout");
+                }
                 acceptWorkerTask = null;
             }
 
@@ -1133,7 +1204,7 @@ namespace Yanmonet.Network.Transport.Socket
 
             if (networkManager?.LogLevel <= LogLevel.Debug)
             {
-                Log($"Shutdown");
+                Log($"Shutdown done");
             }
         }
 
