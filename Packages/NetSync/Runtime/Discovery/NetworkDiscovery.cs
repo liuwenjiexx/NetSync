@@ -26,8 +26,8 @@ namespace Yanmonet.Network.Sync
         protected DateTime? nextBroadcastTime;
         private CancellationTokenSource cancellationTokenSource;
         private CancellationToken cancellationToken;
-        private int port;
-        private int portCount;
+        private ushort port;
+        private ushort port2;
         private List<IPEndPoint> broadcastAddressList;
         private bool initalized;
         private object lockObj = new object();
@@ -38,6 +38,7 @@ namespace Yanmonet.Network.Sync
 
         public NetworkDiscovery()
         {
+            NetworkManager.InitializeSerialization();
             msgHandlers = new();
 
             RegisterHandler((ushort)DiscoveryMsgIds.DiscoveryRequest, DiscoveryRequestHandler);
@@ -94,7 +95,7 @@ namespace Yanmonet.Network.Sync
             }
         }
 
-        public int Port
+        public ushort Port
         {
             get => port;
             set
@@ -107,14 +108,14 @@ namespace Yanmonet.Network.Sync
             }
         }
 
-        public int PortCount
+        public ushort Port2
         {
-            get => portCount;
+            get => port2;
             set
             {
-                if (portCount != value)
+                if (port2 != value)
                 {
-                    portCount = value;
+                    port2 = value;
                     broadcastAddressList = null;
                 }
             }
@@ -221,15 +222,16 @@ namespace Yanmonet.Network.Sync
                 multiBroadcast = IPAddress.Broadcast;
             }
 
-            int endPort = Port;
-            if (PortCount > 0)
-                endPort = Port + PortCount - 1;
-            for (int i = Port; i <= endPort; i++)
+            if (port != 0)
             {
-                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {i}");
-                broadcastAddressList.Add(new IPEndPoint(multiBroadcast, i));
+                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {port}");
+                broadcastAddressList.Add(new IPEndPoint(multiBroadcast, port));
             }
-
+            if (port2 != 0)
+            {
+                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {port2}");
+                broadcastAddressList.Add(new IPEndPoint(multiBroadcast, port2));
+            }
 
         }
 
@@ -268,15 +270,13 @@ namespace Yanmonet.Network.Sync
             //{
             DateTime startTime = DateTime.Now;
             //Initalize();
-            int port = 0;
-            int endPort = Port;
-            if (PortCount > 0)
-                endPort = Port + PortCount;
-            for (int i = Port; i <= endPort; i++)
+            ushort port = 0;
+
+            foreach (var p in broadcastAddressList)
             {
-                if (!NetworkUtility.IsPortUsed(i))
+                if (!NetworkUtility.IsPortUsed(p.Port))
                 {
-                    port = i;
+                    port = (ushort)p.Port;
                     break;
                 }
             }
@@ -317,12 +317,9 @@ namespace Yanmonet.Network.Sync
 
             if (sendClient != null)
             {
-                if (nextBroadcastTime.HasValue)
+                if (nextBroadcastTime.HasValue && NowTime > nextBroadcastTime)
                 {
-                    if (nextBroadcastTime.HasValue && NowTime > nextBroadcastTime)
-                    {
-                        SendDiscoveryRequest();
-                    }
+                    SendDiscoveryResponse();
                 }
             }
 
@@ -432,7 +429,7 @@ namespace Yanmonet.Network.Sync
         }
 
 
-        private async Task Broadcast(byte[] data)
+        private async Task BroadcastRaw(byte[] data)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
             if (data.Length == 0) return;
@@ -457,14 +454,6 @@ namespace Yanmonet.Network.Sync
         {
             TRequest requestData = GetRequestData();
 
-            if (BroadcastInterval > 0)
-            {
-                nextBroadcastTime = NowTime.AddSeconds(BroadcastInterval);
-            }
-            else
-            {
-                nextBroadcastTime = null;
-            }
 
             if (sendClient == null)
                 return;
@@ -481,7 +470,7 @@ namespace Yanmonet.Network.Sync
 
                 byte[] bytes = NetworkUtility.PackMessage((ushort)DiscoveryMsgIds.DiscoveryRequest, data);
 
-                await Broadcast(bytes);
+                await BroadcastRaw(bytes);
 
                 //NetworkManager.Singleton?.Log($"SendLookupMsg");
             }
@@ -507,6 +496,15 @@ namespace Yanmonet.Network.Sync
 
         public async Task SendDiscoveryResponse(TResponse responseData, IPEndPoint remote)
         {
+
+            if (BroadcastInterval > 0)
+            {
+                nextBroadcastTime = NowTime.AddSeconds(BroadcastInterval);
+            }
+            else
+            {
+                nextBroadcastTime = null;
+            }
 
             if (sendClient == null)
                 return;

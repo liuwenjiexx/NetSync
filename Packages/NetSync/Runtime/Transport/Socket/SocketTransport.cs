@@ -449,8 +449,11 @@ namespace Yanmonet.Network.Transport.Socket
                 }
                 else
                 {
-                    client.sendEvent.WaitOne();
+                    client.sendEvent.WaitOne(1000);
                 }
+
+                if (cancelToken.IsCancellationRequested)
+                    break;
 
                 if (semaphore == null)
                 {
@@ -458,10 +461,10 @@ namespace Yanmonet.Network.Transport.Socket
                     break;
                 }
 
-                semaphore.Wait();
 
                 try
                 {
+                    semaphore.Wait(cancelToken);
                     if (cancelToken.IsCancellationRequested)
                         break;
 
@@ -618,10 +621,11 @@ namespace Yanmonet.Network.Transport.Socket
                             Log($"[{client.ClientId}] Receive: " + total);
                         }
                     }
-                    semaphore.Wait();
-
+                    
                     try
                     {
+                        semaphore.Wait(cancelToken);
+
                         if (cancelToken.IsCancellationRequested)
                             break;
 
@@ -1113,7 +1117,7 @@ namespace Yanmonet.Network.Transport.Socket
                 }
                 catch { }
             }
-
+            
             client.sendEvent.Set();
             client.receiveEvent.Set();
 
@@ -1121,7 +1125,7 @@ namespace Yanmonet.Network.Transport.Socket
             {
                 if (!client.sendWorkerTask.Wait(100))
                 {
-                    Log("Wait send task timeout");
+                    LogError("Wait send task timeout");
                 }
             }
             catch { }
@@ -1130,11 +1134,11 @@ namespace Yanmonet.Network.Transport.Socket
             {
                 if (!client.receiveWorkerTask.Wait(100))
                 {
-                    Log("Wait receive task timeout");
+                    LogError("Wait receive task timeout");
                 }
             }
             catch { }
-
+            
             lock (lockObj)
             {
                 client.socket = null;
@@ -1191,7 +1195,7 @@ namespace Yanmonet.Network.Transport.Socket
             {
                 if (!acceptWorkerTask.Wait(100))
                 {
-                    Log($"Wait accept task timeout");
+                    LogError($"Wait accept task timeout");
                 }
                 acceptWorkerTask = null;
             }

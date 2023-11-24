@@ -261,10 +261,10 @@ namespace Yanmonet.Network.Sync
             return ports;
         }
 
-        public static int FindAvaliablePort(int startPort)
+        public static ushort FindAvaliablePort(ushort startPort)
         {
             var usedPorts = NetworkUtility.GetAllUsedPorts();
-            int port = startPort;
+            ushort port = startPort;
             while (usedPorts.Contains(port))
             {
                 port++;
