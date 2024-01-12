@@ -16,7 +16,7 @@
     "autoReferenced": true,
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS",
-        "NETWORK_SYNC_TESTS"
+        "YANMONET_NETWORK_SYNC_TESTS"
     ],
     "versionDefines": [],
     "noEngineReferences": false

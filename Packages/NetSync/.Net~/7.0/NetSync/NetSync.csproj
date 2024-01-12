@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <AssemblyName>NetSync</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\Runtime\**\*.cs" Exclude="*.meta" LinkBase="Runtime" />
+  </ItemGroup>
+</Project>
