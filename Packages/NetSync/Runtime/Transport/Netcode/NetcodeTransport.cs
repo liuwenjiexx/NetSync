@@ -60,10 +60,10 @@ namespace Yanmonet.Network.Transport.Netcode
             if (!netMgr)
                 throw new Exception("NetworkManager null");
 
-            if (!(netMgr.IsClient || netMgr.IsClient))
+            if (!(netMgr.IsServer || netMgr.IsClient))
             {
                 throw new Exception("NetworkManager not start");
-            }
+            } 
 
             eventQueue = new();
             clientToBaseNetIds = new();

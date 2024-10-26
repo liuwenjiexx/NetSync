@@ -34,7 +34,7 @@ namespace Yanmonet.Network.Sync
                 if (Data == null)
                     Data = new T();
             }
-            Data.NetworkSerialize(readerWriter);
+            data.NetworkSerialize(readerWriter);
         }
     }
 

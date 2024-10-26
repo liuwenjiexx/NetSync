@@ -32,7 +32,7 @@ namespace Yanmonet.Network.Sync
 
         public NetworkManager()
         {
-            InitializeIntegerSerialization();
+            InitializeSerialization();
             InitalizeMessageHandler();
 
             if (Singleton == null)
@@ -182,7 +182,7 @@ namespace Yanmonet.Network.Sync
 
         static bool serializationInitalized;
 
-        internal static void InitializeIntegerSerialization()
+        public static void InitializeSerialization()
         {
             if (serializationInitalized)
                 return;
@@ -973,12 +973,12 @@ namespace Yanmonet.Network.Sync
             if (IsClient)
             {
                 IsClient = false;
-                if (LocalClientId != ServerClientId)
+                if (!IsServer)
                 {
                     transport.DisconnectLocalClient();
                 }
 
-                if (localClient == null || (localClient != null && localClient.isConnected) || (LocalClientId == ServerClientId))
+                if (localClient == null || (localClient != null && localClient.isConnected) || IsServer)
                 {
                     try
                     {
