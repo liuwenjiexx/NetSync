@@ -1,16 +1,15 @@
 {
-  "name": "com.yanmonet.network.sync",
-  "displayName": "[YM] Network Sync",
+  "name": "com.unity.network.sync",
+  "displayName": "Network Sync",
   "version": "0.0.1",
   "unity": "2020.1",
   "dependencies": {
-    "com.yanmonet.async": "0.0.2",
+    "com.unity.async": "0.0.2",
     "com.unity.nuget.mono-cecil": "1.10.1",
-    "com.yanmonet.il-postprocessing": "0.0.5-preview-3"
+    "com.unity.il-postprocessing": "0.0.5-preview-3"
   },
-  "hideInEditor": true,
   "samples": [],
   "author": {
-    "name": "Yanmonet"
+    "name": ""
   }
 }

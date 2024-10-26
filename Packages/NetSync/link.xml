@@ -1,4 +1,4 @@
 <linker>
-  <assembly fullname="Yanmonet.Network.Sync" preserve="all" />
-  <assembly fullname="Yanmonet.Network.Transport.Netcode" preserve="all" />  
+  <assembly fullname="Network.Sync" preserve="all" />
+  <assembly fullname="Network.Transport.Netcode" preserve="all" />  
 </linker>
