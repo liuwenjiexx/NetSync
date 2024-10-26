@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Unity.Netcode;
 
 namespace Yanmonet.Network.Sync
 {
@@ -45,6 +46,7 @@ namespace Yanmonet.Network.Sync
             RegisterHandler((ushort)DiscoveryMsgIds.DiscoveryResponse, DiscoveryResponseHandler);
         }
 
+        public byte ProtocolVersion;
 
         public uint Identifier
         {
@@ -121,6 +123,12 @@ namespace Yanmonet.Network.Sync
             }
         }
 
+        public ushort BindPort
+        {
+            get;
+            private set;
+        }
+
         public float BroadcastInterval { get; set; }
 
         public List<IPEndPoint> BroadcastAddressList => broadcastAddressList;
@@ -133,30 +141,84 @@ namespace Yanmonet.Network.Sync
 
         void DiscoveryRequestHandler(IReaderWriter reader, IPEndPoint remote)
         {
-            var request = new DiscoveryRequest<TRequest>();
-            request.NetworkSerialize(reader);
+            try
+            {
+                var request = new DiscoveryRequest<TRequest>();
 
-            if (request.Identifier != Identifier)
-                return;
+                if (reader.IsReader)
+                {
+                    byte protocolVersion = 0;
+                    reader.SerializeValue(ref protocolVersion);
+                    if (protocolVersion == this.ProtocolVersion)
+                        return;
+                }
+                else
+                {
+                    reader.SerializeValue(ref this.ProtocolVersion);
+                }
 
-            request.Remote = remote;
+                reader.SerializeValue(ref request.identifier);
+                if (Identifier != request.identifier) return;
 
-            //Debug.Log($"[NetworkDiscovery] Receive Request [{remote}]");
-            OnDiscoveryRequest(request);
+                reader.SerializeValue(ref request.serverName);
+                if (serverName != request.serverName) return;
 
+                reader.SerializeValue(ref request.version);
+
+                request.data = new();
+
+                request.data.NetworkSerialize(reader);
+
+                if (request.Identifier != Identifier)
+                    return;
+
+                request.Remote = remote;
+
+                //Debug.Log($"[NetworkDiscovery] Receive Request [{remote}]");
+                OnDiscoveryRequest(request);
+            }
+            catch { }
         }
 
         void DiscoveryResponseHandler(IReaderWriter reader, IPEndPoint remote)
         {
-            var response = new DiscoveryResponse<TResponse>();
-            response.NetworkSerialize(reader);
+            try
+            {
+                var response = new DiscoveryResponse<TResponse>();
 
-            if (response.Identifier != Identifier)
-                return;
-            response.Remote = remote;
+                if (reader.IsReader)
+                {
+                    byte protocolVersion = 0;
+                    reader.SerializeValue(ref protocolVersion);
 
-            //Debug.Log($"[NetworkDiscovery] Receive Response [{remote}]");
-            OnDiscoveryResponse(response);
+                    if (protocolVersion != this.ProtocolVersion)
+                        return;
+                }
+                else
+                {
+                    reader.SerializeValue(ref this.ProtocolVersion);
+                }
+
+                reader.SerializeValue(ref response.identifier);
+                if (response.Identifier != Identifier) return;
+
+                reader.SerializeValue(ref response.serverName);
+                if (response.serverName != ServerName) return;
+
+                reader.SerializeValue(ref response.version);
+                response.data = new();
+
+                response.data.NetworkSerialize(reader);
+
+                response.Remote = remote;
+
+                //Debug.Log($"[NetworkDiscovery] Receive Response [{remote}]");
+                OnDiscoveryResponse(response);
+            }
+            catch
+            {
+
+            }
         }
 
         private void Initalize()
@@ -224,12 +286,12 @@ namespace Yanmonet.Network.Sync
 
             if (port != 0)
             {
-                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {port}");
+                NetworkUtility.Log($"Add Discovery address: {multiBroadcast}, port: {port}");
                 broadcastAddressList.Add(new IPEndPoint(multiBroadcast, port));
             }
             if (port2 != 0)
             {
-                NetworkUtility.Log($"Discovery address: {multiBroadcast}, port: {port2}");
+                NetworkUtility.Log($"Add Discovery address: {multiBroadcast}, port: {port2}");
                 broadcastAddressList.Add(new IPEndPoint(multiBroadcast, port2));
             }
 
@@ -272,6 +334,7 @@ namespace Yanmonet.Network.Sync
             //Initalize();
             ushort port = 0;
 
+
             foreach (var p in broadcastAddressList)
             {
                 if (!NetworkUtility.IsPortUsed(p.Port))
@@ -282,9 +345,13 @@ namespace Yanmonet.Network.Sync
             }
 
             if (port == 0)
+            {
+                NetworkUtility.Log($"Discovery not avaliable bind port");
                 return;
+            }
 
 
+            NetworkUtility.Log($"Bind Discovery Port: {port}");
             //receiveClient = new UdpClient(new IPEndPoint(IPAddress.Any, Port));
             receiveClient = new UdpClient(port)
             {
@@ -292,7 +359,7 @@ namespace Yanmonet.Network.Sync
                 MulticastLoopback = false
             };
             sendClient = receiveClient;
-
+            BindPort = port;
             //NetworkManager.Singleton?.Log($"Start Discovery Server [{ServerName}], Identifier: '{Identifier}', Liststen: {receiveClient.Client.LocalEndPoint}, ({DateTime.Now.Subtract(startTime).TotalMilliseconds:0}ms)");
 
 
@@ -303,8 +370,10 @@ namespace Yanmonet.Network.Sync
             if (sendClient != null)
             {
                 SendDiscoveryRequest();
-
-                SendDiscoveryResponse();
+                if (HasResponseData())
+                {
+                    SendDiscoveryResponse();
+                }
             }
 
             //NetworkManager.Singleton?.Log($"Stop Discovery Client");
@@ -319,7 +388,19 @@ namespace Yanmonet.Network.Sync
             {
                 if (nextBroadcastTime.HasValue && NowTime > nextBroadcastTime)
                 {
-                    SendDiscoveryResponse();
+                    if (BroadcastInterval > 0)
+                    {
+                        nextBroadcastTime = NowTime.AddSeconds(BroadcastInterval);
+                    }
+                    else
+                    {
+                        nextBroadcastTime = null;
+                    }
+
+                    if (HasResponseData())
+                    {
+                        SendDiscoveryResponse();
+                    }
                 }
             }
 
@@ -448,10 +529,17 @@ namespace Yanmonet.Network.Sync
 
         protected abstract TRequest GetRequestData();
 
+        protected virtual bool HasResponseData()
+        {
+            return true;
+        }
+
         protected abstract TResponse GetResponseData();
 
         public async Task SendDiscoveryRequest()
         {
+
+            return;
             TRequest requestData = GetRequestData();
 
 
@@ -482,6 +570,8 @@ namespace Yanmonet.Network.Sync
 
         public async Task SendDiscoveryResponse()
         {
+            if (!HasResponseData())
+                return;
             var respData = GetResponseData();
             foreach (var address in BroadcastAddressList)
             {
@@ -491,12 +581,15 @@ namespace Yanmonet.Network.Sync
 
         public Task SendDiscoveryResponse(IPEndPoint remote)
         {
+            if (!HasResponseData())
+                return Task.CompletedTask;
+
             return SendDiscoveryResponse(GetResponseData(), remote);
         }
 
         public async Task SendDiscoveryResponse(TResponse responseData, IPEndPoint remote)
         {
-
+            //NetworkUtility.Log($"SendDiscoveryResponse: {remote}");
             if (BroadcastInterval > 0)
             {
                 nextBroadcastTime = NowTime.AddSeconds(BroadcastInterval);
@@ -514,6 +607,7 @@ namespace Yanmonet.Network.Sync
                     return;
 
                 var data = new DiscoveryResponse<TResponse>();
+                data.ProtocolVersion = ProtocolVersion;
                 data.Identifier = identifier;
                 data.ServerName = serverName;
                 data.Data = responseData;
@@ -525,10 +619,11 @@ namespace Yanmonet.Network.Sync
                     return;
 
                 //NetworkManager.Singleton?.Log($"SendDiscoveryMsg");
+                //NetworkUtility.Log($"SendDiscoveryResponse: {remote} done");
             }
             catch (Exception ex)
             {
-                //NetworkUtility.LogException(ex);
+                NetworkUtility.Log(ex.Message);
             }
         }
         /*

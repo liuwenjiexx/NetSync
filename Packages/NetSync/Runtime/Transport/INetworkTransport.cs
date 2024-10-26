@@ -11,6 +11,8 @@ namespace Yanmonet.Network.Transport
 
         ulong ServerClientId { get; }
 
+        //event Action<ulong> ClientDisconnected;
+
         abstract void Initialize(NetworkManager networkManager = null);
 
         abstract void StartServer();

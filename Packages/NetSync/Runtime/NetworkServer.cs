@@ -1,4 +1,4 @@
-﻿using Yanmonet.Network.Sync.Messages;
+using Yanmonet.Network.Sync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;

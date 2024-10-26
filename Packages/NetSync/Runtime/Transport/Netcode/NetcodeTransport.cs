@@ -63,7 +63,7 @@ namespace Yanmonet.Network.Transport.Netcode
             if (!(netMgr.IsServer || netMgr.IsClient))
             {
                 throw new Exception("NetworkManager not start");
-            } 
+            }
 
             eventQueue = new();
             clientToBaseNetIds = new();
@@ -77,6 +77,7 @@ namespace Yanmonet.Network.Transport.Netcode
             handlers = new();
             handlers[(ushort)MsgId.ConnectResponse] = ConnectResponseHandle;
             handlers[(ushort)MsgId.Data] = DataHandle;
+            netMgr.OnClientDisconnectCallback += Netcode_OnClientDisconnectCallback;
         }
 
 
@@ -124,7 +125,7 @@ namespace Yanmonet.Network.Transport.Netcode
             isServer = true;
             localClientId = ServerClientId;
             OnClientConnect(localClientId, netMgr.LocalClientId);
-             
+
         }
 
         public void StartClient()
@@ -143,7 +144,6 @@ namespace Yanmonet.Network.Transport.Netcode
             }
 
             localClientId = ulong.MaxValue;
-
             var writer = CreateWriter(MsgId.ConnectRequest, 0, new ArraySegment<byte>());
             SendNetMessage(0, writer);
 
@@ -200,7 +200,7 @@ namespace Yanmonet.Network.Transport.Netcode
 
         public void DisconnectRemoteClient(ulong clientId)
         {
-            if (clientToBaseNetIds.TryGetValue(clientId, out var netId))
+            if (!clientToBaseNetIds.TryGetValue(clientId, out var netId))
                 return;
 
             NetworkEvent @event = new NetworkEvent()
@@ -372,8 +372,26 @@ namespace Yanmonet.Network.Transport.Netcode
             handler(senderClientId2, data);
         }
 
+        private void Netcode_OnClientDisconnectCallback(ulong netId)
+        {
+
+            if (netMgr.IsServer)
+            {
+                if (!baseNetToClientIds.TryGetValue(netId, out var clientId))
+                    return;
+                DisconnectRemoteClient(clientId);
+            }
+            else
+            {
+                //客户端断开，netId始终为0
+                DisconnectLocalClient();
+            }
+        }
+
+
         public void Shutdown()
         {
+            netMgr.OnClientDisconnectCallback -= Netcode_OnClientDisconnectCallback;
             netMgr.CustomMessagingManager.UnregisterNamedMessageHandler(MessageName);
             if (clientToBaseNetIds != null)
             {

@@ -6,10 +6,10 @@ namespace Yanmonet.Network.Sync
     public class DiscoveryRequest<T> : INetworkSerializable
         where T : INetworkSerializable, new()
     {
-        private ulong identifier;
-        private string serverName;
-        private int version;
-        private T data;
+        internal ulong identifier;
+        internal string serverName;
+        internal int version;
+        internal T data;
 
         public ulong Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
@@ -24,6 +24,7 @@ namespace Yanmonet.Network.Sync
             readerWriter.SerializeValue(ref identifier);
             readerWriter.SerializeValue(ref serverName);
             readerWriter.SerializeValue(ref version);
+
 
             if (readerWriter.IsReader)
             {
@@ -41,13 +42,15 @@ namespace Yanmonet.Network.Sync
     public class DiscoveryResponse<T> : INetworkSerializable
         where T : INetworkSerializable, new()
     {
-        private ulong identifier;
-        private string serverName;
-        private int version;
+        private byte protocolVersion;
+        internal ulong identifier;
+        internal string serverName;
+        internal int version;
 
-        private T data;
-        private IPEndPoint remote;
+        internal T data;
+        internal IPEndPoint remote;
 
+        internal byte ProtocolVersion { get => protocolVersion; set => protocolVersion = value; }
         public ulong Identifier { get => identifier; set => identifier = value; }
         public string ServerName { get => serverName; set => serverName = value; }
         public int Version { get => version; set => version = value; }
@@ -57,9 +60,11 @@ namespace Yanmonet.Network.Sync
 
         public void NetworkSerialize(IReaderWriter readerWriter)
         {
+            readerWriter.SerializeValue(ref protocolVersion);
             readerWriter.SerializeValue(ref identifier);
             readerWriter.SerializeValue(ref serverName);
             readerWriter.SerializeValue(ref version);
+
 
             if (readerWriter.IsReader)
             {
