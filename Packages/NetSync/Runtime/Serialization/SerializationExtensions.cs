@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Yanmonet.NetSync;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public static partial class Extensions
     {

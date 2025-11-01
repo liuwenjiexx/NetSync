@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace Yanmonet.NetSync
+namespace Unity.Network.Sync
 {
     static partial class Extensions
     {

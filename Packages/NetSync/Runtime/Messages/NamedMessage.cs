@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using Yanmonet.Network.Sync;
+using Unity.Network.Sync;
 
-namespace Yanmonet.Network.Sync.Messages
+namespace Unity.Network.Sync.Messages
 {
     internal class NamedMessage : MessageBase
     {

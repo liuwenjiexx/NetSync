@@ -1,6 +1,6 @@
 using System;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public enum NetworkMsgId
     {

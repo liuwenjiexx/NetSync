@@ -7,10 +7,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
-using Yanmonet.ILPostprocessing.Editor;
+using ILPostprocessing.Editor;
 
 
-namespace Yanmonet.Network.Sync.Editor.CodeGen
+namespace Unity.Network.Sync.Editor.CodeGen
 {
 
 

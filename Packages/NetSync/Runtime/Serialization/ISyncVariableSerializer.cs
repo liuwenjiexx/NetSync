@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public interface ISyncVariableSerializer<T>
     {

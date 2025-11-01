@@ -6,7 +6,7 @@ using UnityEngine;
 using Unity.Collections.LowLevel.Unsafe;
 #endif
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
 #if UNITY_ENGINE
     [Serializable]

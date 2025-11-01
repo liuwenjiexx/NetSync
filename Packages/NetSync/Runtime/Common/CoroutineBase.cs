@@ -3,7 +3,7 @@
 //using System.Collections.Generic;
 //using System.Threading;
 
-//namespace Yanmonet.Network.Sync
+//namespace Unity.Network.Sync
 //{
 //    public class CoroutineBase
 //    {

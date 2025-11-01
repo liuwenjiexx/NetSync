@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     internal class RpcInfo
     {

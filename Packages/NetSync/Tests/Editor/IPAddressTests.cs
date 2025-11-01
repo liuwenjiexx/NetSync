@@ -8,7 +8,7 @@ using System.Net.Sockets;
 using UnityEngine;
 
 
-namespace Yanmonet.Network.Sync.Editor.Tests
+namespace Unity.Network.Sync.Editor.Tests
 {
     public class IPAddressTests
     {

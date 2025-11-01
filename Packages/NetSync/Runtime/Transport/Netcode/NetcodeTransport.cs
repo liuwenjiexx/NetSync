@@ -6,9 +6,9 @@ using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Netcode;
-using Yanmonet.Network.Sync;
+using Unity.Network.Sync;
 
-namespace Yanmonet.Network.Transport.Netcode
+namespace Unity.Network.Transport.Netcode
 {
     using Debug = UnityEngine.Debug;
     using LogLevel = Sync.LogLevel;

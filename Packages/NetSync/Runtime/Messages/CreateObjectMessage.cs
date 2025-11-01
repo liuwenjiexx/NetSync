@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Yanmonet.Network.Sync.Messages
+namespace Unity.Network.Sync.Messages
 {
 
     internal class CreateObjectMessage : MessageBase

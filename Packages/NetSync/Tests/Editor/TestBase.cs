@@ -5,9 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Yanmonet.Network.Transport.Socket;
+using Unity.Network.Transport.Socket;
 
-namespace Yanmonet.Network.Sync.Editor.Tests
+namespace Unity.Network.Sync.Editor.Tests
 {
     public class TestBase
     {

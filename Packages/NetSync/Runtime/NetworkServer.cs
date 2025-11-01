@@ -1,4 +1,4 @@
-using Yanmonet.Network.Sync.Messages;
+using Unity.Network.Sync.Messages;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,9 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Runtime.Serialization;
-using Yanmonet.Network.Transport;
+using Unity.Network.Transport;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public class NetworkServer : IDisposable
     {

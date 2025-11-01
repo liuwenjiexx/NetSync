@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 
 
-namespace Yanmonet.Network.Sync.Messages
+namespace Unity.Network.Sync.Messages
 {
     public class ChangeOwnerMessage : MessageBase
     {

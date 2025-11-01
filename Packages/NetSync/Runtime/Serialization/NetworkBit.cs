@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public static class NetworkBit
     {

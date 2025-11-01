@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
 
     public class DiscoveryRequest<T> : INetworkSerializable

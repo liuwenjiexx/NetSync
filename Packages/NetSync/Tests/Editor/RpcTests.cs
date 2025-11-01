@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Yanmonet.Network.Sync.Editor.Tests
+namespace Unity.Network.Sync.Editor.Tests
 {
     public class RpcTests : TestBase
     {
@@ -46,7 +46,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
                 this.result = a + b;
             }
-             
+              
             public void ServerRpc3(int a, int b, ServerRpcParams rpcParams)
             {
                 __BeginServerRpc__(nameof(ServerRpc3), rpcParams, a, b);

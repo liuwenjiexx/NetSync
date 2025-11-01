@@ -8,11 +8,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using UnityEngine;
-using Yanmonet.Network.Transport;
-using Yanmonet.Network.Transport.Socket;
-using static Codice.Client.Common.WebApi.WebApiEndpoints;
+using Unity.Network.Transport;
+using Unity.Network.Transport.Socket;
 
-namespace Yanmonet.Network.Sync.Editor.Tests
+namespace Unity.Network.Sync.Editor.Tests
 {
 
     public class TransportTests

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace Yanmonet.Network.Sync.Editor.Tests
+namespace Unity.Network.Sync.Editor.Tests
 {
     public class SyncVariableTests : TestBase
     {

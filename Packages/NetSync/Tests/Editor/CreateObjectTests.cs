@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Yanmonet.Network.Sync.Editor.Tests;
-namespace Yanmonet.Network.Sync.Editor.Tests
+using Unity.Network.Sync.Editor.Tests;
+namespace Unity.Network.Sync.Editor.Tests
 {
     public class CreateObjectTests : TestBase
     {
@@ -28,7 +28,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
             {
                 isOnDespawned = true;
             }
-            internal protected override void OnDestrory()
+            protected internal override void OnDestrory()
             {
                 isOnDestrory = true;
             }
@@ -90,7 +90,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
 
             Assert.AreEqual(0, client.SpawnedObjects.Count());
 
-            serverData.SpawnWithOwnership(serverManager.clientIds.First());
+            serverData.SpawnWithOwnership(serverManager.ConnectedClientIds.First());
             Assert.IsTrue(serverData.IsSpawned);
             Assert.IsFalse(serverData.IsOwnedByServer);
             Assert.AreNotEqual(NetworkManager.ServerClientId, serverData.OwnerClientId);
@@ -138,7 +138,7 @@ namespace Yanmonet.Network.Sync.Editor.Tests
         public void DespawnNotDestrory()
         {
             var serverData = serverManager.CreateObject<TestObject>();
-            serverData.SpawnWithOwnership(serverManager.clientIds.First());
+            serverData.SpawnWithOwnership(serverManager.ConnectedClientIds.First());
             Update(serverManager, clientManager);
             var clientData = client.SpawnedObjects.FirstOrDefault() as TestObject;
 

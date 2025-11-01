@@ -1,4 +1,4 @@
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public enum LogLevel
     { 

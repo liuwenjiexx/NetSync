@@ -6,7 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Yanmonet.Network.Transport.Socket
+namespace Unity.Network.Transport.Socket
 {
     using Socket = System.Net.Sockets.Socket;
 

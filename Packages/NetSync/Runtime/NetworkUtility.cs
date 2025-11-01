@@ -13,7 +13,7 @@ using System.Net.Sockets;
 using UnityEngine;
 #endif
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public static class NetworkUtility
     {

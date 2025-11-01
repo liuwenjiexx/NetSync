@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Yanmonet.Network.Sync.Messages;
-using Yanmonet.Network.Transport;
+using Unity.Network.Sync.Messages;
+using Unity.Network.Transport;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     internal class NetworkClient : IDisposable
     {
-
+        
         public ulong clientId;
         public ulong transportClientId;
         internal bool isRunning;

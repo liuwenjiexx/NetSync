@@ -3,13 +3,13 @@ using UnityEngine;
 #endif
 using System;
 using System.Collections.Generic;
-using Yanmonet.Network.Sync.Messages;
+using Unity.Network.Sync.Messages;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using Yanmonet.Network.Transport;
+using Unity.Network.Transport;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
 
     public class NetworkManager

@@ -2,11 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public static partial class Extensions
     {
 
-      
     }
 }

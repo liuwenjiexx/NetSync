@@ -1,7 +1,7 @@
 using System;
 
 
-namespace Yanmonet.Network.Sync.Messages
+namespace Unity.Network.Sync.Messages
 {
     public class PingMessage : MessageBase
     {

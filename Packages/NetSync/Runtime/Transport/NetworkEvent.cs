@@ -1,6 +1,6 @@
 using System;
 
-namespace Yanmonet.Network.Transport
+namespace Unity.Network.Transport
 {
 
     public struct NetworkEvent

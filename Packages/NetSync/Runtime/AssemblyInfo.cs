@@ -1,4 +1,4 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Yanmonet.Network.Sync.Editor")]
-[assembly: InternalsVisibleTo("Yanmonet.Network.Sync.Editor.Tests")]
+[assembly: InternalsVisibleTo("Network.Sync.Editor")]
+[assembly: InternalsVisibleTo("Network.Sync.Editor.Tests")]

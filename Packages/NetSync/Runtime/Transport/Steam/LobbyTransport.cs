@@ -13,11 +13,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using Yanmonet.Network.Sync;
-using Yanmonet.Network.Transport;
-using Yanmonet.Network.Transport.SteamNetworking;
+using Unity.Network.Sync;
+using Unity.Network.Transport;
+using Unity.Network.Transport.SteamNetworking;
 
-namespace Yanmonet.Network.SteamNetworking
+namespace Unity.Network.SteamNetworking
 {
     public class LobbyTransport : INetworkTransport
     {

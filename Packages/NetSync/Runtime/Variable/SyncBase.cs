@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public abstract class SyncBase : IDisposable
     {

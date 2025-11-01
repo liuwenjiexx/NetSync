@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Yanmonet.Network.Sync.Messages;
+using Unity.Network.Sync.Messages;
 #if UNITY_ENGINE
 #endif
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public abstract class NetworkObject
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Yanmonet.Network.Sync
+namespace Unity.Network.Sync
 {
     public class NotOwnerException : Exception
     {
