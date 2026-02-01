@@ -25,6 +25,23 @@ namespace Unity.Network.Sync
 
         public bool IsWriter => true;
 
+        public int Position
+        {
+            get => (int)BaseStream.Position;
+        }
+
+        public int Length =>(int) BaseStream.Length;
+
+        public void Seek(int position)
+        {
+            BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+        
+        public void Truncate()
+        {
+            BaseStream.SetLength(0);
+        }
+
         public void BeginWritePackage()
         {
             baseStream.Seek(0, SeekOrigin.Begin);
@@ -250,7 +267,10 @@ namespace Unity.Network.Sync
             }
         }
 
-
+        public void SerializeValue(ref INetworkSerializable value)
+        {
+            value.NetworkSerialize(this);
+        }
 
         public void SerializeValue(ref Guid value)
         {

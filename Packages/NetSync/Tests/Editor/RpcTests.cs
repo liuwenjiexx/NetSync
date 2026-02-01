@@ -135,7 +135,7 @@ namespace Unity.Network.Sync.Editor.Tests
             clientData.result = 0;
             serverData.ClientRpc(1, 2);
             Update();
-             
+              
             Assert.AreEqual(0, serverData.result);
             Assert.AreEqual(3, clientData.result);
         }

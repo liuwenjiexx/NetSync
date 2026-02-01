@@ -248,11 +248,11 @@ namespace Unity.Network.Transport.Netcode
         {
             if (netMgr.IsServer)
             {
-                netMgr.CustomMessagingManager.SendNamedMessage(MessageName, clientNetId, writer);
+                netMgr.CustomMessagingManager?.SendNamedMessage(MessageName, clientNetId, writer);
             }
             else
             {
-                netMgr.CustomMessagingManager.SendNamedMessage(MessageName, NetMgr.ServerClientId, writer);
+                netMgr.CustomMessagingManager?.SendNamedMessage(MessageName, NetMgr.ServerClientId, writer);
             }
         }
 
